@@ -1,26 +1,33 @@
 import numpy as np
 from scipy.io.wavfile import write as write_wav
 from flask import Flask, render_template, request, send_file
-import io 
+import io
 import re
 import os
+import ast # For safe parsing of LLM output
+
+# Google Gemini 라이브러리 (AI 모드 사용 시 필수)
+import google.generativeai as genai
+
+# 로컬 개발용 .env 파일 로딩 (배포 시에는 Render 환경 변수 사용)
+from dotenv import load_dotenv
+load_dotenv() 
 
 app = Flask(__name__)
 
-# --- 오디오 생성 관련 상수 및 함수 (이전 코드에서 복사) ---
+# --- 오디오 생성 관련 상수 및 기본 함수 ---
 SAMPLE_RATE = 44100
 MAX_AMPLITUDE = 0.5 * (2**15 - 1)
 
 def get_note_frequency(note_name, octave):
     notes_in_octave = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    
     try:
         note_index = notes_in_octave.index(note_name.upper())
     except ValueError:
-        raise ValueError(f"Invalid note name: {note_name}. Must be one of: {notes_in_octave}")
+        raise ValueError(f"유효하지 않은 음표 이름: {note_name}. 다음 중 하나여야 합니다: {notes_in_octave}")
 
     A4_FREQ = 440.0
-    A4_MIDI_NUM = 69
-    
     midi_note_offset = (octave - 4) * 12 + note_index - notes_in_octave.index('A')
     
     return A4_FREQ * (2 ** (midi_note_offset / 12.0))
@@ -37,140 +44,46 @@ def generate_note_waveform(frequency, duration_seconds, sample_rate, amplitude):
     release_samples = int(num_samples * release_percent)
     
     envelope = np.ones(num_samples)
+
     if attack_samples > 0:
         envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
+    
     if release_samples > 0 and (num_samples - release_samples) >= attack_samples:
         envelope[num_samples - release_samples:] *= np.linspace(1, 0, release_samples)
+    
     waveform *= envelope
+    
     return waveform
 
-# --- 새로운 랜덤 스타일 기반 베이스 루프 생성 함수 ---
-def create_random_bass_loop_by_style(
-    style,        # "rock", "funk", "pop", "random"
-    key_root_note, # 'C', 'G', 'A' 등 (시작음)
-    octave,       # 옥타브
-    length_measures, # 루프 길이 (마디)
-    bpm,
-    num_loops,
-    target_filename="generated_bass_loop.wav"
-):
-    print(f"Generating {style} bass loop (Key: {key_root_note}{octave}, BPM: {bpm}, Measures: {length_measures})")
-    
-    # --- 스타일별 규칙 정의 ---
-    # 각 스타일에 따라 사용될 수 있는 음정 (스케일)과 리듬 패턴의 경향성을 정의
-    styles = {
-        "rock": {
-            "scale": ["C", "D", "E", "F", "G", "A", "B"], # Major scale as base, for simple demonstration
-            "intervals": [0, 7, 5, 3], # Root, 5th, 4th, 3rd (Major scale intervals for power/rock feel)
-            "rhythms": [1.0, 0.5], # 4분음표, 8분음표 위주
-            "complexity": 0.3 # 낮은 복잡도
-        },
-        "funk": {
-            "scale": ["C", "D", "Eb", "F", "G", "A", "Bb"], # Mixolydian/Dorian for funk, or pentatonic
-            "intervals": [0, 7, 10, 5], # Root, 5th, flat 7th, 4th (typical funky)
-            "rhythms": [0.25, 0.5, 1.0], # 16분음표, 8분음표 위주 (syncopation)
-            "complexity": 0.7 # 높은 복잡도
-        },
-        "pop": {
-            "scale": ["C", "D", "E", "F", "G", "A", "B"], # Major scale
-            "intervals": [0, 7, 3, 5], # Root, 5th, 3rd, 4th
-            "rhythms": [0.5, 1.0], # 8분음표, 4분음표 (규칙적)
-            "complexity": 0.4 # 중간 복잡도
-        },
-        "jazz": {
-            "scale": ["C", "D", "Eb", "F", "G", "A", "Bb"], # Dorian or other jazz scales
-            "intervals": [0, 3, 7, 9, 10], # Root, minor 3rd, 5th, 6th, flat 7th
-            "rhythms": [0.25, 0.5, 0.75, 1.0], # 더 다양한 리듬 (스윙 가능성)
-            "complexity": 0.8
-        }
-    }
-    
-    selected_style = styles.get(style, styles["rock"]) # 기본은 rock
-    base_scale_notes = selected_style["scale"] # 선택된 스타일의 기준 스케일 (음표 이름)
-    base_rhythms = selected_style["rhythms"] # 선택된 스타일의 기준 리듬
-    
-    # 현재 시작음을 기준으로 음계 전체 만들기
-    # 예: 'C' Major -> C, D, E, F, G, A, B, C...
-    full_scale = []
-    root_idx = base_scale_notes.index(key_root_note.upper())
-    
-    # 2개 옥타브에 걸친 스케일 생성 (낮은 베이스 기타 음정을 위함)
-    for current_octave_offset in range(2): 
-        current_octave = octave + current_octave_offset
-        for i in range(len(base_scale_notes)):
-            # Rotate scale to start from key_root_note
-            scale_note_name = base_scale_notes[(root_idx + i) % len(base_scale_notes)]
-            full_scale.append((scale_note_name, current_octave if (root_idx + i) < len(base_scale_notes) else current_octave + 1))
-            
-    # 너무 길게 만들지 않기 위해 유효한 범위 설정
-    # 예를 들어 C2 시작이라면, C2-G3 정도까지만 허용. (베이스는 너무 고음은 안 씀)
-    # 단순화하여 2개 옥타브 (e.g. C2-C4)로 설정
-
-    # 베이스라인 음표 시퀀스 생성
+def parse_note_sequence_string(notes_sequence_str):
+    """
+    "C2 1.0, G2 0.5" 형태의 문자열을 파싱하여 [('C', 2, 1.0), ...] 형태로 변환
+    """
     notes_sequence = []
-    total_beats_per_loop = length_measures * 4 # 4/4 박자 기준 한 마디 4박자
-    current_beats = 0
-
-    while current_beats < total_beats_per_loop:
-        # 리듬 선택: 스타일별 경향성 반영하여 랜덤 선택
-        duration_unit = np.random.choice(base_rhythms, p=np.array(base_rhythms)/np.sum(base_rhythms)) 
+    for note_entry in notes_sequence_str.split(','):
+        note_entry = note_entry.strip()
+        if not note_entry:
+            continue
         
-        # 음정 선택: 시작음을 중심으로 스타일별 음정을 고려하여 선택
-        # 여기서는 단순히 풀 스케일에서 랜덤으로 뽑지만, 실제로는 코드 진행을 따르거나, 
-        # 중요한 박자에 루트음을 배치하는 등의 고급 로직이 필요
-        
-        # 더 프로페셔널하게: 주요 박자에 루트/5도를 우선적으로 배치하는 경향 추가
-        selected_note_info = None
-        
-        # 첫 박이나 중요한 박자 (quarter_note에 맞춰 1.0, 2.0 등)에는 키루트나 5도 선택 확률 높이기
-        is_strong_beat = (current_beats % 1.0 == 0) and (duration_unit >= 0.5) # 4분음표 또는 8분음표 시작점
+        # "C#2 1.0" 형태의 문자열 파싱 (음표 이름, 옥타브, 길이)
+        match = re.match(r"([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)", note_entry)
+        if not match:
+            raise ValueError(f"유효하지 않은 음표 형식: '{note_entry}'. 'C2 1.0' 형식이어야 합니다.")
 
-        if is_strong_beat and np.random.rand() < 0.7: # 70% 확률로 루트나 5도 우선
-            chosen_interval = np.random.choice([0, 7]) # Root (0), 5th (7 semitones)
-            
-            # Key_root_note에 따라 midi_note_number로 변환 후 offset
-            midi_note_offset = (octave - 4) * 12 + get_note_frequency(key_root_note, 4) - get_note_frequency('A', 4) # Adjust for correct root midi index
-            # This logic needs a better way to map interval to a specific note based on the scale and root note
-            
-            # For simplicity with notes_in_octave mapping
-            notes_in_octave = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-            
-            root_midi = notes_in_octave.index(key_root_note.upper()) + octave * 12 # Roughly correct base MIDI note
-            
-            if chosen_interval == 0:
-                target_midi_note = root_midi
-            elif chosen_interval == 7: # A 5th up from root
-                target_midi_note = root_midi + 7
-            
-            # Convert midi note back to (name, octave) for consistency
-            target_octave = target_midi_note // 12 - 1 # Roughly. (midi_note 12=C0, so oct=1, then C1.. A0=21)
-            target_note_name = notes_in_octave[target_midi_note % 12]
-            
-            selected_note_info = (target_note_name, target_octave)
+        note_name = match.group(1)
+        octave = int(match.group(2))
+        duration = float(match.group(3))
+        notes_sequence.append((note_name, octave, duration))
+    return notes_sequence
 
-            # Re-adjust selected_note_info to be within a reasonable bass octave range like C2-G3
-            # If target_octave too high, lower it by 12 semitones or use lower octave mapping
-            if target_octave > octave + 1 and target_note_name != key_root_note: # Simple heuristic
-                 selected_note_info = (target_note_name, octave) # Stick to the lower selected octave
 
-        if selected_note_info is None: # 아니면 그냥 랜덤하게 선택
-            selected_note_info = full_scale[np.random.randint(len(full_scale))]
-
-        note_name, final_octave = selected_note_info
-
-        # Optional: ensure final_octave stays in bass range
-        if not (octave <= final_octave <= octave + 1): # Example range C2-C4 (octave 2, 3)
-            final_octave = octave # default to base octave if outside preferred range
-
-        notes_sequence.append((note_name, final_octave, duration_unit))
-        current_beats += duration_unit
-        
-    print(f"Generated Sequence: {notes_sequence}")
-
-    # 실제 오디오 데이터 생성 부분 (기존과 동일)
-    quarter_note_duration = 60 / bpm
+def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
+    """
+    파싱된 음표 시퀀스 ([('C', 2, 1.0), ...])를 기반으로 오디오 버퍼 생성
+    """
+    quarter_note_duration = 60 / bpm 
     full_loop_waveform = np.array([])
-    
+
     for note_info in notes_sequence:
         note_name, octave_val, duration_units = note_info
         freq = get_note_frequency(note_name, octave_val)
@@ -179,59 +92,299 @@ def create_random_bass_loop_by_style(
         full_loop_waveform = np.concatenate((full_loop_waveform, note_waveform))
     
     final_waveform = np.tile(full_loop_waveform, num_loops)
-    final_waveform = final_waveform / np.max(np.abs(final_waveform)) * MAX_AMPLITUDE
+    if len(final_waveform) > 0: # 정규화 전에 비어있지 않은지 확인
+        final_waveform = final_waveform / np.max(np.abs(final_waveform)) * MAX_AMPLITUDE 
     audio_data_int16 = final_waveform.astype(np.int16)
-    
+
     buffer = io.BytesIO()
     write_wav(buffer, SAMPLE_RATE, audio_data_int16)
     buffer.seek(0)
     
     return buffer
 
+
+# --- 스타일 기반 랜덤 생성 함수 (랜덤 모드) ---
+def create_random_bass_loop_by_style(
+    style, key_root_note, octave, length_measures, bpm
+):
+    print(f"Generating {style} bass loop (Key: {key_root_note}{octave}, BPM: {bpm}, Measures: {length_measures})")
+    
+    styles = {
+        "rock": {
+            "scale": ["C", "D", "E", "F", "G", "A", "B"], # Major scale as base, for simple demonstration
+            "intervals": [0, 7, 5, 3], # Root, 5th, 4th, 3rd (Major scale intervals for power/rock feel)
+            "rhythms": [1.0, 0.5], # 4분음표, 8분음표 위주
+        },
+        "funk": {
+            "scale": ["C", "D", "Eb", "F", "G", "A", "Bb"], # Mixolydian/Dorian for funk, or pentatonic
+            "intervals": [0, 7, 10, 5], # Root, 5th, flat 7th, 4th (typical funky)
+            "rhythms": [0.25, 0.5, 1.0], # 16분음표, 8분음표 위주 (syncopation)
+        },
+        "pop": {
+            "scale": ["C", "D", "E", "F", "G", "A", "B"], # Major scale
+            "intervals": [0, 7, 3, 5], # Root, 5th, 3rd, 4th
+            "rhythms": [0.5, 1.0], # 8분음표, 4분음표 (규칙적)
+        },
+        "jazz": {
+            "scale": ["C", "D", "Eb", "F", "G", "A", "Bb"], # Dorian or other jazz scales
+            "intervals": [0, 3, 7, 9, 10], # Root, minor 3rd, 5th, 6th, flat 7th
+            "rhythms": [0.25, 0.5, 0.75, 1.0], # 더 다양한 리듬 (스윙 가능성)
+        },
+        "blues": {
+            "scale": ["C", "Eb", "F", "F#", "G", "Bb"], # Blues scale
+            "intervals": [0, 3, 5, 6, 7, 10], # Root, minor 3rd, 4th, flat 5th, 5th, flat 7th
+            "rhythms": [0.5, 1.0], 
+        },
+        "reggae": {
+            "scale": ["C", "D", "E", "F", "G", "A", "B"], 
+            "intervals": [0, 7, 5, 3], 
+            "rhythms": [0.5, 1.0, 1.5], # 박자 중간에 강조하는 경향 (예: 1.5박자 8분음표)
+        },
+        "hiphop": {
+            "scale": ["C", "D", "Eb", "G", "Ab"], # Minor pentatonic / common hip-hop
+            "intervals": [0, 3, 5, 7, 8, 10], 
+            "rhythms": [0.25, 0.5, 1.0, 2.0], # 16분음표, 8분음표, 4분음표, 2분음표
+        },
+        "random": { # 아무 스타일이 아닐 경우
+            "scale": ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+            "intervals": list(range(12)),
+            "rhythms": [0.25, 0.5, 0.75, 1.0, 1.5, 2.0],
+        }
+    }
+    
+    selected_style = styles.get(style, styles["random"]) 
+    base_scale_notes = selected_style["scale"]
+    base_rhythms = selected_style["rhythms"]
+    
+    full_scale = []
+    
+    # 루트 음을 기준으로 2옥타브 스케일 구성 (낮은 베이스 기타 음역대를 커버)
+    notes_in_chromatic_octave = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    root_idx_chromatic = notes_in_chromatic_octave.index(key_root_note.upper())
+
+    # 시작 옥타브 (octave)부터 다음 옥타브+1까지의 음들을 활용
+    for current_chromatic_octave in range(octave, octave + 2):
+        for note_name_in_chromatic in notes_in_chromatic_octave:
+            # 이 음정이 선택된 스케일(base_scale_notes)에 포함되어 있다면 사용
+            if note_name_in_chromatic in base_scale_notes:
+                full_scale.append((note_name_in_chromatic, current_chromatic_octave))
+
+    # 베이스라인 음표 시퀀스 생성
+    notes_sequence = []
+    total_beats_per_loop = length_measures * 4 
+    current_beats = 0
+
+    while current_beats < total_beats_per_loop:
+        # 리듬 선택: 스타일별 경향성 반영
+        # 리듬 가중치: 짧은 리듬은 확률 낮추고 긴 리듬은 높이는 단순한 전략
+        rhythm_weights = [1.0/r for r in base_rhythms] # 역수 (긴 리듬이 더 무거움)
+        rhythm_weights = [w / sum(rhythm_weights) for w in rhythm_weights]
+        
+        duration_unit = np.random.choice(base_rhythms, p=rhythm_weights) 
+        
+        # 음정 선택: 시작음을 중심으로 스타일별 음정을 고려하여 선택
+        # 강력한 박자 (강세)에 루트/5도/3도를 우선적으로 배치하는 경향 추가
+        selected_note_info = None
+        
+        is_strong_beat = (current_beats % 1.0 == 0) and (duration_unit >= 0.5) 
+
+        if is_strong_beat and np.random.rand() < 0.6: # 60% 확률로 루트, 3rd, 5th 우선
+            # 각 스타일의 intervals를 미디 반음 단위로 활용하여 실제 음정 생성
+            chosen_interval_semitones = np.random.choice(selected_style["intervals"]) # e.g. 0, 7, 10
+            
+            # 기준 옥타브의 루트음 미디 넘버를 계산
+            # C4 = MIDI 60 (standard)
+            # C0 = MIDI 12
+            # get_note_frequency를 통해 반음 갯수를 정확히 계산하는 것이 좋습니다.
+            
+            # 대략적인 MIDI 노트 번호
+            root_note_midi_number = 12 * (octave + 1) + notes_in_chromatic_octave.index(key_root_note.upper())
+            target_midi_number = root_note_midi_number + chosen_interval_semitones
+            
+            # 생성된 미디 번호를 다시 음표 이름과 옥타브로 변환
+            target_octave = target_midi_number // 12 - 1 
+            target_note_name = notes_in_chromatic_octave[target_midi_number % 12]
+
+            # 최종 옥타브 보정 (베이스 기타의 일반적인 범위)
+            # 예를 들어, target_octave가 옥타브 3 이상으로 높게 나오면 옥타브 2로 내리기 등
+            if target_octave > octave + 1 and target_note_name != key_root_note:
+                target_octave = octave + (target_octave - (octave + 1)) # Try to stay within 2 octaves range
+                
+            selected_note_info = (target_note_name, target_octave)
+        
+        if selected_note_info is None or selected_note_info[1] < octave: # 우선적인 선택이 없거나 너무 낮다면, 전체 스케일에서 랜덤 선택
+            # 랜덤 모드가 아니면 가능한 한 선택된 스케일 안에서 고름
+            if style != "random" and len(full_scale) > 0:
+                selected_note_info = full_scale[np.random.randint(len(full_scale))]
+            elif len(notes_in_chromatic_octave) > 0: # 랜덤 모드이거나 스케일이 비어있다면, 전체 옥타브의 크로매틱 노트에서
+                rand_note_idx = np.random.randint(len(notes_in_chromatic_octave))
+                rand_octave_offset = np.random.randint(2) # 0, 1 (2옥타브 범위)
+                selected_note_info = (notes_in_chromatic_octave[rand_note_idx], octave + rand_octave_offset)
+            else: # Fallback if everything fails
+                selected_note_info = ('C', octave)
+
+        note_name, final_octave = selected_note_info
+        
+        notes_sequence.append((note_name, final_octave, duration_unit))
+        current_beats += duration_unit
+        
+    # 결과 시퀀스를 "C2 1.0, G2 0.5" 형태의 문자열로 변환하여 반환
+    formatted_sequence = ", ".join([f"{n[0]}{n[1]} {float(n[2])}" for n in notes_sequence])
+    return formatted_sequence
+
+
+# --- Gemini LLM 설정 및 호출 함수 (AI 모드) ---
+def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
+    # API 키를 프런트엔드에서 받음 (보안 경고)
+    if not api_key:
+        raise ValueError("Gemini API 키가 필요합니다. 입력해주세요.")
+
+    genai.configure(api_key=api_key) 
+    gemini_model = genai.GenerativeModel('gemini-pro') 
+    
+    prompt = f"""Generate a bassline sequence in Python tuple list format: [('NoteName', Octave, DurationUnit), ...].
+    Example: `[('C', 2, 1.0), ('G', 2, 0.5), ('A', 2, 0.5), ('F', 2, 1.0)]`
+    The genre is {genre}. BPM is {bpm}. The bassline should start around {key_note}{octave} and be approximately {measures * 4} beats long (each measure has 4 beats).
+    Focus on common bass notes in lower octaves (mostly octave {octave} to {octave + 1}) and rhythms appropriate for {genre}.
+    Ensure the sequence can be parsed as a Python list of tuples. Do not include any explanation or extra text, just the Python list.
+    Provide about {measures * 4} beats of notes in the sequence (e.g. four 1.0 duration notes for a 1-measure loop).
+    """
+    
+    try:
+        response = gemini_model.generate_content(prompt)
+        text_response = response.text.strip()
+        
+        # LLM 응답이 예상치 못한 형식일 경우를 대비한 파싱 개선
+        # JSON, 코드 블록, 마크다운 등 다양한 응답 형식에 유연하게 대응
+        # ```python\n...\n``` 형태의 코드 블록 제거
+        if text_response.startswith('```python') and text_response.endswith('```'):
+            text_response = text_response[len('```python'):-len('```')].strip()
+        # 단순히 텍스트만 주더라도 list() 함수가 붙는 경우 제거 (예: `list([('C', 2, 1.0)])`)
+        if text_response.startswith('list(') and text_response.endswith(')'):
+             text_response = text_response[len('list('):-len(')')].strip()
+        
+        # eval보다 안전한 ast.literal_eval 사용
+        parsed_sequence = ast.literal_eval(text_response)
+        
+        # 파싱된 결과의 유효성 검사 (list of tuples, each tuple with 3 elements, types match)
+        if not isinstance(parsed_sequence, list):
+            raise ValueError("AI did not return a Python list.")
+        for item in parsed_sequence:
+            if not (isinstance(item, tuple) and len(item) == 3 and
+                    isinstance(item[0], str) and isinstance(item[1], int) and isinstance(item[2], (float, int))):
+                raise ValueError(f"AI returned invalid item format: {item}. Expected ('NoteName', Octave, DurationUnit)")
+                
+        # 최종적으로 "C2 1.0, G2 0.5" 형태의 문자열로 변환하여 반환
+        return ", ".join([f"{n[0]}{n[1]} {float(n[2])}" for n in parsed_sequence])
+        
+    except ValueError as ve:
+        # ast.literal_eval 이나 유효성 검사에서 발생하는 오류는 즉시 전달
+        raise ValueError(f"AI 응답 파싱 또는 유효성 검사 오류: {str(ve)}. API 키가 유효하거나 AI 응답 형식을 확인하세요.")
+    except Exception as e:
+        # Gemini API 호출 자체에서 발생한 기타 오류
+        raise ValueError(f"Gemini API 호출 중 오류: {str(e)}. API 키가 유효하거나 요청 할당량을 확인하세요.")
+
+
 # --- Flask 웹 라우트 ---
 
 @app.route('/')
-def index_style_generator():
-    """메인 페이지 렌더링 (스타일 기반 생성)"""
-    default_bpm = 100
+def index_combined_generator():
+    """메인 페이지 렌더링"""
+    default_bpm = 120
     default_loops = 2
     default_length = 4 # 마디 단위
     default_genre = "rock" 
     default_key_note = "C"
-    default_octave = 2 # 베이스 기타 기본 옥타브
-    return render_template('index_style_generator.html', 
+    default_octave = 2 
+    # AI 모드 또는 랜덤 모드 중 무엇이 먼저 보일지 결정하는 초기값
+    default_generation_mode = "random" # "ai" 또는 "random"
+    
+    return render_template('index.html', # 템플릿 파일명 확인
                            default_bpm=default_bpm, 
                            default_loops=default_loops,
                            default_length=default_length,
                            default_genre=default_genre,
                            default_key_note=default_key_note,
-                           default_octave=default_octave)
+                           default_octave=default_octave,
+                           default_generation_mode=default_generation_mode,
+                           # 처음 로드 시에는 추천된 악보가 없거나 기본값으로 시작
+                           recommended_notes_str="C2 1.0, G2 1.0, A2 1.0, F2 1.0" # 기본 베이스라인 예시
+                          )
 
-@app.route('/generate_styled_bass', methods=['POST'])
-def generate_styled_bass():
-    """스타일 기반 랜덤 베이스 루프를 생성하고 WAV 파일로 반환"""
+
+@app.route('/generate_notes', methods=['POST'])
+def generate_notes():
+    """사용자 요청에 따라 랜덤 또는 AI 방식으로 악보 시퀀스를 생성하여 반환"""
     try:
+        generation_mode = request.form.get('generation_mode', 'random') # 선택된 모드
+        
+        bpm = int(request.form.get('bpm_input', 120))
+        length_measures = int(request.form.get('length_input', 4))
+        genre = request.form.get('genre_input', 'rock')
+        key_note = request.form.get('key_note_input', 'C')
+        octave = int(request.form.get('octave_input', 2))
+
+        generated_notes_str = ""
+
+        if generation_mode == "random":
+            generated_notes_str = create_random_bass_loop_by_style(
+                genre, key_note, octave, length_measures, bpm
+            )
+        elif generation_mode == "ai":
+            api_key_from_ui = request.form.get('gemini_api_key_input', '').strip()
+            generated_notes_str = generate_notes_with_gemini(
+                api_key_from_ui, genre, bpm, length_measures, key_note, octave
+            )
+        else:
+            return {'status': 'error', 'message': '알 수 없는 생성 모드입니다.'}, 400
+
+        if generated_notes_str:
+            return {'status': 'success', 'notes': generated_notes_str}
+        else:
+            return {'status': 'error', 'message': '악보 생성에 실패했습니다.'}, 500
+
+    except ValueError as ve:
+        print(f"Error during note generation: {ve}")
+        return {'status': 'error', 'message': str(ve)}, 400
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc()) 
+        return {'status': 'error', 'message': f"서버 오류 발생: {str(e)}"}, 500
+
+
+@app.route('/generate_audio', methods=['POST'])
+def generate_audio():
+    """사용자 입력 악보 시퀀스를 기반으로 베이스 루프 오디오 생성"""
+    try:
+        notes_sequence_str = request.form['notes_sequence_input']
         bpm = int(request.form['bpm_input'])
         num_loops = int(request.form['num_loops_input'])
-        length_measures = int(request.form['length_input'])
-        genre = request.form['genre_input']
-        key_note = request.form['key_note_input']
-        octave = int(request.form['octave_input'])
 
-        audio_buffer = create_random_bass_loop_by_style(
-            genre, key_note, octave, length_measures, bpm, num_loops
-        )
+        # 파싱 함수를 재활용
+        notes_sequence = parse_note_sequence_string(notes_sequence_str)
+
+        if not notes_sequence:
+            return "악보 시퀀스가 비어 있습니다. 음표를 생성하거나 입력해주세요.", 400
+
+        audio_buffer = create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops)
 
         return send_file(audio_buffer, 
                          mimetype='audio/wav', 
                          as_attachment=True, 
-                         download_name=f"{genre}_bass_loop.wav")
+                         download_name='bass_loop.wav')
 
+    except ValueError as ve:
+        return f"악보 파싱 오류: {str(ve)}", 400
     except Exception as e:
         import traceback
-        print(traceback.format_exc())
-        return f"Error: {str(e)}", 500
+        print(traceback.format_exc()) 
+        return f"오류 발생: {str(e)}. 서버 로그를 확인하세요.", 500
 
 if __name__ == '__main__':
+    # .env 파일에서 환경 변수를 로드 (로컬 개발용)
+    # Render에서는 환경 변수 설정 대시보드를 사용하세요.
+    load_dotenv() 
+
     port = int(os.environ.get('PORT', 5000))
+    # debug=True는 개발용, 배포 시에는 반드시 False로 바꾸세요.
     app.run(host='0.0.0.0', port=port, debug=True)
