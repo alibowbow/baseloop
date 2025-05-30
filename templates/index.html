@@ -3,32 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>스타일 기반 베이스 루프 생성기</title>
+    <title>AI/랜덤 베이스 루프 생성기</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
             color: #333;
             line-height: 1.6;
             margin: 0;
             padding: 20px;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             min-height: 100vh;
+            box-sizing: border-box;
         }
         .container {
-            background-color: #fff;
+            background-color: #ffffff;
             padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             max-width: 600px;
             width: 100%;
+            margin-top: 20px;
         }
         h1 {
             color: #2c3e50;
             text-align: center;
             margin-bottom: 30px;
+            font-size: 1.8em;
         }
         form {
             display: flex;
@@ -37,65 +40,251 @@
         label {
             margin-bottom: 8px;
             font-weight: bold;
+            color: #555;
         }
         input[type="number"],
-        select {
+        input[type="text"],
+        input[type="password"],
+        select,
+        textarea {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             margin-bottom: 20px;
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 6px;
             box-sizing: border-box;
+            font-size: 1em;
+            background-color: #f9f9f9;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: 'Fira Code', 'Roboto Mono', monospace;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
         }
         button {
+            flex-grow: 1;
             background-color: #3498db;
             color: white;
-            padding: 12px 20px;
+            padding: 12px 25px;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s ease;
+            font-size: 1.05em;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.2s ease;
         }
         button:hover {
             background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .info-text {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: -15px;
+            margin-bottom: 20px;
+        }
+        #loadingSpinner {
+            display: none;
+            text-align: center;
+            font-size: 1.2em;
+            color: #607d8b;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        #loadingSpinner::after {
+            content: '';
+            display: inline-block;
+            width: 1.2em;
+            height: 1.2em;
+            margin-left: 0.5em;
+            border: 0.15em solid #f3f3f3;
+            border-top: 0.15em solid #607d8b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+                margin-top: 10px;
+            }
+            h1 {
+                font-size: 1.5em;
+                margin-bottom: 20px;
+            }
+            .button-group {
+                flex-direction: column;
+                gap: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎵 스타일 기반 베이스 루프 생성기 🎸</h1>
-        <form action="/generate_styled_bass" method="post">
+        <h1>🎵 베이스 루프 자동 생성기 🎸</h1>
+        <form id="bassGeneratorForm" action="/generate_audio" method="post">
+            
+            <label for="generation_mode">생성 모드 선택</label>
+            <select id="generation_mode" name="generation_mode" onchange="toggleModeOptions()">
+                <option value="random" {% if default_generation_mode == 'random' %}selected{% endif %}>스타일 기반 랜덤 생성</option>
+                <option value="ai" {% if default_generation_mode == 'ai' %}selected{% endif %}>AI (Gemini) 추천 악보</option>
+            </select>
+
+            <!-- AI 모드 관련 필드 (기본은 숨김) -->
+            <div id="ai_mode_options" style="display:none;">
+                <label for="gemini_api_key_input">Gemini API 키</label>
+                <input type="password" id="gemini_api_key_input" name="gemini_api_key_input" placeholder="Google AI Studio에서 발급받은 키 입력">
+                <p class="info-text" style="color: #d32f2f; margin-top: -15px;">
+                    ⚠️ 경고: 이 키는 웹 서버로 전송됩니다. 학습/테스트용으로만 사용하며 보안에 주의하세요.
+                </p>
+            </div>
+
+            <!-- 공통 파라미터 (모든 모드에서 사용) -->
             <label for="bpm_input">BPM (분당 박자)</label>
-            <input type="number" id="bpm_input" name="bpm_input" value="{{ default_bpm }}" min="30" max="240">
+            <input type="number" id="bpm_input" name="bpm_input" value="{{ default_bpm }}" min="30" max="240" required>
 
             <label for="length_input">루프 길이 (마디)</label>
-            <input type="number" id="length_input" name="length_input" value="{{ default_length }}" min="1" max="16">
-
-            <label for="key_note_input">시작음 (근음)</label>
+            <input type="number" id="length_input" name="length_input" value="{{ default_length }}" min="1" max="16" required>
+            
+            <label for="key_note_input">루트 음 (근음)</label>
             <select id="key_note_input" name="key_note_input">
                 {% for note in ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] %}
                     <option value="{{ note }}" {% if default_key_note == note %}selected{% endif %}>{{ note }}</option>
                 {% endfor %}
             </select>
-
-            <label for="octave_input">옥타브 (C1 = 1, C2 = 2 등)</label>
-            <input type="number" id="octave_input" name="octave_input" value="{{ default_octave }}" min="0" max="4">
             
+            <label for="octave_input">기본 옥타브 (C1=1, C2=2 등)</label>
+            <input type="number" id="octave_input" name="octave_input" value="{{ default_octave }}" min="0" max="4" required>
+
             <label for="genre_input">장르 스타일</label>
             <select id="genre_input" name="genre_input">
                 <option value="rock" {% if default_genre == 'rock' %}selected{% endif %}>락</option>
                 <option value="funk" {% if default_genre == 'funk' %}selected{% endif %}>펑크</option>
                 <option value="pop" {% if default_genre == 'pop' %}selected{% endif %}>팝</option>
                 <option value="jazz" {% if default_genre == 'jazz' %}selected{% endif %}>재즈</option>
-                <option value="random" {% if default_genre == 'random' %}selected{% endif %}>완전 랜덤</option>
+                <option value="blues" {% if default_genre == 'blues' %}selected{% endif %}>블루스</option>
+                <option value="reggae" {% if default_genre == 'reggae' %}selected{% endif %}>레게</option>
+                <option value="hiphop" {% if default_genre == 'hiphop' %}selected{% endif %}>힙합</option>
+                <option value="random" {% if default_genre == 'random' %}selected{% endif %}>완전 랜덤 (정확도 낮음)</option>
             </select>
 
-            <label for="num_loops_input">생성된 루프 반복 횟수</label>
-            <input type="number" id="num_loops_input" name="num_loops_input" value="{{ default_loops }}" min="1" max="100">
+            <!-- 악보 생성 버튼 (모드에 따라 동작 다름) -->
+            <button type="button" onclick="generateNotes()">악보 자동 생성</button>
+            <div id="loadingSpinner">악보 생성 중... (잠시만 기다려주세요)</div>
+            
+            <label for="notes_sequence_input" style="margin-top: 25px;">생성/입력된 악보 시퀀스</label>
+            <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">{{ recommended_notes_str }}</textarea>
+            <p class="info-text">
+                형식: `음표이름+옥타브 박자단위`를 쉼표로 구분. 예: `C2 1.0, G2 0.5, A2 0.5, F2 1.0`
+            </p>
 
-            <button type="submit">스타일 기반 루프 생성</button>
+            <label for="num_loops_input">오디오 루프 반복 횟수</label>
+            <input type="number" id="num_loops_input" name="num_loops_input" value="{{ default_loops }}" min="1" max="100" required>
+
+            <!-- 오디오 생성 버튼 (공통) -->
+            <button type="submit">베이스 루프 오디오 생성 (WAV 다운로드)</button>
         </form>
     </div>
+
+    <!-- JavaScript 로직 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // 페이지 로드 시 선택된 기본 모드에 따라 UI 조정
+            toggleModeOptions();
+        });
+
+        function toggleModeOptions() {
+            const modeSelect = document.getElementById('generation_mode');
+            const aiOptionsDiv = document.getElementById('ai_mode_options');
+            
+            if (modeSelect.value === 'ai') {
+                aiOptionsDiv.style.display = 'block';
+                // AI 모드에서는 API 키 필드를 필수 (required)로 만듬
+                document.getElementById('gemini_api_key_input').setAttribute('required', 'true');
+            } else {
+                aiOptionsDiv.style.display = 'none';
+                // 랜덤 모드에서는 API 키 필드 필수 해제 및 비움
+                document.getElementById('gemini_api_key_input').removeAttribute('required');
+                document.getElementById('gemini_api_key_input').value = ''; // 키 필드 초기화
+            }
+        }
+
+        async function generateNotes() {
+            const modeSelect = document.getElementById('generation_mode');
+            const currentMode = modeSelect.value;
+
+            const bpm = document.getElementById('bpm_input').value;
+            const length = document.getElementById('length_input').value;
+            const genre = document.getElementById('genre_input').value;
+            const keyNote = document.getElementById('key_note_input').value;
+            const octave = document.getElementById('octave_input').value;
+            const apiKey = document.getElementById('gemini_api_key_input').value;
+
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const notesSequenceInput = document.getElementById('notes_sequence_input');
+            
+            // 로딩 상태 시작
+            loadingSpinner.style.display = 'block';
+            notesSequenceInput.value = `(${currentMode === 'ai' ? 'AI가' : '랜덤 생성기로부터'}) 악보를 생성하고 있습니다. 잠시만 기다려주세요...`;
+
+            try {
+                const formData = new FormData();
+                formData.append('generation_mode', currentMode);
+                formData.append('bpm_input', bpm);
+                formData.append('length_input', length);
+                formData.append('genre_input', genre);
+                formData.append('key_note_input', keyNote);
+                formData.append('octave_input', octave);
+
+                if (currentMode === 'ai') {
+                    // AI 모드일 때만 API 키 추가 및 유효성 검사
+                    if (!apiKey.trim()) {
+                        alert("Gemini API 키를 입력해주세요!");
+                        loadingSpinner.style.display = 'none';
+                        notesSequenceInput.value = 'AI 추천을 위해서는 API 키가 필요합니다.';
+                        return;
+                    }
+                    formData.append('gemini_api_key_input', apiKey);
+                }
+
+                const response = await fetch('/generate_notes', {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    notesSequenceInput.value = data.notes;
+                } else {
+                    const errorMessage = data.message || '알 수 없는 오류가 발생했습니다.';
+                    alert('악보 생성에 실패했습니다: ' + errorMessage);
+                    notesSequenceInput.value = '악보 생성에 실패했습니다. 다시 시도하거나 서버 로그를 확인하세요.'; 
+                    console.error('Server response error:', data);
+                }
+            } catch (error) {
+                console.error('Error fetching notes:', error);
+                alert('네트워크 오류 또는 서버 문제가 발생했습니다.');
+                notesSequenceInput.value = '악보 생성 중 네트워크 또는 서버 오류가 발생했습니다.';
+            } finally {
+                loadingSpinner.style.display = 'none'; // 로딩 상태 종료
+            }
+        }
+    </script>
 </body>
 </html>
