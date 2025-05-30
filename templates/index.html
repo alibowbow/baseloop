@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>간단 베이스 루프 생성기</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="number"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box; /* 패딩이 width에 포함되도록 */
+        }
+        textarea {
+            resize: vertical; /* 수직으로만 크기 조절 허용 */
+            min-height: 80px;
+            font-family: monospace; /* 고정폭 글꼴로 입력 용이 */
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .note-format-info {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: -15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎸 간단 베이스 루프 생성기 🎵</h1>
+        <form action="/generate_bass" method="post">
+            <label for="notes_sequence_input">음표 시퀀스 (예: C2 1.0, G2 0.5, D2 1.0)</label>
+            <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">{{ default_notes }}</textarea>
+            <p class="note-format-info">
+                음표 이름(C, C#, D...), 옥타브(0-4), 박자 단위(4분음표=1.0, 8분음표=0.5 등)를 쉼표로 구분하여 입력하세요.<br>
+                예시: `C2 1.0, G2 0.5, A2 0.5, F2 1.0`
+            </p>
+
+            <label for="bpm_input">BPM (분당 박자)</label>
+            <input type="number" id="bpm_input" name="bpm_input" value="{{ default_bpm }}" min="30" max="240">
+
+            <label for="num_loops_input">루프 횟수</label>
+            <input type="number" id="num_loops_input" name="num_loops_input" value="{{ default_loops }}" min="1" max="100">
+
+            <button type="submit">베이스 루프 생성 (WAV 다운로드)</button>
+        </form>
+    </div>
+</body>
+</html>
