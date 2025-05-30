@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>간단 베이스 루프 생성기</title>
+    <title>스타일 기반 베이스 루프 생성기</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -39,18 +39,13 @@
             font-weight: bold;
         }
         input[type="number"],
-        textarea {
+        select {
             width: 100%;
             padding: 10px;
             margin-bottom: 20px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            box-sizing: border-box; /* 패딩이 width에 포함되도록 */
-        }
-        textarea {
-            resize: vertical; /* 수직으로만 크기 조절 허용 */
-            min-height: 80px;
-            font-family: monospace; /* 고정폭 글꼴로 입력 용이 */
+            box-sizing: border-box;
         }
         button {
             background-color: #3498db;
@@ -65,32 +60,41 @@
         button:hover {
             background-color: #2980b9;
         }
-        .note-format-info {
-            font-size: 0.9em;
-            color: #666;
-            margin-top: -15px;
-            margin-bottom: 20px;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎸 간단 베이스 루프 생성기 🎵</h1>
-        <form action="/generate_bass" method="post">
-            <label for="notes_sequence_input">음표 시퀀스 (예: C2 1.0, G2 0.5, D2 1.0)</label>
-            <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">{{ default_notes }}</textarea>
-            <p class="note-format-info">
-                음표 이름(C, C#, D...), 옥타브(0-4), 박자 단위(4분음표=1.0, 8분음표=0.5 등)를 쉼표로 구분하여 입력하세요.<br>
-                예시: `C2 1.0, G2 0.5, A2 0.5, F2 1.0`
-            </p>
-
+        <h1>🎵 스타일 기반 베이스 루프 생성기 🎸</h1>
+        <form action="/generate_styled_bass" method="post">
             <label for="bpm_input">BPM (분당 박자)</label>
             <input type="number" id="bpm_input" name="bpm_input" value="{{ default_bpm }}" min="30" max="240">
 
-            <label for="num_loops_input">루프 횟수</label>
+            <label for="length_input">루프 길이 (마디)</label>
+            <input type="number" id="length_input" name="length_input" value="{{ default_length }}" min="1" max="16">
+
+            <label for="key_note_input">시작음 (근음)</label>
+            <select id="key_note_input" name="key_note_input">
+                {% for note in ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] %}
+                    <option value="{{ note }}" {% if default_key_note == note %}selected{% endif %}>{{ note }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="octave_input">옥타브 (C1 = 1, C2 = 2 등)</label>
+            <input type="number" id="octave_input" name="octave_input" value="{{ default_octave }}" min="0" max="4">
+            
+            <label for="genre_input">장르 스타일</label>
+            <select id="genre_input" name="genre_input">
+                <option value="rock" {% if default_genre == 'rock' %}selected{% endif %}>락</option>
+                <option value="funk" {% if default_genre == 'funk' %}selected{% endif %}>펑크</option>
+                <option value="pop" {% if default_genre == 'pop' %}selected{% endif %}>팝</option>
+                <option value="jazz" {% if default_genre == 'jazz' %}selected{% endif %}>재즈</option>
+                <option value="random" {% if default_genre == 'random' %}selected{% endif %}>완전 랜덤</option>
+            </select>
+
+            <label for="num_loops_input">생성된 루프 반복 횟수</label>
             <input type="number" id="num_loops_input" name="num_loops_input" value="{{ default_loops }}" min="1" max="100">
 
-            <button type="submit">베이스 루프 생성 (WAV 다운로드)</button>
+            <button type="submit">스타일 기반 루프 생성</button>
         </form>
     </div>
 </body>
