@@ -9,6 +9,7 @@ import traceback
 import logging
 import tempfile
 import base64
+import shutil
 
 # Music21 라이브러리 (악보 생성)
 try:
@@ -213,7 +214,7 @@ def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
     return buffer
 
 # --- Music21 기반 전문 악보 생성 함수 ---
-def from music21 import stream, note, meter, tempo, clef, bar, duration, pitch, key as music21_key, layout(
+def generate_music21_score_with_fallback(
     notes_sequence,
     bpm,
     key_signature="C",
@@ -233,13 +234,13 @@ def from music21 import stream, note, meter, tempo, clef, bar, duration, pitch, 
         score = stream.Score()
         score.append(tempo.MetronomeMark(number=bpm))
         score.append(meter.TimeSignature("4/4"))
-        score.append(music21_key.Key(key_signature))  # ✅ KeySignature→Key
+        score.append(key.Key(key_signature))  # ✅ KeySignature→Key
 
         part = stream.Part()
         part.append(clef.BassClef())
         part.append(tempo.MetronomeMark(number=bpm))
         part.append(meter.TimeSignature("4/4"))
-        part.append(music21_key.Key(key_signature))
+        part.append(key.Key(key_signature))
 
         for n_name, octv, dur in notes_sequence:
             if n_name.upper() == "R":
@@ -266,7 +267,6 @@ def from music21 import stream, note, meter, tempo, clef, bar, duration, pitch, 
         except Exception as e:
             logger.warning(f"MuseScore PNG 실패: {e}")
             text_score = generate_text_score(notes_sequence, bpm)
-            shutil.rmtree(tmp_dir, ignore_errors=True)
             return None, text_score
     except Exception as e:
         logger.error(f"악보 생성 실패: {e}")
