@@ -37,22 +37,58 @@ def setup_music21_environment() -> bool:
 
         musescore_path = os.getenv("MUSESCORE_PATH")
         if not musescore_path:
-            musescore_path = "/usr/bin/musescore3" 
-            logger.warning(f"MUSESCORE_PATH 환경 변수가 설정되지 않았습니다. 기본 경로 '{musescore_path}'를 사용합니다. MuseScore가 설치된 실제 경로로 설정해주세요.")
+            # 여러 가능한 경로 시도
+            possible_paths = [
+                "/usr/bin/musescore3",
+                "/usr/bin/musescore",
+                "/usr/local/bin/musescore3",
+                "/usr/local/bin/musescore",
+                "/snap/bin/musescore"
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path) and os.access(path, os.X_OK):
+                    musescore_path = path
+                    logger.info(f"MuseScore 발견: {path}")
+                    break
+            
+            if not musescore_path:
+                musescore_path = "/usr/bin/musescore3"  # 기본값
+                logger.warning(f"MuseScore를 찾을 수 없습니다. 기본 경로 사용: {musescore_path}")
 
+        # Music21에 MuseScore 경로 설정
         us["musescoreDirectPNGPath"] = musescore_path
         us["musicxmlPath"] = musescore_path
+        us["graphicsPath"] = musescore_path
+        us["pdfPath"] = musescore_path
 
+        # Qt/X11 환경 변수 설정
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         os.environ.setdefault("DISPLAY", ":99")
+        os.environ.setdefault("QT_XCB_GL_INTEGRATION", "none")  # OpenGL 통합 비활성화
+        os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.xcb.xcberror=false")  # XCB 에러 로깅 비활성화
 
-        # Music21 디버그 로깅 활성화 (MuseScore 오류 상세 정보 확인용)
-        us['debug'] = True 
-        # --- 이 줄을 삭제합니다 ---
-        # us['graphicsBackend'] = 'None' 
-        # -----------------------------
+        # Music21 디버그 로깅 활성화
+        us['debug'] = True
+        us['warnings'] = True  # 경고 메시지 활성화
 
-        logger.info(f"[Music21 설정] MuseScore 경로 등록 완료: {musescore_path}")
+        logger.info(f"[Music21 설정 완료]")
+        logger.info(f"  - MuseScore 경로: {musescore_path}")
+        logger.info(f"  - DISPLAY: {os.environ.get('DISPLAY')}")
+        logger.info(f"  - QT_QPA_PLATFORM: {os.environ.get('QT_QPA_PLATFORM')}")
+        
+        # MuseScore 실행 가능 여부 테스트
+        try:
+            import subprocess
+            result = subprocess.run([musescore_path, "--version"], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                logger.info(f"MuseScore 버전: {result.stdout.strip()}")
+            else:
+                logger.warning(f"MuseScore 버전 확인 실패: {result.stderr}")
+        except Exception as e:
+            logger.warning(f"MuseScore 테스트 실행 실패: {e}")
+        
         _M21_CONFIGURED = True
         return True
     except Exception as e:
@@ -301,10 +337,48 @@ def generate_music21_score_with_fallback(
         temp_dir = tempfile.mkdtemp()
         png_path = os.path.join(temp_dir, "score.png")
 
-        try:
+try:
             # Music21이 MuseScore를 호출하여 PNG를 생성합니다.
-            score.write("musicxml.png", fp=png_path) 
+            # 먼저 MusicXML로 변환 후 PNG로 변환하는 2단계 접근법 시도
+            logger.info("PNG 생성 시도 중...")
             
+            # 방법 1: 직접 PNG 생성
+            try:
+                score.write("musicxml.png", fp=png_path)
+                logger.info(f"직접 PNG 생성 시도 완료: {png_path}")
+            except Exception as e:
+                logger.warning(f"직접 PNG 생성 실패: {e}")
+                
+                # 방법 2: lily.png 시도 (LilyPond 경유)
+                try:
+                    score.write("lily.png", fp=png_path)
+                    logger.info("LilyPond 경유 PNG 생성 시도")
+                except Exception as e2:
+                    logger.warning(f"LilyPond PNG 생성도 실패: {e2}")
+                    
+                    # 방법 3: 명시적으로 MuseScore 호출
+                    try:
+                        from music21 import converter
+                        # 먼저 MusicXML로 저장
+                        xml_path = os.path.join(temp_dir, "score.xml")
+                        score.write("musicxml", fp=xml_path)
+                        
+                        # MuseScore 명령어로 직접 변환
+                        musescore_path = os.environ.get("MUSESCORE_PATH", "/usr/bin/musescore3")
+                        import subprocess
+                        cmd = [musescore_path, "-o", png_path, xml_path]
+                        logger.info(f"MuseScore 직접 실행: {' '.join(cmd)}")
+                        
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                        if result.returncode != 0:
+                            logger.error(f"MuseScore 실행 실패: {result.stderr}")
+                            raise RuntimeError(f"MuseScore 실행 실패: {result.stderr}")
+                            
+                    except Exception as e3:
+                        logger.error(f"MuseScore 직접 호출 실패: {e3}")
+                        raise
+            
+            # PNG 파일 확인
             if os.path.exists(png_path) and os.path.getsize(png_path) > 0:
                 logger.info(f"MuseScore PNG 파일 생성 성공: {png_path}, 크기: {os.path.getsize(png_path)} 바이트")
                 with open(png_path, "rb") as f:
@@ -938,6 +1012,71 @@ def get_features_status():
         'midi_available': MIDI_AVAILABLE, 
         'gemini_available': GEMINI_AVAILABLE
     })
+
+@app.route('/debug_musescore')
+def debug_musescore():
+    """MuseScore 및 Music21 설정 디버깅"""
+    import subprocess
+    debug_info = {
+        "music21_available": MUSIC21_AVAILABLE,
+        "musescore_tests": {},
+        "environment": {},
+        "music21_settings": {}
+    }
+    
+    # 환경 변수 확인
+    debug_info["environment"] = {
+        "DISPLAY": os.environ.get("DISPLAY"),
+        "QT_QPA_PLATFORM": os.environ.get("QT_QPA_PLATFORM"),
+        "MUSESCORE_PATH": os.environ.get("MUSESCORE_PATH"),
+        "PATH": os.environ.get("PATH")
+    }
+    
+    # MuseScore 찾기
+    musescore_paths = [
+        "/usr/bin/musescore3",
+        "/usr/bin/musescore",
+        "/usr/local/bin/musescore3",
+        "/usr/local/bin/musescore",
+        "/snap/bin/musescore"
+    ]
+    
+    for path in musescore_paths:
+        debug_info["musescore_tests"][path] = {
+            "exists": os.path.exists(path),
+            "executable": os.access(path, os.X_OK) if os.path.exists(path) else False
+        }
+    
+    # MuseScore 실행 테스트
+    try:
+        result = subprocess.run(["which", "musescore3"], capture_output=True, text=True)
+        debug_info["which_musescore3"] = result.stdout.strip()
+    except:
+        debug_info["which_musescore3"] = "Failed"
+    
+    # Music21 설정 확인
+    if MUSIC21_AVAILABLE:
+        try:
+            from music21 import environment
+            us = environment.UserSettings()
+            debug_info["music21_settings"] = {
+                "musescoreDirectPNGPath": us.get("musescoreDirectPNGPath", "Not set"),
+                "musicxmlPath": us.get("musicxmlPath", "Not set"),
+                "graphicsPath": us.get("graphicsPath", "Not set"),
+                "debug": us.get("debug", False)
+            }
+        except Exception as e:
+            debug_info["music21_settings"]["error"] = str(e)
+    
+    # Xvfb 프로세스 확인
+    try:
+        result = subprocess.run(["pgrep", "-f", "Xvfb"], capture_output=True, text=True)
+        debug_info["xvfb_running"] = bool(result.stdout.strip())
+        debug_info["xvfb_pids"] = result.stdout.strip()
+    except:
+        debug_info["xvfb_running"] = False
+    
+    return jsonify(debug_info)
 
 @app.errorhandler(404)
 def not_found_error(error):
