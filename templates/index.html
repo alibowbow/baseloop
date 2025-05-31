@@ -6,22 +6,20 @@
     <title>🎵 프로 베이스 루프 생성기 🎸</title>
     <!-- Google Fonts - Rubik 폰트 가져오기 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- VexFlow 라이브러리 CDN - 안정적인 3.x 버전 사용 -->
-    <script src="https://unpkg.com/vexflow@3.0.9/releases/vexflow-min.js"></script>
     
     <style>
         /* CSS 변수: 색상 팔레트 정의 */
         :root {
-            --primary-color: #3b82f6; /* Tailwind Blue 500 */
-            --primary-hover-color: #2563eb; /* Tailwind Blue 600 */
-            --accent-color: #10b981; /* Tailwind Emerald 500 */
-            --background-color: #f8fafc; /* Tailwind Slate 50 */
+            --primary-color: #3b82f6;
+            --primary-hover-color: #2563eb;
+            --accent-color: #10b981;
+            --background-color: #f8fafc;
             --card-background: #ffffff;
-            --text-color: #334155; /* Tailwind Slate 700 */
-            --light-text-color: #64748b; /* Tailwind Slate 500 */
-            --border-color: #e2e8f0; /* Tailwind Slate 200 */
-            --error-color: #ef4444; /* Tailwind Red 500 */
-            --success-color: #22c55e; /* Tailwind Green 500 */
+            --text-color: #334155;
+            --light-text-color: #64748b;
+            --border-color: #e2e8f0;
+            --error-color: #ef4444;
+            --success-color: #22c55e;
         }
 
         body {
@@ -44,7 +42,7 @@
             padding: 35px;
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-            max-width: 800px; /* 다중 줄 악보를 위해 너비 증가 */
+            max-width: 800px;
             width: 100%;
             margin-top: 30px;
             box-sizing: border-box;
@@ -295,7 +293,6 @@
             <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0</textarea>
             <p class="info-text">
                 형식: `음표이름+옥타브 박자단위`를 쉼표로 구분. 예: `C2 1.0, G2 0.5, A2 0.5, F2 1.0`
-                쉼표는 `R 박자단위`로 표기합니다. 예: `R 1.0`
             </p>
 
             <label for="num_loops_input">오디오 루프 반복 횟수</label>
@@ -318,43 +315,20 @@
 
     <!-- JavaScript 로직 -->
     <script>
-        // VexFlow 3.x 호환 방식으로 초기화
-        let VF = null;
-
         document.addEventListener('DOMContentLoaded', (event) => {
-            // VexFlow 로딩 상태 확인 및 초기화
-            try {
-                if (typeof Vex !== 'undefined' && Vex.Flow) {
-                    VF = Vex.Flow;
-                    console.log('✅ VexFlow 라이브러리가 성공적으로 로드되었습니다.');
-                    console.log('VexFlow 버전:', VF.BUILD?.VERSION || '3.x');
-                } else {
-                    console.error('❌ VexFlow 라이브러리 로딩 실패: Vex.Flow 객체를 찾을 수 없습니다.');
-                    showMessage('악보 시각화 라이브러리 로딩에 실패했습니다.', 'error');
-                }
-            } catch (e) {
-                console.error('VexFlow 초기화 오류:', e);
-                showMessage('악보 시각화 라이브러리 초기화 중 오류가 발생했습니다.', 'error');
-            }
-
+            console.log('✅ 페이지 로드 완료 - Canvas 기반 악보 렌더러 시작');
+            
             // 페이지 로드 시 선택된 기본 모드에 따라 UI 조정
             toggleModeOptions();
             // 메시지 영역 숨기기
             document.getElementById('messageArea').style.display = 'none';
             
             // 기본 악보 렌더링
-            // VexFlow가 완전히 로드되고 DOM이 준비된 후에 렌더링을 시도합니다.
-            // DOMContentLoaded 후에 VexFlow 로딩은 비동기적일 수 있으므로 안전을 위해 setTimeout 사용.
             setTimeout(() => {
-                if (VF) { // VexFlow가 성공적으로 로드되었는지 다시 확인
-                    renderSheetMusic(document.getElementById('notes_sequence_input').value, 
-                                   parseInt(document.getElementById('length_input').value), 
-                                   parseInt(document.getElementById('bpm_input').value));
-                } else {
-                    console.warn("VexFlow가 로드되지 않아 초기 악보를 그릴 수 없습니다.");
-                    displaySimpleNotation(document.getElementById('notes_sequence_input').value);
-                }
-            }, 100); 
+                renderSheetMusic(document.getElementById('notes_sequence_input').value, 
+                               parseInt(document.getElementById('length_input').value), 
+                               parseInt(document.getElementById('bpm_input').value));
+            }, 100);
         });
 
         function showMessage(message, type = 'info') {
@@ -438,8 +412,6 @@
                     formData.append('gemini_api_key_input', apiKey);
                 }
 
-                // 이 부분은 서버가 필요합니다. Flask 서버 코드도 있어야 합니다.
-                // 현재는 프론트엔드 코드만 제공되었으므로, 서버 호출은 실패할 것입니다.
                 const response = await fetch('/generate_notes', {
                     method: 'POST',
                     body: formData,
@@ -483,7 +455,6 @@
             audioPlayer.load(); 
 
             try {
-                // 이 부분도 서버가 필요합니다. Flask 서버 코드도 있어야 합니다.
                 const formData = new FormData();
                 formData.append('notes_sequence_input', notesSequence);
                 formData.append('bpm_input', bpm);
@@ -521,335 +492,393 @@
             }
         }
 
-        // --- 악보 시각화 VexFlow 함수 (수정된 버전) ---
+        // --- Canvas 기반 악보 시각화 함수 ---
 
-        // VexFlow 렌더링 상수
-        const STAVE_WIDTH = 350; // 각 오선지의 고정 너비
-        const STAVE_HEIGHT = 120; // 오선지 간 세로 간격
-        const STAVE_MARGIN = 10; // 좌우 여백
-        const BEATS_PER_MEASURE = 4; // 4/4 박자
+        // 악보 렌더링 상수
+        const CANVAS_CONFIG = {
+            STAFF_LINE_SPACING: 12,     // 오선 간격
+            STAFF_HEIGHT: 48,           // 오선 높이 (4선 간격)
+            STAFF_WIDTH: 700,           // 오선 너비
+            STAFF_MARGIN_X: 30,         // 좌우 여백
+            STAFF_MARGIN_Y: 60,         // 상하 여백
+            MEASURE_WIDTH: 160,         // 마디 너비
+            MEASURES_PER_LINE: 4,       // 한 줄당 마디 수
+            LINE_SPACING: 120,          // 줄 간격
+            NOTE_SIZE: 8,               // 음표 크기
+            CLEF_WIDTH: 40,             // 클레프 너비
+        };
 
-        // 캔버스 초기화
+        // 베이스 클레프 음표 위치 매핑 (선 기준, 아래부터 0,1,2,3,4)
+        const BASS_NOTE_POSITIONS = {
+            'A1': -2, 'B1': -1, 'C2': 0, 'D2': 1, 'E2': 2, 'F2': 3, 'G2': 4,
+            'A2': 5, 'B2': 6, 'C3': 7, 'D3': 8, 'E3': 9, 'F3': 10, 'G3': 11,
+            'A3': 12, 'B3': 13, 'C4': 14, 'D4': 15, 'E4': 16
+        };
+
         function clearSheetMusic() {
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        // 음표 이름을 VexFlow 형식으로 변환
-        function getVexflowNoteName(noteName, octave) {
-            let vfNoteName = noteName.toLowerCase();
-            vfNoteName = vfNoteName.replace('#', 's'); // C# -> cs
-            return `${vfNoteName}/${octave}`;
+        function parseNotes(notesSequenceStr) {
+            return notesSequenceStr.split(',').map(noteEntry => {
+                const match = noteEntry.trim().match(/([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)/);
+                return match ? {
+                    name: match[1].toUpperCase(),
+                    octave: parseInt(match[2]),
+                    duration: parseFloat(match[3])
+                } : null;
+            }).filter(n => n !== null);
         }
 
-        // 박자를 VexFlow duration으로 변환
-        function getDurationFromBeats(beats) {
-            const durationMap = {
-                '0.25': '16',   // 16분음표
-                '0.5': '8',     // 8분음표
-                '1.0': 'q',     // 4분음표
-                '1.5': 'qd',    // 점 4분음표 (dotted quarter)
-                '2.0': 'h',     // 2분음표
-                '3.0': 'hd',    // 점 2분음표 (dotted half)
-                '4.0': 'w',     // 온음표
-            };
-            const duration = durationMap[beats.toString()];
-            if (!duration) {
-                console.warn(`[getDurationFromBeats] 인식할 수 없는 박자 단위: ${beats}. 4분음표(q)로 대체합니다.`);
-            }
-            return duration || 'q'; // 매핑되지 않으면 기본 4분음표
-        }
-
-        // 음표들을 마디별로 그룹화
-        function groupNotesByMeasures(rawNotes) {
+        function groupIntoMeasures(notes) {
             const measures = [];
             let currentMeasure = [];
             let currentBeats = 0;
 
-            for (const note of rawNotes) {
-                // 현재 음표를 추가했을 때 마디 박자를 초과하는지 확인
-                if (currentBeats + note.durationUnits > BEATS_PER_MEASURE && currentBeats > 0) {
-                    // 현재 마디가 넘치면 이전 마디를 완료하고 새 마디 시작
-                    // 남은 박자를 쉼표로 채움
-                    const remainingBeats = BEATS_PER_MEASURE - currentBeats;
-                    if (remainingBeats > 0) {
-                        currentMeasure.push({
-                            name: 'R',
-                            octave: 4, // 쉼표의 위치를 위해 필요 (중앙선)
-                            durationUnits: remainingBeats
-                        });
+            for (const note of notes) {
+                if (currentBeats + note.duration > 4) {
+                    // 마디가 넘치면 이전 마디 완성
+                    if (currentMeasure.length > 0) {
+                        measures.push(currentMeasure);
                     }
-                    measures.push(currentMeasure);
-                    currentMeasure = [note]; // 새 마디에 현재 음표 추가
-                    currentBeats = note.durationUnits;
+                    currentMeasure = [note];
+                    currentBeats = note.duration;
                 } else {
                     currentMeasure.push(note);
-                    currentBeats += note.durationUnits;
+                    currentBeats += note.duration;
                 }
 
-                // 마디가 정확히 채워진 경우
-                if (currentBeats === BEATS_PER_MEASURE) {
+                if (currentBeats === 4) {
                     measures.push(currentMeasure);
                     currentMeasure = [];
                     currentBeats = 0;
                 }
             }
 
-            // 마지막 마디 처리 (남은 음표가 있거나 마지막 마디가 채워지지 않은 경우)
             if (currentMeasure.length > 0) {
-                const remainingBeats = BEATS_PER_MEASURE - currentBeats;
-                if (remainingBeats > 0) {
-                    currentMeasure.push({
-                        name: 'R',
-                        octave: 4,
-                        durationUnits: remainingBeats
-                    });
-                }
                 measures.push(currentMeasure);
             }
 
             return measures;
         }
 
-        // 수정된 악보 렌더링 함수
-        function renderSheetMusic(notesSequenceStr, lengthMeasures, bpm) {
-            if (!VF) {
-                console.error('VexFlow가 로드되지 않았습니다.');
-                showMessage('악보 라이브러리가 로드되지 않았습니다.', 'error');
-                return;
+        function drawStaffLines(ctx, x, y, width) {
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            
+            for (let i = 0; i < 5; i++) {
+                const lineY = y + (i * CANVAS_CONFIG.STAFF_LINE_SPACING);
+                ctx.beginPath();
+                ctx.moveTo(x, lineY);
+                ctx.lineTo(x + width, lineY);
+                ctx.stroke();
+            }
+        }
+
+        function drawBassClef(ctx, x, y) {
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 36px serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            
+            // 베이스 클레프 기호 (유니코드)
+            ctx.fillText('𝄢', x + 5, y + CANVAS_CONFIG.STAFF_HEIGHT / 2);
+        }
+
+        function drawTimeSignature(ctx, x, y) {
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // 4/4 박자표
+            ctx.fillText('4', x, y + CANVAS_CONFIG.STAFF_LINE_SPACING);
+            ctx.fillText('4', x, y + CANVAS_CONFIG.STAFF_LINE_SPACING * 3);
+        }
+
+        function getNoteY(noteName, octave, staffY) {
+            const noteKey = `${noteName}${octave}`;
+            const position = BASS_NOTE_POSITIONS[noteKey];
+            
+            if (position === undefined) {
+                // 기본 위치 (C2)
+                return staffY + CANVAS_CONFIG.STAFF_HEIGHT;
+            }
+            
+            // 위치 계산 (아래선부터 0, 위로 갈수록 음수)
+            return staffY + CANVAS_CONFIG.STAFF_HEIGHT - (position * CANVAS_CONFIG.STAFF_LINE_SPACING / 2);
+        }
+
+        function drawNote(ctx, x, y, duration, noteName) {
+            ctx.fillStyle = '#000000';
+            
+            // 음표 머리 그리기
+            if (duration >= 2.0) {
+                // 2분음표 이상 - 속이 빈 원
+                ctx.beginPath();
+                ctx.ellipse(x, y, CANVAS_CONFIG.NOTE_SIZE, CANVAS_CONFIG.NOTE_SIZE * 0.7, 0, 0, 2 * Math.PI);
+                ctx.stroke();
+            } else {
+                // 4분음표 이하 - 속이 찬 원
+                ctx.beginPath();
+                ctx.ellipse(x, y, CANVAS_CONFIG.NOTE_SIZE, CANVAS_CONFIG.NOTE_SIZE * 0.7, 0, 0, 2 * Math.PI);
+                ctx.fill();
             }
 
+            // 음표 기둥 그리기 (온음표가 아닌 경우)
+            if (duration < 4.0) {
+                ctx.beginPath();
+                ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE, y);
+                ctx.lineTo(x + CANVAS_CONFIG.NOTE_SIZE, y - 30);
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            }
+
+            // 8분음표 깃발
+            if (duration === 0.5) {
+                ctx.beginPath();
+                ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE, y - 30);
+                ctx.quadraticCurveTo(x + CANVAS_CONFIG.NOTE_SIZE + 10, y - 25, x + CANVAS_CONFIG.NOTE_SIZE + 8, y - 15);
+                ctx.stroke();
+            }
+
+            // 16분음표 깃발 (두 개)
+            if (duration === 0.25) {
+                ctx.beginPath();
+                ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE, y - 30);
+                ctx.quadraticCurveTo(x + CANVAS_CONFIG.NOTE_SIZE + 10, y - 25, x + CANVAS_CONFIG.NOTE_SIZE + 8, y - 15);
+                ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE, y - 25);
+                ctx.quadraticCurveTo(x + CANVAS_CONFIG.NOTE_SIZE + 10, y - 20, x + CANVAS_CONFIG.NOTE_SIZE + 8, y - 10);
+                ctx.stroke();
+            }
+
+            // 임시표 그리기 (#)
+            if (noteName.includes('#')) {
+                ctx.font = '16px Arial';
+                ctx.fillText('♯', x - 15, y + 2);
+            }
+        }
+
+        function drawBarline(ctx, x, y, height) {
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, y + height);
+            ctx.stroke();
+        }
+
+        function drawMeasureNumber(ctx, x, y, measureNum) {
+            ctx.fillStyle = '#666666';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(measureNum.toString(), x, y - 10);
+        }
+
+        function renderSheetMusic(notesSequenceStr, lengthMeasures, bpm) {
+            console.log('🎵 Canvas 기반 악보 렌더링 시작');
+            
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) {
-                console.error("Canvas element for sheet music not found!");
+                console.error("Canvas element not found!");
                 showMessage("악보 캔버스 요소를 찾을 수 없습니다.", 'error');
                 return;
             }
 
             try {
-                console.log('악보 렌더링 시작:', notesSequenceStr);
-
-                // 악보 데이터 파싱 (음표와 쉼표 모두 처리)
-                const rawNotes = notesSequenceStr.split(',').map(noteEntry => {
-                    const trimmedEntry = noteEntry.trim();
-                    let match;
-
-                    // 음표 파싱 (예: C2 1.0, D#3 0.5)
-                    match = trimmedEntry.match(/^([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)$/);
-                    if (match) {
-                        return {
-                            name: match[1],
-                            octave: parseInt(match[2]),
-                            durationUnits: parseFloat(match[3])
-                        };
-                    }
-
-                    // 쉼표 파싱 (예: R 1.0, r 0.5)
-                    match = trimmedEntry.match(/^(R)\s+(\d+(\.\d+)?)$/i); // 'i'는 대소문자 구분 없음
-                    if (match) {
-                        return {
-                            name: 'R',
-                            octave: 4, // 쉼표는 옥타브가 중요하지 않지만 VexFlow StaveNote에 필요 (중앙선에 표시)
-                            durationUnits: parseFloat(match[2])
-                        };
-                    }
-                    
-                    console.warn(`[rawNotes 파싱] 유효하지 않은 음표/쉼표 형식: '${trimmedEntry}' - 이 항목은 건너뜁니다.`);
-                    return null;
-                }).filter(n => n !== null); // null이 아닌 유효한 항목만 필터링
-
-                if (rawNotes.length === 0) {
-                    console.warn('파싱된 유효한 음표가 없습니다. 간단한 텍스트 악보로 대체합니다.');
-                    displaySimpleNotation(notesSequenceStr);
+                // 음표 파싱
+                const notes = parseNotes(notesSequenceStr);
+                if (notes.length === 0) {
+                    console.warn('파싱된 음표가 없습니다.');
+                    showMessage('유효한 음표가 없습니다. 악보를 확인해주세요.', 'error');
                     return;
                 }
 
-                console.log('파싱된 음표들:', rawNotes);
+                console.log('파싱된 음표:', notes);
 
                 // 마디별로 그룹화
-                const measures = groupNotesByMeasures(rawNotes);
+                const measures = groupIntoMeasures(notes);
                 console.log('마디별 그룹:', measures);
 
-                // 캔버스 크기 설정
-                const measuresPerLine = 2; // 한 줄에 2마디씩
-                const numberOfLines = Math.ceil(measures.length / measuresPerLine);
-                canvas.width = (STAVE_WIDTH * measuresPerLine) + (STAVE_MARGIN * 2);
-                canvas.height = (STAVE_HEIGHT * numberOfLines) + 100; // 상하 여백 추가
+                // 캔버스 크기 계산
+                const linesNeeded = Math.ceil(measures.length / CANVAS_CONFIG.MEASURES_PER_LINE);
+                canvas.width = CANVAS_CONFIG.STAFF_WIDTH + (CANVAS_CONFIG.STAFF_MARGIN_X * 2);
+                canvas.height = (linesNeeded * CANVAS_CONFIG.LINE_SPACING) + (CANVAS_CONFIG.STAFF_MARGIN_Y * 2);
 
-                // VexFlow 렌더러 초기화
-                const renderer = new VF.Renderer(canvas, VF.Renderer.Backends.CANVAS);
-                const context = renderer.getContext();
-                context.clearRect(0, 0, canvas.width, canvas.height); // 기존 악보 지우기
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                let currentLine = 0;
-                let measureInLine = 0;
+                // 배경
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // 각 마디를 렌더링
-                measures.forEach((measureNotes, measureIndex) => {
-                    const x = STAVE_MARGIN + (measureInLine * STAVE_WIDTH);
-                    const y = 40 + (currentLine * STAVE_HEIGHT); // 첫 악보 Y 위치 40, 이후 STAVE_HEIGHT씩 증가
+                // 제목
+                ctx.fillStyle = '#3b82f6';
+                ctx.font = 'bold 20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('베이스 라인 악보', canvas.width / 2, 30);
 
-                    // Stave 생성
-                    const stave = new VF.Stave(x, y, STAVE_WIDTH);
+                // 각 줄 그리기
+                for (let line = 0; line < linesNeeded; line++) {
+                    const lineY = CANVAS_CONFIG.STAFF_MARGIN_Y + (line * CANVAS_CONFIG.LINE_SPACING);
+                    const lineX = CANVAS_CONFIG.STAFF_MARGIN_X;
 
-                    // 첫 번째 마디에만 클레프와 박자표 추가
-                    if (measureIndex === 0) {
-                        stave.addClef('bass').addTimeSignature('4/4');
+                    // 오선 그리기
+                    drawStaffLines(ctx, lineX, lineY, CANVAS_CONFIG.STAFF_WIDTH);
+
+                    // 첫 번째 줄에만 클레프와 박자표
+                    if (line === 0) {
+                        drawBassClef(ctx, lineX, lineY);
+                        drawTimeSignature(ctx, lineX + CANVAS_CONFIG.CLEF_WIDTH + 20, lineY);
                     }
 
-                    // 마지막 마디에 종료 마디선 추가
-                    if (measureIndex === measures.length - 1) {
-                        stave.setEndBarType(VF.BarLine.type.END);
-                    } else if (measureInLine === measuresPerLine - 1 && measureIndex !== measures.length -1) {
-                        // 줄의 마지막 마디에 일반 마디선 추가 (줄바꿈 구분용)
-                        stave.setEndBarType(VF.BarLine.type.SINGLE);
-                    }
-                    
-                    stave.setContext(context).draw();
+                    // 이 줄에 해당하는 마디들 그리기
+                    const startMeasure = line * CANVAS_CONFIG.MEASURES_PER_LINE;
+                    const endMeasure = Math.min(startMeasure + CANVAS_CONFIG.MEASURES_PER_LINE, measures.length);
 
-                    // 음표들을 VexFlow StaveNote로 변환
-                    const vfNotes = measureNotes.map(noteData => {
-                        const duration = getDurationFromBeats(noteData.durationUnits);
+                    for (let m = startMeasure; m < endMeasure; m++) {
+                        const measureInLine = m - startMeasure;
+                        const measureX = lineX + CANVAS_CONFIG.CLEF_WIDTH + 40 + (measureInLine * CANVAS_CONFIG.MEASURE_WIDTH);
+                        
+                        // 마디 번호
+                        drawMeasureNumber(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH / 2, lineY, m + 1);
 
-                        if (noteData.name.toUpperCase() === 'R') {
-                            // 쉼표 생성
-                            return new VF.StaveNote({
-                                clef: 'bass',
-                                keys: ['b/4'], // 쉼표의 위치 (중앙선)
-                                duration: duration + 'r' // 'r'은 쉼표
-                            });
-                        } else {
-                            // 일반 음표 생성
-                            const note = new VF.StaveNote({
-                                clef: 'bass',
-                                keys: [getVexflowNoteName(noteData.name, noteData.octave)],
-                                duration: duration
-                            });
+                        // 마디 내 음표들
+                        const measureNotes = measures[m];
+                        let noteX = measureX + 20;
+                        const noteSpacing = (CANVAS_CONFIG.MEASURE_WIDTH - 40) / Math.max(measureNotes.length, 4);
 
-                            // 임시표 추가
-                            if (noteData.name.includes('#')) {
-                                note.addAccidental(0, new VF.Accidental('#'));
-                            } else if (noteData.name.includes('b')) {
-                                note.addAccidental(0, new VF.Accidental('b'));
-                            }
+                        measureNotes.forEach((note, noteIndex) => {
+                            const noteY = getNoteY(note.name, note.octave, lineY);
+                            drawNote(ctx, noteX, noteY, note.duration, note.name);
+                            
+                            // 음표 이름 표시 (디버깅용)
+                            ctx.fillStyle = '#666666';
+                            ctx.font = '10px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.fillText(`${note.name}${note.octave}`, noteX, noteY + 25);
+                            
+                            noteX += noteSpacing;
+                            ctx.fillStyle = '#000000'; // 색상 리셋
+                        });
 
-                            return note;
+                        // 마디선
+                        if (measureInLine < CANVAS_CONFIG.MEASURES_PER_LINE - 1 || m === measures.length - 1) {
+                            drawBarline(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH, lineY, CANVAS_CONFIG.STAFF_HEIGHT);
                         }
-                    });
 
-                    // Voice 생성 및 포맷팅
-                    const voice = new VF.Voice({
-                        num_beats: BEATS_PER_MEASURE, // 마디당 박자수
-                        beat_value: 4, // 4분음표 기준
-                        resolution: VF.Resolution.Common.R16 // 16분음표가 최소 단위
-                    });
-
-                    voice.addTickables(vfNotes);
-
-                    // 포맷터로 음표 정렬 (stave 폭에 맞춤)
-                    // Formatter는 Voice 내부의 tickables(음표들)의 x좌표를 조정합니다.
-                    // stave.width를 그대로 넘겨주거나 약간의 여백을 줘도 됩니다.
-                    new VF.Formatter().joinVoices([voice]).format([voice], STAVE_WIDTH - 20); // 20px는 좌우 패딩
-
-                    // 음표 그리기
-                    voice.draw(context, stave);
-
-                    // 8분음표나 16분음표 묶음 처리 (Beaming)
-                    try {
-                        // VexFlow 3.x에서 Beams는 voice.getTickables()를 사용합니다.
-                        const beams = VF.Beam.generateBeams(voice.getTickables());
-                        beams.forEach(beam => beam.setContext(context).draw());
-                    } catch (e) {
-                        console.warn('Beam 생성 중 오류 (무시됨 - 모든 음표가 묶이는 것은 아님):', e.message);
+                        // 마지막 마디면 끝마디선
+                        if (m === measures.length - 1) {
+                            ctx.lineWidth = 3;
+                            drawBarline(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH + 3, lineY, CANVAS_CONFIG.STAFF_HEIGHT);
+                            ctx.lineWidth = 1;
+                        }
                     }
+                }
 
-                    // 다음 마디 위치 계산
-                    measureInLine++;
-                    if (measureInLine >= measuresPerLine) {
-                        measureInLine = 0;
-                        currentLine++;
-                    }
-                });
+                // 하단 정보
+                ctx.fillStyle = '#64748b';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`BPM: ${bpm} | ${measures.length}마디 | Canvas 2D 렌더링`, canvas.width / 2, canvas.height - 15);
 
-                console.log('✅ 악보가 성공적으로 렌더링되었습니다.');
+                console.log('✅ Canvas 악보 렌더링 완료');
+                showMessage('🎵 악보가 성공적으로 렌더링되었습니다!', 'success');
 
             } catch (error) {
-                console.error("VexFlow 악보 그리기 오류 (치명적):", error);
-                showMessage(`🚨 악보 그리기 오류가 발생했습니다: ${error.message}`, 'error');
+                console.error('Canvas 악보 렌더링 오류:', error);
+                showMessage(`🚨 악보 렌더링 오류: ${error.message}`, 'error');
                 
-                // 오류 발생시 간단한 텍스트 악보로 대체
-                displaySimpleNotation(notesSequenceStr);
+                // 폴백: 간단한 텍스트 표시
+                fallbackTextDisplay(notesSequenceStr);
             }
         }
 
-        // VexFlow 실패 시 간단한 텍스트 기반 악보 표시
-        function displaySimpleNotation(notesSequenceStr) {
+        // 폴백: 간단한 텍스트 악보 표시
+        function fallbackTextDisplay(notesSequenceStr) {
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) return;
 
-            // 캔버스 크기 설정
-            canvas.width = 600;
-            canvas.height = 200;
+            canvas.width = 700;
+            canvas.height = 300;
 
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             // 배경
-            ctx.fillStyle = '#ffffff';
+            ctx.fillStyle = '#f8fafc';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // 제목
             ctx.fillStyle = '#3b82f6';
             ctx.font = 'bold 18px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('생성된 베이스 라인 (텍스트 모드)', canvas.width / 2, 30);
+            ctx.fillText('베이스 라인 (텍스트 모드)', canvas.width / 2, 40);
             
-            // 음표들 표시
-            const notes = notesSequenceStr.split(',').map(n => n.trim());
-            let yPos = 70;
-            let xPos = 20;
-            
+            // 설명
             ctx.fillStyle = '#64748b';
-            ctx.font = '12px Arial';
-            let currentLineText = `마디 1: `;
+            ctx.font = '14px Arial';
+            ctx.fillText('악보 렌더링에 실패하여 텍스트로 표시합니다.', canvas.width / 2, 70);
+            
+            // 음표들 나열
+            const notes = notesSequenceStr.split(',').map(n => n.trim());
+            let y = 110;
+            let x = 50;
+            
+            ctx.fillStyle = '#334155';
+            ctx.font = '16px monospace';
+            ctx.textAlign = 'left';
+            
+            let currentMeasure = 1;
+            let currentBeats = 0;
+            
+            // 마디 표시
+            ctx.fillStyle = '#64748b';
+            ctx.font = '14px Arial';
+            ctx.fillText(`마디 ${currentMeasure}:`, x, y - 10);
             
             notes.forEach((note, index) => {
-                const noteText = note;
-                const noteWidth = ctx.measureText(noteText).width;
-                
-                // 현재 라인에 음표가 너무 길어지면 줄바꿈
-                if (xPos + noteWidth + 15 > canvas.width - 20) {
-                    // 현재 라인 텍스트 그리기
-                    ctx.fillStyle = '#334155';
-                    ctx.font = '14px monospace';
-                    ctx.textAlign = 'left';
-                    ctx.fillText(currentLineText, 20, yPos);
+                if (x > canvas.width - 100) {
+                    x = 50;
+                    y += 40;
                     
-                    xPos = 20;
-                    yPos += 40;
-                    if (yPos > canvas.height - 50) { // 캔버스 영역 초과 방지
-                        return;
+                    if (y < canvas.height - 40) {
+                        currentMeasure++;
+                        ctx.fillStyle = '#64748b';
+                        ctx.font = '14px Arial';
+                        ctx.fillText(`마디 ${currentMeasure}:`, x, y - 10);
                     }
-                    currentLineText = `마디 ${Math.floor(index / BEATS_PER_MEASURE) + 1}: `; // 대략적인 마디 계산
                 }
                 
-                currentLineText += `${noteText} `;
-                xPos += noteWidth + 15;
+                ctx.fillStyle = '#334155';
+                ctx.font = '16px monospace';
+                ctx.fillText(note, x, y);
+                
+                // 박자 계산 (마디 구분선)
+                const match = note.match(/(\d+(\.\d+)?)$/);
+                if (match) {
+                    const beats = parseFloat(match[1]);
+                    currentBeats += beats;
+                    
+                    if (currentBeats >= 4) {
+                        ctx.fillStyle = '#e2e8f0';
+                        ctx.fillRect(x + ctx.measureText(note).width + 5, y - 15, 2, 20);
+                        currentBeats = 0;
+                    }
+                }
+                
+                x += ctx.measureText(note).width + 20;
             });
             
-            // 마지막 라인 텍스트 그리기
-            ctx.fillStyle = '#334155';
-            ctx.font = '14px monospace';
-            ctx.textAlign = 'left';
-            ctx.fillText(currentLineText, 20, yPos);
-
-            // 하단 안내 메시지
-            ctx.fillStyle = '#64748b';
+            // 하단 메시지
+            ctx.fillStyle = '#ef4444';
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('VexFlow 악보 렌더링이 실패하여 텍스트 모드로 표시됩니다. (콘솔 오류 확인 요망)', canvas.width / 2, canvas.height - 20);
+            ctx.fillText('정확한 악보를 보려면 페이지를 새로고침하거나 다른 브라우저를 사용해보세요.', canvas.width / 2, canvas.height - 20);
         }
     </script> 
 </body>
