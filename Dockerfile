@@ -1,15 +1,24 @@
 FROM python:3.10-slim
 
-RUN apt-get update && apt-get install -y \
+# MuseScore 및 xvfb, 그리고 필요한 추가 시스템 의존성 설치
+RUN apt-get update && apt-get install -y --no-install-recommends \
     musescore3 \
     xvfb \
-    fonts-liberation \
-    fonts-dejavu \
-    fonts-noto \
-    libqt5gui5 \
-    libqt5widgets5 \
-    libqt5printsupport5 \
-    libqt5svg5 \
+    fontconfig \
+    libgconf-2-4 \
+    libnss3 \
+    libasound2 \
+    # ------ 추가되는 라이브러리들 ------
+    libxrender1 \
+    libxtst6 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgl1 \
+    libcups2 \
+    libpulse0 \
+    # ---------------------------------
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
