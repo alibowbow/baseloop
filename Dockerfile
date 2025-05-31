@@ -29,9 +29,6 @@ ENV MUSESCORE_PATH=/usr/bin/musescore3
 ENV QT_QPA_PLATFORM=offscreen
 ENV DISPLAY=:99
 
-# Music21 환경 설정
-RUN python -c "from music21 import configure; configure.run()"
-
 # Xvfb 가상 디스플레이 시작 스크립트
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
