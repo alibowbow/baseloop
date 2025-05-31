@@ -27,8 +27,11 @@ def setup_music21_environment() -> bool:
     MuseScore 경로와 Qt 헤드리스 환경 변수를 Music21에 등록합니다.
     """
     global _M21_CONFIGURED
+    logger.info(f"Music21 환경 설정 시도. Music21_AVAILABLE: {MUSIC21_AVAILABLE}, 이미 설정됨: {_M21_CONFIGURED}")
 
     if _M21_CONFIGURED or not MUSIC21_AVAILABLE:
+        if not MUSIC21_AVAILABLE:
+            logger.warning("Music21 라이브러리를 사용할 수 없어 환경 설정을 건너뜁니다.")
         return _M21_CONFIGURED
 
     try:
@@ -36,7 +39,10 @@ def setup_music21_environment() -> bool:
         us = environment.UserSettings()
 
         musescore_path = os.getenv("MUSESCORE_PATH")
-        if not musescore_path:
+        if musescore_path:
+            logger.info(f"환경 변수 MUSESCORE_PATH 사용: {musescore_path}")
+        else:
+            logger.info("MUSESCORE_PATH 환경 변수가 설정되지 않았습니다. 자동 탐색을 시도합니다.")
             # 여러 가능한 경로 시도
             possible_paths = [
                 "/usr/bin/musescore3",
@@ -62,6 +68,12 @@ def setup_music21_environment() -> bool:
         us["graphicsPath"] = musescore_path
         us["pdfPath"] = musescore_path
 
+        logger.info(f"Music21 UserSettings에 MuseScore 경로 설정:")
+        logger.info(f"  - musescoreDirectPNGPath: {us['musescoreDirectPNGPath']}")
+        logger.info(f"  - musicxmlPath: {us['musicxmlPath']}")
+        logger.info(f"  - graphicsPath: {us['graphicsPath']}")
+        logger.info(f"  - pdfPath: {us['pdfPath']}")
+
         # Qt/X11 환경 변수 설정
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         os.environ.setdefault("DISPLAY", ":99")
@@ -80,14 +92,28 @@ def setup_music21_environment() -> bool:
         # MuseScore 실행 가능 여부 테스트
         try:
             import subprocess
-            result = subprocess.run([musescore_path, "--version"], 
-                                  capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                logger.info(f"MuseScore 버전: {result.stdout.strip()}")
+            cmd_version_check = [musescore_path, "--version"]
+            logger.info(f"MuseScore 버전 확인 실행: {' '.join(cmd_version_check)}")
+            result = subprocess.run(cmd_version_check,
+                                  capture_output=True, text=True, timeout=10) # Increased timeout slightly
+
+            # Log stdout and stderr regardless of return code
+            if result.stdout:
+                logger.info(f"MuseScore 버전 STDOUT: {result.stdout.strip()}")
             else:
-                logger.warning(f"MuseScore 버전 확인 실패: {result.stderr}")
+                logger.info("MuseScore 버전 STDOUT: (내용 없음)")
+
+            if result.stderr:
+                logger.warning(f"MuseScore 버전 STDERR: {result.stderr.strip()}")
+            else:
+                logger.info("MuseScore 버전 STDERR: (내용 없음)")
+
+            if result.returncode == 0:
+                logger.info(f"MuseScore 버전 확인 성공 (Return Code: {result.returncode})")
+            else:
+                logger.warning(f"MuseScore 버전 확인 실패 (Return Code: {result.returncode})")
         except Exception as e:
-            logger.warning(f"MuseScore 테스트 실행 실패: {e}")
+            logger.warning(f"MuseScore 테스트 실행 중 예외 발생: {e}")
         
         _M21_CONFIGURED = True
         return True
@@ -123,6 +149,50 @@ except ImportError:
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# --- Hardcoded MusicXML Test (글로벌 플래그) ---
+# 이 플래그를 True로 설정하면 generate_music21_score_with_fallback 함수가
+# music21 스코어 생성 로직을 건너뛰고 미리 정의된 MusicXML을 사용하여 PNG 생성을 시도합니다.
+# MuseScore 직접 실행 기능 테스트 및 디버깅에 유용합니다.
+USE_HARDCODED_XML_TEST = False # True로 변경하여 테스트 활성화
+
+HARDCODED_MUSICXML_STRING = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
+  <part-list>
+    <score-part id="P1">
+      <part-name>Bass</part-name>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key>
+          <fifths>0</fifths>
+          <mode>major</mode>
+        </key>
+        <time>
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        <clef>
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
+      <note>
+        <pitch>
+          <step>C</step>
+          <octave>2</octave>
+        </pitch>
+        <duration>4</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+  </part>
+</score-partwise>
+"""
 
 # Flask 앱 초기화
 app = Flask(__name__, template_folder='templates', static_folder='static')
@@ -308,6 +378,63 @@ def generate_music21_score_with_fallback(
 
     temp_dir = None
     try:
+        temp_dir = tempfile.mkdtemp() # Moved earlier to be available for hardcoded test
+        logger.info(f"악보 생성을 위한 임시 디렉토리 생성: {temp_dir}")
+
+        if USE_HARDCODED_XML_TEST:
+            logger.warning("하드코딩된 MusicXML 테스트 경로를 사용합니다.")
+            hardcoded_xml_path = os.path.join(temp_dir, "hardcoded_score.xml")
+            hardcoded_png_path = os.path.join(temp_dir, "hardcoded_score.png")
+
+            try:
+                with open(hardcoded_xml_path, "w", encoding="utf-8") as f:
+                    f.write(HARDCODED_MUSICXML_STRING)
+                logger.info(f"하드코딩된 MusicXML 파일 저장: {hardcoded_xml_path}")
+
+                musescore_path_env = os.environ.get("MUSESCORE_PATH", "/usr/bin/musescore3")
+                cmd_hardcoded = [musescore_path_env, "-o", hardcoded_png_path, hardcoded_xml_path]
+
+                logger.info(f"하드코딩된 XML로 MuseScore 직접 실행 명령: {' '.join(cmd_hardcoded)}")
+
+                result_hardcoded = subprocess.run(cmd_hardcoded, capture_output=True, text=True, timeout=30)
+
+                logger.info(f"하드코딩된 XML MuseScore 실행 Return Code: {result_hardcoded.returncode}")
+                if result_hardcoded.stdout:
+                    logger.info(f"하드코딩된 XML MuseScore 실행 STDOUT: {result_hardcoded.stdout.strip()}")
+                if result_hardcoded.stderr:
+                    logger.warning(f"하드코딩된 XML MuseScore 실행 STDERR: {result_hardcoded.stderr.strip()}")
+
+                if result_hardcoded.returncode == 0 and os.path.exists(hardcoded_png_path) and os.path.getsize(hardcoded_png_path) > 0:
+                    logger.info(f"하드코딩된 XML로부터 PNG 파일 생성 성공: {hardcoded_png_path}, 크기: {os.path.getsize(hardcoded_png_path)} 바이트")
+                    with open(hardcoded_png_path, "rb") as f_png:
+                        png_data = f_png.read()
+                    if temp_dir and os.path.exists(temp_dir): # Cleanup before early return
+                        shutil.rmtree(temp_dir)
+                    return base64.b64encode(png_data).decode('utf-8'), None
+                else:
+                    logger.error(f"하드코딩된 XML로부터 PNG 생성 실패. Return Code: {result_hardcoded.returncode}, stderr: {result_hardcoded.stderr.strip()}")
+                    if temp_dir and os.path.exists(temp_dir): # Cleanup before early return
+                        shutil.rmtree(temp_dir)
+                    return None, "하드코딩된 XML 테스트 PNG 생성 실패." # Special error message
+
+            except Exception as e_hardcoded:
+                logger.error(f"하드코딩된 XML 테스트 중 예외 발생: {e_hardcoded}")
+                logger.error(traceback.format_exc())
+                if temp_dir and os.path.exists(temp_dir): # Cleanup before early return
+                    shutil.rmtree(temp_dir)
+                return None, f"하드코딩된 XML 테스트 중 예외: {str(e_hardcoded)}"
+            # If USE_HARDCODED_XML_TEST is true, the function will have returned by this point.
+            # The main finally block is thus only for the normal execution path.
+            # However, since this path *does* return, we'd need to clean up temp_dir here.
+            # For simplicity in this subtask, I will let the main finally block handle it,
+            # which means if USE_HARDCODED_XML_TEST is True and successful, the temp_dir might not be cleaned immediately.
+            # A more robust solution would duplicate the finally logic or refactor cleanup.
+            # For now, the focus is on the conditional execution.
+            # Let's ensure the main finally block is reached by not returning early from here if test fails.
+            # If test fails, it will return (None, "Hardcoded XML test PNG 생성 실패."),
+            # and the main finally block will execute.
+
+        # Normal processing starts here if USE_HARDCODED_XML_TEST is False
         logger.info("Music21 악보 객체 생성 시작.")
         score = stream.Score()
         score.append(tempo.MetronomeMark(number=bpm))
@@ -334,8 +461,8 @@ def generate_music21_score_with_fallback(
         score.append(part)
         logger.info("Music21 악보 객체 생성 완료. MuseScore PNG 생성을 시도합니다.")
 
-        temp_dir = tempfile.mkdtemp()
-        png_path = os.path.join(temp_dir, "score.png")
+        # temp_dir = tempfile.mkdtemp() # Moved earlier
+        png_path = os.path.join(temp_dir, "score.png") # This will be used by normal path
 
         try:
             # Music21이 MuseScore를 호출하여 PNG를 생성합니다.
@@ -344,8 +471,38 @@ def generate_music21_score_with_fallback(
             
             # 방법 1: 직접 PNG 생성
             try:
+                # --- Temporary MusicXML logging ---
+                temp_xml_file = None
+                try:
+                    with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".musicxml", dir=temp_dir) as temp_xml_file_obj:
+                        temp_xml_file_path = temp_xml_file_obj.name
+                        score.write("musicxml", fp=temp_xml_file_path)
+                        logger.info(f"임시 MusicXML 파일 생성: {temp_xml_file_path}")
+                        temp_xml_file_obj.seek(0)
+                        content = temp_xml_file_obj.read(1000)
+                        logger.info(f"임시 MusicXML 파일 내용 (처음 1000자): {content}...")
+                except Exception as ex_temp_xml:
+                    logger.warning(f"임시 MusicXML 파일 로깅 중 오류: {ex_temp_xml}")
+                finally:
+                    if temp_xml_file_path and os.path.exists(temp_xml_file_path):
+                        try:
+                            os.remove(temp_xml_file_path)
+                            logger.info(f"임시 MusicXML 파일 삭제: {temp_xml_file_path}")
+                        except Exception as ex_remove:
+                            logger.warning(f"임시 MusicXML 파일 삭제 중 오류: {ex_remove}")
+                # --- End Temporary MusicXML logging ---
+
                 score.write("musicxml.png", fp=png_path)
                 logger.info(f"직접 PNG 생성 시도 완료: {png_path}")
+
+                # --- PNG file existence and size logging ---
+                if os.path.exists(png_path):
+                    logger.info(f"PNG 파일 존재 확인: {png_path} (존재함)")
+                    logger.info(f"PNG 파일 크기: {os.path.getsize(png_path)} 바이트")
+                else:
+                    logger.info(f"PNG 파일 존재 확인: {png_path} (존재하지 않음)")
+                # --- End PNG file logging ---
+
             except Exception as e:
                 logger.warning(f"직접 PNG 생성 실패: {e}")
                 
@@ -366,13 +523,38 @@ def generate_music21_score_with_fallback(
                         # MuseScore 명령어로 직접 변환
                         musescore_path = os.environ.get("MUSESCORE_PATH", "/usr/bin/musescore3")
                         import subprocess
+
+                        # --- Logging before subprocess.run ---
+                        logger.info(f"MuseScore 직접 실행 명령: {musescore_path} -o {png_path} {xml_path}")
+                        if os.path.exists(xml_path):
+                            logger.info(f"입력 MusicXML 파일({xml_path}) 존재 확인: 존재함")
+                            logger.info(f"입력 MusicXML 파일({xml_path}) 크기: {os.path.getsize(xml_path)} 바이트")
+                            try:
+                                with open(xml_path, "r", encoding="utf-8") as f_xml:
+                                    xml_content_preview = f_xml.read(1000)
+                                    logger.info(f"입력 MusicXML 파일({xml_path}) 내용 (처음 1000자): {xml_content_preview}...")
+                            except Exception as ex_read_xml:
+                                logger.warning(f"입력 MusicXML 파일({xml_path}) 읽기 중 오류: {ex_read_xml}")
+                        else:
+                            logger.warning(f"입력 MusicXML 파일({xml_path}) 존재 확인: 존재하지 않음!")
+                        # --- End logging before subprocess.run ---
+
                         cmd = [musescore_path, "-o", png_path, xml_path]
-                        logger.info(f"MuseScore 직접 실행: {' '.join(cmd)}")
+                        # logger.info(f"MuseScore 직접 실행: {' '.join(cmd)}") # Already logged above in more detail
                         
                         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+                        # --- Logging after subprocess.run ---
+                        logger.info(f"MuseScore 실행 Return Code: {result.returncode}")
+                        if result.stdout:
+                            logger.info(f"MuseScore 실행 STDOUT: {result.stdout.strip()}")
+                        if result.stderr: # Log stderr even if returncode is 0
+                            logger.info(f"MuseScore 실행 STDERR: {result.stderr.strip()}")
+                        # --- End logging after subprocess.run ---
+
                         if result.returncode != 0:
-                            logger.error(f"MuseScore 실행 실패: {result.stderr}")
-                            raise RuntimeError(f"MuseScore 실행 실패: {result.stderr}")
+                            # logger.error(f"MuseScore 실행 실패: {result.stderr}") # Already logged by the generic STDERR log
+                            raise RuntimeError(f"MuseScore 실행 실패 (자세한 내용은 이전 로그 참조)")
                             
                     except Exception as e3:
                         logger.error(f"MuseScore 직접 호출 실패: {e3}")

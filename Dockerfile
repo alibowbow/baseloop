@@ -57,6 +57,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # DBus 관련 (Qt 앱에서 필요할 수 있음)
     dbus-x11 \
     # -----------------------------------------------------
+    && musescore3 --version \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
