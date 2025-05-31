@@ -14,7 +14,7 @@
             padding: 20px;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: flex-start; 
             min-height: 100vh;
             box-sizing: border-box;
         }
@@ -116,6 +116,15 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        /* Style for the audio player */
+        audio {
+            width: 100%;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+        }
 
         /* Responsive adjustments */
         @media (max-width: 480px) {
@@ -137,7 +146,7 @@
 <body>
     <div class="container">
         <h1>🎵 베이스 루프 자동 생성기 🎸</h1>
-        <form id="bassGeneratorForm" action="/generate_audio" method="post">
+        <form id="bassGeneratorForm"> <!-- action 및 method 속성을 JavaScript가 처리하므로 제거 -->
             
             <label for="generation_mode">생성 모드 선택</label>
             <select id="generation_mode" name="generation_mode" onchange="toggleModeOptions()">
@@ -185,7 +194,7 @@
 
             <!-- 악보 생성 버튼 (모드에 따라 동작 다름) -->
             <button type="button" onclick="generateNotes()">악보 자동 생성</button>
-            <div id="loadingSpinner">악보 생성 중... (잠시만 기다려주세요)</div>
+            <div id="loadingSpinnerNotes" style="display:none;">악보 생성 중... (잠시만 기다려주세요)</div>
             
             <label for="notes_sequence_input" style="margin-top: 25px;">생성/입력된 악보 시퀀스</label>
             <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">{{ recommended_notes_str }}</textarea>
@@ -197,7 +206,11 @@
             <input type="number" id="num_loops_input" name="num_loops_input" value="{{ default_loops }}" min="1" max="100" required>
 
             <!-- 오디오 생성 버튼 (공통) -->
-            <button type="submit">베이스 루프 오디오 생성 (WAV 다운로드)</button>
+            <button type="button" onclick="playGeneratedAudio()">베이스 루프 오디오 생성 & 재생</button>
+            <div id="loadingSpinnerAudio" style="display:none;">오디오 생성 중... (잠시만 기다려주세요)</div>
+
+            <!-- 오디오 플레이어 추가 -->
+            <audio controls id="audioPlayer"></audio>
         </form>
     </div>
 
@@ -211,16 +224,17 @@
         function toggleModeOptions() {
             const modeSelect = document.getElementById('generation_mode');
             const aiOptionsDiv = document.getElementById('ai_mode_options');
+            const geminiApiKeyInput = document.getElementById('gemini_api_key_input');
             
             if (modeSelect.value === 'ai') {
                 aiOptionsDiv.style.display = 'block';
                 // AI 모드에서는 API 키 필드를 필수 (required)로 만듬
-                document.getElementById('gemini_api_key_input').setAttribute('required', 'true');
+                geminiApiKeyInput.setAttribute('required', 'true');
             } else {
                 aiOptionsDiv.style.display = 'none';
-                // 랜덤 모드에서는 API 키 필드 필수 해제 및 비움
-                document.getElementById('gemini_api_key_input').removeAttribute('required');
-                document.getElementById('gemini_api_key_input').value = ''; // 키 필드 초기화
+                // 랜덤 모드에서는 API 키 필드 필수 해제
+                geminiApiKeyInput.removeAttribute('required');
+                geminiApiKeyInput.value = ''; // 키 필드 비우기
             }
         }
 
@@ -233,9 +247,9 @@
             const genre = document.getElementById('genre_input').value;
             const keyNote = document.getElementById('key_note_input').value;
             const octave = document.getElementById('octave_input').value;
-            const apiKey = document.getElementById('gemini_api_key_input').value;
+            const apiKey = document.getElementById('gemini_api_key_input').value; // AI 모드일 때만 사용
 
-            const loadingSpinner = document.getElementById('loadingSpinner');
+            const loadingSpinner = document.getElementById('loadingSpinnerNotes'); // 악보 생성용 스피너
             const notesSequenceInput = document.getElementById('notes_sequence_input');
             
             // 로딩 상태 시작
@@ -257,7 +271,7 @@
                         alert("Gemini API 키를 입력해주세요!");
                         loadingSpinner.style.display = 'none';
                         notesSequenceInput.value = 'AI 추천을 위해서는 API 키가 필요합니다.';
-                        return;
+                        return; // 함수 실행 중단
                     }
                     formData.append('gemini_api_key_input', apiKey);
                 }
@@ -283,6 +297,60 @@
                 notesSequenceInput.value = '악보 생성 중 네트워크 또는 서버 오류가 발생했습니다.';
             } finally {
                 loadingSpinner.style.display = 'none'; // 로딩 상태 종료
+            }
+        }
+
+        async function playGeneratedAudio() {
+            const notesSequence = document.getElementById('notes_sequence_input').value;
+            const bpm = document.getElementById('bpm_input').value;
+            const numLoops = document.getElementById('num_loops_input').value;
+
+            const audioPlayer = document.getElementById('audioPlayer');
+            const loadingSpinner = document.getElementById('loadingSpinnerAudio'); // 오디오 생성용 스피너
+            
+            if (!notesSequence.trim()) {
+                alert("먼저 악보 시퀀스를 생성하거나 입력해주세요!");
+                return;
+            }
+
+            loadingSpinner.style.display = 'block'; // 로딩 스피너 표시
+            audioPlayer.src = ''; // 기존 오디오 중지 및 제거
+            audioPlayer.load(); // 플레이어 리로드
+
+            try {
+                const formData = new FormData();
+                formData.append('notes_sequence_input', notesSequence);
+                formData.append('bpm_input', bpm);
+                formData.append('num_loops_input', numLoops);
+
+                const response = await fetch('/generate_audio', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob); // Blob URL 생성
+                    
+                    audioPlayer.src = audioUrl; // 오디오 플레이어 소스 설정
+                    audioPlayer.play(); // 오디오 재생
+                    
+                    // Blob URL은 더 이상 필요 없으면 해제 (메모리 관리)
+                    audioPlayer.onended = () => {
+                        URL.revokeObjectURL(audioUrl); 
+                        audioPlayer.onended = null;
+                    };
+                } else {
+                    const errorMessage = await response.text(); // 서버가 오류 메시지를 텍스트로 보낼 것
+                    alert('오디오 생성에 실패했습니다: ' + errorMessage);
+                    console.error('Server response error:', response.status, errorMessage);
+                }
+
+            } catch (error) {
+                console.error('Error playing audio:', error);
+                alert('오디오를 재생하는 중 네트워크 오류 또는 서버 문제가 발생했습니다.');
+            } finally {
+                loadingSpinner.style.display = 'none'; // 로딩 스피너 숨김
             }
         }
     </script>
