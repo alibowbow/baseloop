@@ -42,7 +42,7 @@
             padding: 35px;
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-            max-width: 800px;
+            max-width: 900px;
             width: 100%;
             margin-top: 30px;
             box-sizing: border-box;
@@ -316,7 +316,7 @@
     <!-- JavaScript 로직 -->
     <script>
         document.addEventListener('DOMContentLoaded', (event) => {
-            console.log('✅ 페이지 로드 완료 - Canvas 기반 악보 렌더러 시작');
+            console.log('✅ 페이지 로드 완료 - 정확한 베이스 클레프 악보 렌더러 시작');
             
             // 페이지 로드 시 선택된 기본 모드에 따라 UI 조정
             toggleModeOptions();
@@ -492,27 +492,42 @@
             }
         }
 
-        // --- Canvas 기반 악보 시각화 함수 ---
+        // --- 정확한 베이스 클레프 악보 시각화 함수 ---
 
         // 악보 렌더링 상수
         const CANVAS_CONFIG = {
             STAFF_LINE_SPACING: 12,     // 오선 간격
             STAFF_HEIGHT: 48,           // 오선 높이 (4선 간격)
-            STAFF_WIDTH: 700,           // 오선 너비
+            STAFF_WIDTH: 800,           // 오선 너비 증가
             STAFF_MARGIN_X: 30,         // 좌우 여백
             STAFF_MARGIN_Y: 60,         // 상하 여백
-            MEASURE_WIDTH: 160,         // 마디 너비
+            MEASURE_WIDTH: 180,         // 마디 너비 증가
             MEASURES_PER_LINE: 4,       // 한 줄당 마디 수
-            LINE_SPACING: 120,          // 줄 간격
-            NOTE_SIZE: 8,               // 음표 크기
-            CLEF_WIDTH: 40,             // 클레프 너비
+            LINE_SPACING: 140,          // 줄 간격 증가
+            NOTE_SIZE: 7,               // 음표 크기
+            CLEF_WIDTH: 50,             // 클레프 너비 증가
         };
 
-        // 베이스 클레프 음표 위치 매핑 (선 기준, 아래부터 0,1,2,3,4)
+        // 정확한 베이스 클레프 음표 위치 매핑
         const BASS_NOTE_POSITIONS = {
-            'A1': -2, 'B1': -1, 'C2': 0, 'D2': 1, 'E2': 2, 'F2': 3, 'G2': 4,
-            'A2': 5, 'B2': 6, 'C3': 7, 'D3': 8, 'E3': 9, 'F3': 10, 'G3': 11,
-            'A3': 12, 'B3': 13, 'C4': 14, 'D4': 15, 'E4': 16
+            // 옥타브 1
+            'A1': 9,   'A#1': 9,  'B1': 8,   'B#1': 8,
+            
+            // 옥타브 2 (베이스 클레프의 주요 음역)
+            'C2': 7,   'C#2': 7,  'D2': 6,   'D#2': 6,
+            'E2': 5,   'E#2': 5,  'F2': 4,   'F#2': 4,
+            'G2': 3,   'G#2': 3,  'A2': 2,   'A#2': 2,
+            'B2': 1,   'B#2': 1,
+            
+            // 옥타브 3
+            'C3': 0,   'C#3': 0,  'D3': -1,  'D#3': -1,
+            'E3': -2,  'E#3': -2, 'F3': -3,  'F#3': -3,
+            'G3': -4,  'G#3': -4, 'A3': -5,  'A#3': -5,
+            'B3': -6,  'B#3': -6,
+            
+            // 옥타브 4
+            'C4': -7,  'C#4': -7, 'D4': -8,  'D#4': -8,
+            'E4': -9,  'E#4': -9, 'F4': -10, 'F#4': -10,
         };
 
         function clearSheetMusic() {
@@ -542,6 +557,16 @@
                 if (currentBeats + note.duration > 4) {
                     // 마디가 넘치면 이전 마디 완성
                     if (currentMeasure.length > 0) {
+                        // 남은 박자를 쉼표로 채움
+                        const remainingBeats = 4 - currentBeats;
+                        if (remainingBeats > 0) {
+                            currentMeasure.push({
+                                name: 'R',
+                                octave: 4,
+                                duration: remainingBeats,
+                                isRest: true
+                            });
+                        }
                         measures.push(currentMeasure);
                     }
                     currentMeasure = [note];
@@ -558,7 +583,17 @@
                 }
             }
 
+            // 마지막 마디 처리
             if (currentMeasure.length > 0) {
+                const remainingBeats = 4 - currentBeats;
+                if (remainingBeats > 0) {
+                    currentMeasure.push({
+                        name: 'R',
+                        octave: 4,
+                        duration: remainingBeats,
+                        isRest: true
+                    });
+                }
                 measures.push(currentMeasure);
             }
 
@@ -579,18 +614,41 @@
         }
 
         function drawBassClef(ctx, x, y) {
+            // Canvas로 베이스 클레프 직접 그리기 (더 안정적)
             ctx.fillStyle = '#000000';
-            ctx.font = 'bold 36px serif';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
             
-            // 베이스 클레프 기호 (유니코드)
-            ctx.fillText('𝄢', x + 5, y + CANVAS_CONFIG.STAFF_HEIGHT / 2);
+            const centerX = x + 20;
+            const centerY = y + 24; // 3선 중앙
+            
+            // 베이스 클레프의 기본 형태 그리기
+            ctx.beginPath();
+            // 큰 원 (메인 부분)
+            ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 작은 원들 (두 점)
+            ctx.beginPath();
+            ctx.arc(centerX + 15, centerY - 6, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(centerX + 15, centerY + 6, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 세로선
+            ctx.beginPath();
+            ctx.moveTo(centerX + 8, centerY - 15);
+            ctx.lineTo(centerX + 8, centerY + 15);
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.lineWidth = 1;
         }
 
         function drawTimeSignature(ctx, x, y) {
             ctx.fillStyle = '#000000';
-            ctx.font = 'bold 20px Arial';
+            ctx.font = 'bold 18px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
@@ -604,83 +662,264 @@
             const position = BASS_NOTE_POSITIONS[noteKey];
             
             if (position === undefined) {
-                // 기본 위치 (C2)
-                return staffY + CANVAS_CONFIG.STAFF_HEIGHT;
+                console.warn(`Unknown note position: ${noteKey}, using F2 as default`);
+                return staffY + CANVAS_CONFIG.STAFF_HEIGHT / 2; // F2 위치 기본값
             }
             
-            // 위치 계산 (아래선부터 0, 위로 갈수록 음수)
-            return staffY + CANVAS_CONFIG.STAFF_HEIGHT - (position * CANVAS_CONFIG.STAFF_LINE_SPACING / 2);
+            // 위치 계산: 각 위치는 선 간격의 절반 (6px)씩 차이
+            return staffY + CANVAS_CONFIG.STAFF_HEIGHT - (position * 6);
         }
 
-        function drawNote(ctx, x, y, duration, noteName) {
+        function getStemDirection(noteName, octave) {
+            const noteKey = `${noteName}${octave}`;
+            const position = BASS_NOTE_POSITIONS[noteKey];
+            
+            // 베이스 클레프에서 3선(F2, position 4) 기준으로 위/아래 결정
+            return position >= 4 ? 'down' : 'up';
+        }
+
+        function drawLedgerLines(ctx, x, y, noteName, octave, staffY) {
+            const noteKey = `${noteName}${octave}`;
+            const position = BASS_NOTE_POSITIONS[noteKey];
+            
+            if (position === undefined) return;
+            
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            
+            // 5선 위 보조선이 필요한 경우 (position > 8)
+            if (position > 8) {
+                for (let i = 10; i <= position; i += 2) {
+                    const lineY = staffY + CANVAS_CONFIG.STAFF_HEIGHT - (i * 6);
+                    ctx.beginPath();
+                    ctx.moveTo(x - 15, lineY);
+                    ctx.lineTo(x + 15, lineY);
+                    ctx.stroke();
+                }
+            }
+            
+            // 1선 아래 보조선이 필요한 경우 (position < 0)
+            if (position < 0) {
+                for (let i = -2; i >= position; i -= 2) {
+                    const lineY = staffY + CANVAS_CONFIG.STAFF_HEIGHT - (i * 6);
+                    ctx.beginPath();
+                    ctx.moveTo(x - 15, lineY);
+                    ctx.lineTo(x + 15, lineY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function drawNote(ctx, x, y, duration, noteName, octave, isRest = false) {
+            if (isRest) {
+                drawRest(ctx, x, y, duration);
+                return;
+            }
+
+            // 보조선 먼저 그리기
+            drawLedgerLines(ctx, x, y, noteName, octave, y - CANVAS_CONFIG.STAFF_HEIGHT);
+
             ctx.fillStyle = '#000000';
+            const stemDirection = getStemDirection(noteName, octave);
             
             // 음표 머리 그리기
             if (duration >= 2.0) {
-                // 2분음표 이상 - 속이 빈 원
+                // 2분음표 이상 - 속이 빈 타원
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                ctx.ellipse(x, y, CANVAS_CONFIG.NOTE_SIZE, CANVAS_CONFIG.NOTE_SIZE * 0.7, 0, 0, 2 * Math.PI);
+                ctx.ellipse(x, y, CANVAS_CONFIG.NOTE_SIZE + 1, CANVAS_CONFIG.NOTE_SIZE * 0.8, -0.3, 0, 2 * Math.PI);
                 ctx.stroke();
             } else {
-                // 4분음표 이하 - 속이 찬 원
+                // 4분음표 이하 - 속이 찬 타원
                 ctx.beginPath();
-                ctx.ellipse(x, y, CANVAS_CONFIG.NOTE_SIZE, CANVAS_CONFIG.NOTE_SIZE * 0.7, 0, 0, 2 * Math.PI);
+                ctx.ellipse(x, y, CANVAS_CONFIG.NOTE_SIZE + 1, CANVAS_CONFIG.NOTE_SIZE * 0.8, -0.3, 0, 2 * Math.PI);
                 ctx.fill();
             }
 
             // 음표 기둥 그리기 (온음표가 아닌 경우)
             if (duration < 4.0) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE, y);
-                ctx.lineTo(x + CANVAS_CONFIG.NOTE_SIZE, y - 30);
-                ctx.lineWidth = 2;
+                
+                if (stemDirection === 'up') {
+                    // 기둥 위로 (오른쪽에서)
+                    ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE, y);
+                    ctx.lineTo(x + CANVAS_CONFIG.NOTE_SIZE, y - 35);
+                    
+                    // 깃발 위치 저장
+                    var flagX = x + CANVAS_CONFIG.NOTE_SIZE;
+                    var flagY = y - 35;
+                } else {
+                    // 기둥 아래로 (왼쪽에서)
+                    ctx.moveTo(x - CANVAS_CONFIG.NOTE_SIZE, y);
+                    ctx.lineTo(x - CANVAS_CONFIG.NOTE_SIZE, y + 35);
+                    
+                    // 깃발 위치 저장
+                    var flagX = x - CANVAS_CONFIG.NOTE_SIZE;
+                    var flagY = y + 35;
+                }
                 ctx.stroke();
-                ctx.lineWidth = 1;
             }
 
             // 8분음표 깃발
             if (duration === 0.5) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE, y - 30);
-                ctx.quadraticCurveTo(x + CANVAS_CONFIG.NOTE_SIZE + 10, y - 25, x + CANVAS_CONFIG.NOTE_SIZE + 8, y - 15);
+                
+                if (stemDirection === 'up') {
+                    ctx.moveTo(flagX, flagY);
+                    ctx.quadraticCurveTo(flagX + 15, flagY + 5, flagX + 12, flagY + 18);
+                } else {
+                    ctx.moveTo(flagX, flagY);
+                    ctx.quadraticCurveTo(flagX - 15, flagY - 5, flagX - 12, flagY - 18);
+                }
                 ctx.stroke();
+                ctx.lineWidth = 1;
             }
 
             // 16분음표 깃발 (두 개)
             if (duration === 0.25) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE, y - 30);
-                ctx.quadraticCurveTo(x + CANVAS_CONFIG.NOTE_SIZE + 10, y - 25, x + CANVAS_CONFIG.NOTE_SIZE + 8, y - 15);
-                ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE, y - 25);
-                ctx.quadraticCurveTo(x + CANVAS_CONFIG.NOTE_SIZE + 10, y - 20, x + CANVAS_CONFIG.NOTE_SIZE + 8, y - 10);
+                
+                if (stemDirection === 'up') {
+                    // 첫 번째 깃발
+                    ctx.moveTo(flagX, flagY);
+                    ctx.quadraticCurveTo(flagX + 15, flagY + 5, flagX + 12, flagY + 18);
+                    // 두 번째 깃발
+                    ctx.moveTo(flagX, flagY + 8);
+                    ctx.quadraticCurveTo(flagX + 15, flagY + 13, flagX + 12, flagY + 26);
+                } else {
+                    // 첫 번째 깃발
+                    ctx.moveTo(flagX, flagY);
+                    ctx.quadraticCurveTo(flagX - 15, flagY - 5, flagX - 12, flagY - 18);
+                    // 두 번째 깃발
+                    ctx.moveTo(flagX, flagY - 8);
+                    ctx.quadraticCurveTo(flagX - 15, flagY - 13, flagX - 12, flagY - 26);
+                }
                 ctx.stroke();
+                ctx.lineWidth = 1;
             }
 
-            // 임시표 그리기 (#)
+            // 임시표 그리기 (정확한 높이에)
             if (noteName.includes('#')) {
-                ctx.font = '16px Arial';
-                ctx.fillText('♯', x - 15, y + 2);
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('♯', x - 20, y);
+            } else if (noteName.includes('b')) {
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('♭', x - 20, y);
+            }
+            
+            ctx.fillStyle = '#000000'; // 색상 리셋
+        }
+
+        function drawRest(ctx, x, y, duration) {
+            ctx.fillStyle = '#000000';
+            ctx.strokeStyle = '#000000';
+            
+            if (duration === 4.0) {
+                // 온쉼표 - 2선 아래 검은 사각형
+                ctx.fillRect(x - 6, y - 6, 12, 6);
+            } else if (duration === 2.0) {
+                // 2분쉼표 - 3선 위 검은 사각형
+                ctx.fillRect(x - 6, y, 12, 6);
+            } else if (duration === 1.0) {
+                // 4분쉼표 - 지그재그 모양
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x - 3, y - 15);
+                ctx.lineTo(x + 3, y - 5);
+                ctx.lineTo(x - 3, y + 5);
+                ctx.lineTo(x + 3, y + 15);
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            } else if (duration === 0.5) {
+                // 8분쉼표 - 작은 깃발 모양
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(x, y - 8);
+                ctx.lineTo(x, y + 8);
+                ctx.moveTo(x, y - 5);
+                ctx.quadraticCurveTo(x + 8, y - 2, x + 6, y + 5);
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            } else if (duration === 0.25) {
+                // 16분쉼표 - 이중 깃발 모양
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(x, y - 10);
+                ctx.lineTo(x, y + 10);
+                ctx.moveTo(x, y - 7);
+                ctx.quadraticCurveTo(x + 8, y - 4, x + 6, y + 3);
+                ctx.moveTo(x, y - 2);
+                ctx.quadraticCurveTo(x + 8, y + 1, x + 6, y + 8);
+                ctx.stroke();
+                ctx.lineWidth = 1;
             }
         }
 
-        function drawBarline(ctx, x, y, height) {
+        function drawBarline(ctx, x, y, height, isDouble = false) {
             ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x, y + height);
-            ctx.stroke();
+            
+            if (isDouble) {
+                // 끝마디선 (이중선)
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x - 3, y);
+                ctx.lineTo(x - 3, y + height);
+                ctx.stroke();
+                
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y + height);
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            } else {
+                // 일반 마디선
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y + height);
+                ctx.stroke();
+            }
         }
 
         function drawMeasureNumber(ctx, x, y, measureNum) {
             ctx.fillStyle = '#666666';
             ctx.font = '12px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText(measureNum.toString(), x, y - 10);
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(measureNum.toString(), x, y - 5);
+        }
+
+        function calculateNotePositions(measureNotes, measureWidth) {
+            // 박자에 비례한 음표 위치 계산
+            const totalBeats = measureNotes.reduce((sum, note) => sum + note.duration, 0);
+            const positions = [];
+            let currentPosition = 20; // 마디 시작 여백
+            
+            measureNotes.forEach((note, index) => {
+                positions.push(currentPosition);
+                const noteWidth = (note.duration / totalBeats) * (measureWidth - 40); // 양쪽 여백 제외
+                currentPosition += Math.max(noteWidth, 25); // 최소 간격 보장
+            });
+            
+            return positions;
         }
 
         function renderSheetMusic(notesSequenceStr, lengthMeasures, bpm) {
-            console.log('🎵 Canvas 기반 악보 렌더링 시작');
+            console.log('🎵 정확한 베이스 클레프 악보 렌더링 시작');
             
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) {
@@ -718,9 +957,9 @@
 
                 // 제목
                 ctx.fillStyle = '#3b82f6';
-                ctx.font = 'bold 20px Arial';
+                ctx.font = 'bold 22px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText('베이스 라인 악보', canvas.width / 2, 30);
+                ctx.fillText('베이스 라인 악보', canvas.width / 2, 35);
 
                 // 각 줄 그리기
                 for (let line = 0; line < linesNeeded; line++) {
@@ -733,7 +972,7 @@
                     // 첫 번째 줄에만 클레프와 박자표
                     if (line === 0) {
                         drawBassClef(ctx, lineX, lineY);
-                        drawTimeSignature(ctx, lineX + CANVAS_CONFIG.CLEF_WIDTH + 20, lineY);
+                        drawTimeSignature(ctx, lineX + CANVAS_CONFIG.CLEF_WIDTH + 25, lineY);
                     }
 
                     // 이 줄에 해당하는 마디들 그리기
@@ -742,52 +981,49 @@
 
                     for (let m = startMeasure; m < endMeasure; m++) {
                         const measureInLine = m - startMeasure;
-                        const measureX = lineX + CANVAS_CONFIG.CLEF_WIDTH + 40 + (measureInLine * CANVAS_CONFIG.MEASURE_WIDTH);
+                        const measureX = lineX + CANVAS_CONFIG.CLEF_WIDTH + 50 + (measureInLine * CANVAS_CONFIG.MEASURE_WIDTH);
                         
                         // 마디 번호
                         drawMeasureNumber(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH / 2, lineY, m + 1);
 
                         // 마디 내 음표들
                         const measureNotes = measures[m];
-                        let noteX = measureX + 20;
-                        const noteSpacing = (CANVAS_CONFIG.MEASURE_WIDTH - 40) / Math.max(measureNotes.length, 4);
+                        const notePositions = calculateNotePositions(measureNotes, CANVAS_CONFIG.MEASURE_WIDTH);
 
                         measureNotes.forEach((note, noteIndex) => {
+                            const noteX = measureX + notePositions[noteIndex];
                             const noteY = getNoteY(note.name, note.octave, lineY);
-                            drawNote(ctx, noteX, noteY, note.duration, note.name);
                             
-                            // 음표 이름 표시 (디버깅용)
-                            ctx.fillStyle = '#666666';
-                            ctx.font = '10px Arial';
-                            ctx.textAlign = 'center';
-                            ctx.fillText(`${note.name}${note.octave}`, noteX, noteY + 25);
+                            drawNote(ctx, noteX, noteY, note.duration, note.name, note.octave, note.isRest);
                             
-                            noteX += noteSpacing;
-                            ctx.fillStyle = '#000000'; // 색상 리셋
+                            // 음표 이름 표시 (디버깅/학습용)
+                            if (!note.isRest) {
+                                ctx.fillStyle = '#888888';
+                                ctx.font = '10px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.fillText(`${note.name}${note.octave}`, noteX, noteY + 30);
+                                ctx.fillStyle = '#000000'; // 색상 리셋
+                            }
                         });
 
                         // 마디선
-                        if (measureInLine < CANVAS_CONFIG.MEASURES_PER_LINE - 1 || m === measures.length - 1) {
-                            drawBarline(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH, lineY, CANVAS_CONFIG.STAFF_HEIGHT);
-                        }
-
-                        // 마지막 마디면 끝마디선
-                        if (m === measures.length - 1) {
-                            ctx.lineWidth = 3;
-                            drawBarline(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH + 3, lineY, CANVAS_CONFIG.STAFF_HEIGHT);
-                            ctx.lineWidth = 1;
+                        const isLastMeasure = m === measures.length - 1;
+                        const isEndOfLine = measureInLine === CANVAS_CONFIG.MEASURES_PER_LINE - 1;
+                        
+                        if (isEndOfLine || isLastMeasure) {
+                            drawBarline(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH, lineY, CANVAS_CONFIG.STAFF_HEIGHT, isLastMeasure);
                         }
                     }
                 }
 
                 // 하단 정보
                 ctx.fillStyle = '#64748b';
-                ctx.font = '12px Arial';
+                ctx.font = '14px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(`BPM: ${bpm} | ${measures.length}마디 | Canvas 2D 렌더링`, canvas.width / 2, canvas.height - 15);
+                ctx.fillText(`BPM: ${bpm} | ${measures.length}마디 | 정확한 베이스 클레프`, canvas.width / 2, canvas.height - 15);
 
-                console.log('✅ Canvas 악보 렌더링 완료');
-                showMessage('🎵 악보가 성공적으로 렌더링되었습니다!', 'success');
+                console.log('✅ 정확한 베이스 클레프 악보 렌더링 완료');
+                showMessage('🎵 정확한 베이스 악보가 성공적으로 렌더링되었습니다!', 'success');
 
             } catch (error) {
                 console.error('Canvas 악보 렌더링 오류:', error);
@@ -803,7 +1039,7 @@
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) return;
 
-            canvas.width = 700;
+            canvas.width = 800;
             canvas.height = 300;
 
             const ctx = canvas.getContext('2d');
@@ -815,7 +1051,7 @@
             
             // 제목
             ctx.fillStyle = '#3b82f6';
-            ctx.font = 'bold 18px Arial';
+            ctx.font = 'bold 20px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('베이스 라인 (텍스트 모드)', canvas.width / 2, 40);
             
@@ -842,11 +1078,11 @@
             ctx.fillText(`마디 ${currentMeasure}:`, x, y - 10);
             
             notes.forEach((note, index) => {
-                if (x > canvas.width - 100) {
+                if (x > canvas.width - 120) {
                     x = 50;
                     y += 40;
                     
-                    if (y < canvas.height - 40) {
+                    if (y < canvas.height - 60) {
                         currentMeasure++;
                         ctx.fillStyle = '#64748b';
                         ctx.font = '14px Arial';
@@ -866,12 +1102,12 @@
                     
                     if (currentBeats >= 4) {
                         ctx.fillStyle = '#e2e8f0';
-                        ctx.fillRect(x + ctx.measureText(note).width + 5, y - 15, 2, 20);
+                        ctx.fillRect(x + ctx.measureText(note).width + 10, y - 15, 2, 25);
                         currentBeats = 0;
                     }
                 }
                 
-                x += ctx.measureText(note).width + 20;
+                x += ctx.measureText(note).width + 25;
             });
             
             // 하단 메시지
