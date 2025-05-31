@@ -7,6 +7,25 @@ import os
 import ast # For safe parsing of LLM output
 import traceback
 import logging
+import tempfile
+import base64
+
+# Music21 라이브러리 (악보 생성)
+try:
+    from music21 import stream, note, meter, tempo, clef, bar, duration, pitch, key, layout
+    MUSIC21_AVAILABLE = True
+except ImportError:
+    MUSIC21_AVAILABLE = False
+    print("Warning: music21 라이브러리가 설치되지 않았습니다. 전문 악보 생성을 사용할 수 없습니다.")
+
+# MIDI 라이브러리
+try:
+    import mido
+    from mido import MidiFile, MidiTrack, Message
+    MIDI_AVAILABLE = True
+except ImportError:
+    MIDI_AVAILABLE = False
+    print("Warning: mido 라이브러리가 설치되지 않았습니다. MIDI 파일 생성을 사용할 수 없습니다.")
 
 # Google Gemini 라이브러리 (AI 모드 사용 시 필수)
 try:
@@ -161,9 +180,219 @@ def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
     
     return buffer
 
-# --- 스타일 기반 랜덤 생성 함수 (랜덤 모드) ---
+# --- Music21 기반 전문 악보 생성 함수 ---
+def generate_music21_score(notes_sequence, bpm, key_signature='C'):
+    """Music21을 사용한 전문적인 악보 생성 (PNG 이미지 반환)"""
+    if not MUSIC21_AVAILABLE:
+        raise ValueError("Music21 라이브러리가 설치되지 않았습니다.")
+    
+    try:
+        # 새로운 스코어 생성
+        score = stream.Score()
+        
+        # 메타데이터 설정
+        score.append(tempo.MetronomeMark(number=bpm))
+        score.append(meter.TimeSignature('4/4'))
+        score.append(key.KeySignature(key_signature))
+        
+        # 베이스 파트 생성
+        bass_part = stream.Part()
+        bass_part.append(clef.BassClef())
+        bass_part.append(tempo.MetronomeMark(number=bpm))
+        bass_part.append(meter.TimeSignature('4/4'))
+        bass_part.append(key.KeySignature(key_signature))
+        
+        # 음표들 추가
+        for note_name, octave, duration_val in notes_sequence:
+            if note_name.upper() == 'R':  # 쉼표
+                rest = note.Rest(quarterLength=duration_val)
+                bass_part.append(rest)
+            else:
+                try:
+                    # Music21 음표 생성
+                    n = note.Note(f"{note_name}{octave}")
+                    n.duration = duration.Duration(quarterLength=duration_val)
+                    bass_part.append(n)
+                except Exception as e:
+                    logger.warning(f"음표 생성 실패 {note_name}{octave}: {e}, 쉼표로 대체")
+                    rest = note.Rest(quarterLength=duration_val)
+                    bass_part.append(rest)
+        
+        score.append(bass_part)
+        
+        # 임시 디렉토리에 PNG로 저장
+        temp_dir = tempfile.mkdtemp()
+        png_path = os.path.join(temp_dir, 'score.png')
+        
+        # MuseScore 없이도 작동하도록 설정
+        try:
+            score.write('musicxml.png', fp=png_path)
+        except:
+            # MuseScore가 없는 경우 대안 방법
+            score.write('midi', fp=png_path.replace('.png', '.mid'))
+            # 간단한 텍스트 표현으로 대체
+            text_score = generate_text_score(notes_sequence, bpm)
+            return None, text_score
+        
+        return png_path, None
+        
+    except Exception as e:
+        logger.error(f"Music21 악보 생성 실패: {e}")
+        raise ValueError(f"Music21 악보 생성 실패: {str(e)}")
+
+def generate_text_score(notes_sequence, bpm):
+    """텍스트 기반 악보 표현 (Music21 실패시 대안)"""
+    text_lines = []
+    text_lines.append(f"베이스 라인 악보 (BPM: {bpm})")
+    text_lines.append("=" * 40)
+    text_lines.append("")
+    
+    current_measure = 1
+    current_beats = 0
+    measure_notes = []
+    
+    for note_name, octave, duration_val in notes_sequence:
+        if current_beats + duration_val > 4:
+            # 현재 마디 완료
+            if measure_notes:
+                text_lines.append(f"마디 {current_measure}: {' | '.join(measure_notes)}")
+                current_measure += 1
+                measure_notes = []
+                current_beats = 0
+        
+        note_str = f"{note_name}{octave}({duration_val})"
+        measure_notes.append(note_str)
+        current_beats += duration_val
+    
+    # 마지막 마디
+    if measure_notes:
+        text_lines.append(f"마디 {current_measure}: {' | '.join(measure_notes)}")
+    
+    return "\n".join(text_lines)
+
+# --- MIDI 생성 함수 ---
+def note_name_to_midi(note_name, octave):
+    """음표 이름을 MIDI 노트 번호로 변환"""
+    notes = {'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 
+             'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11}
+    return (octave + 1) * 12 + notes[note_name.upper()]
+
+def generate_midi_file(notes_sequence, bpm):
+    """MIDI 파일 생성"""
+    if not MIDI_AVAILABLE:
+        raise ValueError("Mido 라이브러리가 설치되지 않았습니다.")
+    
+    try:
+        # MIDI 파일 생성
+        mid = MidiFile()
+        track = MidiTrack()
+        mid.tracks.append(track)
+        
+        # 프로그램 체인지 (베이스 악기 설정)
+        track.append(Message('program_change', channel=0, program=32, time=0))  # Acoustic Bass
+        
+        # 템포 설정
+        tempo_microseconds = mido.bpm2tempo(bpm)
+        track.append(mido.MetaMessage('set_tempo', tempo=tempo_microseconds))
+        
+        # 음표들을 MIDI 이벤트로 변환
+        ticks_per_beat = mid.ticks_per_beat
+        
+        for note_name, octave, duration in notes_sequence:
+            if note_name.upper() != 'R':  # 쉼표가 아닌 경우
+                try:
+                    midi_note = note_name_to_midi(note_name, octave)
+                    velocity = 80
+                    duration_ticks = int(duration * ticks_per_beat)
+                    
+                    # Note On
+                    track.append(Message('note_on', channel=0, note=midi_note, 
+                                       velocity=velocity, time=0))
+                    # Note Off
+                    track.append(Message('note_off', channel=0, note=midi_note, 
+                                       velocity=0, time=duration_ticks))
+                except Exception as e:
+                    logger.warning(f"MIDI 음표 생성 실패 {note_name}{octave}: {e}")
+                    # 쉼표로 처리
+                    duration_ticks = int(duration * ticks_per_beat)
+                    track.append(Message('note_on', channel=0, note=60, 
+                                       velocity=0, time=duration_ticks))
+            else:
+                # 쉼표 처리
+                duration_ticks = int(duration * ticks_per_beat)
+                track.append(Message('note_on', channel=0, note=60, 
+                                   velocity=0, time=duration_ticks))
+        
+        return mid
+        
+    except Exception as e:
+        logger.error(f"MIDI 생성 실패: {e}")
+        raise ValueError(f"MIDI 생성 실패: {str(e)}")
+
+# --- LilyPond 형식 생성 ---
+def convert_to_lilypond_notes(notes_sequence):
+    """음표 시퀀스를 LilyPond 형식으로 변환"""
+    lilypond_notes = []
+    
+    for note_name, octave, duration in notes_sequence:
+        if note_name.upper() == 'R':
+            ly_note = 'r'
+        else:
+            ly_note = note_name.lower().replace('#', 'is').replace('b', 'es')
+            # 옥타브 조정 (LilyPond 표기법)
+            if octave <= 2:
+                ly_note += ',' * (3 - octave)
+            elif octave > 3:
+                ly_note += "'" * (octave - 3)
+        
+        # 음표 길이 변환
+        if duration == 4.0:
+            ly_note += '1'
+        elif duration == 2.0:
+            ly_note += '2'
+        elif duration == 1.0:
+            ly_note += '4'
+        elif duration == 0.5:
+            ly_note += '8'
+        elif duration == 0.25:
+            ly_note += '16'
+        else:
+            # 기타 길이는 4분음표로 기본 설정
+            ly_note += '4'
+        
+        lilypond_notes.append(ly_note)
+    
+    return ' '.join(lilypond_notes)
+
+def generate_lilypond_score(notes_sequence, bpm):
+    """LilyPond 형식 악보 텍스트 생성"""
+    lilypond_notes = convert_to_lilypond_notes(notes_sequence)
+    
+    lilypond_code = f"""\\version "2.24.0"
+\\header {{
+  title = "베이스 루프"
+  composer = "AI 생성"
+  tagline = \\markup {{ \\small "baseloop.onrender.com에서 생성됨" }}
+}}
+
+\\score {{
+  \\new Staff \\with {{
+    instrumentName = "Bass"
+  }} {{
+    \\clef "bass"
+    \\tempo 4 = {bpm}
+    \\time 4/4
+    {lilypond_notes}
+  }}
+  \\layout {{ }}
+  \\midi {{ }}
+}}
+"""
+    return lilypond_code
+
+# --- 스타일 기반 랜덤 생성 함수 (기존 코드 유지) ---
 def create_random_bass_loop_by_style(style, key_root_note, octave, length_measures, bpm):
-    """스타일에 따른 랜덤 베이스 라인 생성"""
+    """스타일에 따른 랜덤 베이스 라인 생성 (기존 코드 유지)"""
     logger.info(f"생성 중: {style} 베이스 루프 (키: {key_root_note}{octave}, BPM: {bpm}, 마디: {length_measures})")
     
     styles = {
@@ -291,7 +520,7 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
     logger.info(f"생성된 시퀀스: {formatted_sequence}")
     return formatted_sequence
 
-# --- Gemini LLM 설정 및 호출 함수 (AI 모드) ---
+# --- Gemini LLM 설정 및 호출 함수 (기존 코드 유지) ---
 def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
     """Gemini AI를 사용한 베이스 라인 생성"""
     if not GEMINI_AVAILABLE:
@@ -375,7 +604,10 @@ def index_page():
         'default_key_note': "C",
         'default_octave': 2,
         'default_generation_mode': "random",
-        'recommended_notes_str': "C2 1.0, G2 1.0, A2 1.0, F2 1.0"
+        'recommended_notes_str': "C2 1.0, G2 1.0, A2 1.0, F2 1.0",
+        'music21_available': MUSIC21_AVAILABLE,
+        'midi_available': MIDI_AVAILABLE,
+        'gemini_available': GEMINI_AVAILABLE
     }
     
     return render_template('index.html', **default_values)
@@ -463,6 +695,100 @@ def generate_audio():
         logger.error(traceback.format_exc())
         return Response(f"오류 발생: {str(e)}. 서버 로그를 확인하세요.", status=500, mimetype='text/plain')
 
+@app.route('/generate_score_image', methods=['GET'])
+def generate_score_image():
+    """Music21으로 생성한 전문 악보 이미지 반환"""
+    try:
+        notes_sequence_str = request.args.get('notes', '')
+        bpm = int(request.args.get('bpm', 120))
+        key_signature = request.args.get('key', 'C')
+        
+        if not notes_sequence_str:
+            return Response("악보 시퀀스가 필요합니다.", status=400, mimetype='text/plain')
+        
+        notes_sequence = parse_note_sequence_string(notes_sequence_str)
+        png_path, text_score = generate_music21_score(notes_sequence, bpm, key_signature)
+        
+        if png_path and os.path.exists(png_path):
+            return send_file(png_path, mimetype='image/png')
+        elif text_score:
+            # 텍스트 악보를 이미지로 변환하여 반환
+            return Response(text_score, mimetype='text/plain')
+        else:
+            return Response("악보 이미지 생성에 실패했습니다.", status=500, mimetype='text/plain')
+            
+    except Exception as e:
+        logger.error(f"악보 이미지 생성 오류: {e}")
+        return Response(f"악보 생성 오류: {str(e)}", status=500, mimetype='text/plain')
+
+@app.route('/generate_midi', methods=['POST'])
+def generate_midi():
+    """MIDI 파일 생성 및 다운로드"""
+    try:
+        notes_sequence_str = request.form.get('notes_sequence_input', '').strip()
+        bpm = int(request.form.get('bpm_input', 120))
+        
+        if not notes_sequence_str:
+            return Response("악보 시퀀스가 비어 있습니다.", status=400, mimetype='text/plain')
+        
+        notes_sequence = parse_note_sequence_string(notes_sequence_str)
+        midi_file = generate_midi_file(notes_sequence, bpm)
+        
+        # MIDI 파일을 바이트 스트림으로 변환
+        buffer = io.BytesIO()
+        midi_file.save(file=buffer)
+        buffer.seek(0)
+        
+        return Response(
+            buffer.getvalue(),
+            mimetype='audio/midi',
+            headers={'Content-Disposition': 'attachment; filename=bassloop.mid'}
+        )
+        
+    except ValueError as ve:
+        logger.error(f"MIDI 생성 중 ValueError: {ve}")
+        return Response(f"MIDI 생성 오류: {str(ve)}", status=400, mimetype='text/plain')
+    except Exception as e:
+        logger.error(f"MIDI 생성 중 예외 발생: {e}")
+        logger.error(traceback.format_exc())
+        return Response(f"MIDI 생성 오류: {str(e)}", status=500, mimetype='text/plain')
+
+@app.route('/generate_lilypond', methods=['POST'])
+def generate_lilypond():
+    """LilyPond 형식 악보 텍스트 생성 및 다운로드"""
+    try:
+        notes_sequence_str = request.form.get('notes_sequence_input', '').strip()
+        bpm = int(request.form.get('bpm_input', 120))
+        
+        if not notes_sequence_str:
+            return Response("악보 시퀀스가 비어 있습니다.", status=400, mimetype='text/plain')
+        
+        notes_sequence = parse_note_sequence_string(notes_sequence_str)
+        lilypond_code = generate_lilypond_score(notes_sequence, bpm)
+        
+        return Response(
+            lilypond_code,
+            mimetype='text/plain',
+            headers={'Content-Disposition': 'attachment; filename=bassloop.ly'}
+        )
+        
+    except ValueError as ve:
+        logger.error(f"LilyPond 생성 중 ValueError: {ve}")
+        return Response(f"LilyPond 생성 오류: {str(ve)}", status=400, mimetype='text/plain')
+    except Exception as e:
+        logger.error(f"LilyPond 생성 중 예외 발생: {e}")
+        logger.error(traceback.format_exc())
+        return Response(f"LilyPond 생성 오류: {str(e)}", status=500, mimetype='text/plain')
+
+@app.route('/get_features_status')
+def get_features_status():
+    """라이브러리 설치 상태 확인 API"""
+    return {
+        'music21': MUSIC21_AVAILABLE,
+        'midi': MIDI_AVAILABLE,
+        'gemini': GEMINI_AVAILABLE
+    }
+
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('index.html'), 404
@@ -483,5 +809,7 @@ if __name__ == '__main__':
     
     logger.info(f"서버 시작 - 포트: {port}, 디버그: {debug_mode}")
     logger.info(f"Gemini AI 사용 가능: {GEMINI_AVAILABLE}")
+    logger.info(f"Music21 사용 가능: {MUSIC21_AVAILABLE}")
+    logger.info(f"MIDI 사용 가능: {MIDI_AVAILABLE}")
     
     app.run(host='0.0.0.0', port=port, debug=debug_mode)
