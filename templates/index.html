@@ -6,7 +6,7 @@
     <title>🎵 프로 베이스 루프 생성기 🎸</title>
     <!-- Google Fonts - Rubik 폰트 가져오기 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- VexFlow 라이브러리 CDN - 악보 시각화용 (모든 페이지에 VexFlow를 불러옴) -->
+    <!-- VexFlow 라이브러리 CDN - 악보 시각화용 -->
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.0.0/build/cjs/vexflow.js"></script> 
     
     <style>
@@ -494,14 +494,15 @@
 
         // --- 악보 시각화 VexFlow 함수 ---
 
-        const vexflowDurationMap = {
+        // VexFlow EasyScore 및 StaveNote에 사용할 기본 음표 길이 매핑
+        const vexflowBaseDurationMap = {
             '0.25': '16',   // Sixteenth note
             '0.5': '8',    // Eighth note
-            '0.75': '8d',  // Dotted eighth note (8n + 16n)
+            '0.75': '8',   // Dotted eighth (base is eighth)
             '1.0': 'q',    // Quarter note
-            '1.5': 'qd',   // Dotted quarter note (qn + 8n)
+            '1.5': 'q',    // Dotted quarter (base is quarter)
             '2.0': 'h',    // Half note
-            '3.0': 'hd',   // Dotted half note
+            '3.0': 'h',    // Dotted half (base is half)
             '4.0': 'w',    // Whole note
         };
 
@@ -515,7 +516,7 @@
         // 캔버스 초기화
         function clearSheetMusic() {
             const canvas = document.getElementById('sheetMusicCanvas');
-            if (!canvas) return; // 캔버스 요소가 없을 경우 리턴
+            if (!canvas) return;
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height); 
         }
@@ -529,22 +530,12 @@
                 return;
             }
 
-            // 악보 전체 길이를 마디수에 따라 유연하게 조절
-            const PIXELS_PER_MEASURE_APPROX = 160; // 마디당 대략적인 픽셀 너비 (조절 가능)
-            // 총 캔버스 너비는 마디 수에 따라 동적으로 할당하되, 너무 좁지 않게 최소 너비 설정
-            canvas.width = Math.max(500, lengthMeasures * PIXELS_PER_MEASURE_APPROX);
-            canvas.height = 200; // 캔버스 높이 고정
-
             const renderer = new Renderer(canvas, Renderer.Backends.CANVAS);
             const ctx = renderer.getContext();
             ctx.clearRect(0, 0, canvas.width, canvas.height); 
             ctx.setFont('Arial', 10); 
 
-            // 악보 데이터 파싱 (StaveNote 객체 생성)
-            const allNotes = [];
-            let totalActualBeats = 0; // 실제 음표들의 총 박자 합
-
-            // 먼저 모든 음표 파싱 및 VexFlow Note 객체 생성
+            // 악보 데이터 파싱 (VexFlow EasyScore 문자열 포맷으로 변환)
             const rawNotes = notesSequenceStr.split(',').map(noteEntry => {
                 const match = noteEntry.trim().match(/([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)/);
                 return match ? {
@@ -554,120 +545,70 @@
                 } : null;
             }).filter(n => n !== null);
             
+            const beatsPerFullMeasure = 4; // 4/4 박자 가정 (각 마디 4박)
+
+            let vexflowEasyScoreNotes = [];
+            let totalBeatsInSequence = 0;
+
             for (const noteData of rawNotes) {
                 const vfNoteKey = getVexflowNoteKey(noteData.name, noteData.octave);
-                const vfDuration = vexflowDurationMap[noteData.durationUnits.toString()]; // 문자열로 변환하여 맵에서 찾기
+                let vfBaseDuration = vexflowBaseDurationMap[noteData.durationUnits.toString()];
                 
-                // 만약 매핑된 duration이 없으면 에러 또는 기본값 처리
-                if (!vfDuration) {
+                if (!vfBaseDuration) {
                     console.warn(`Duration ${noteData.durationUnits} not mapped to VexFlow.`);
                     continue; 
                 }
 
-                const staveNote = new StaveNote({
-                    clef: 'bass', 
-                    keys: [vfNoteKey],
-                    duration: vfDuration,
+                // EasyScore에서 점음표는 duration 뒤에 '.'을 붙입니다.
+                if (noteData.durationUnits === 0.75 || noteData.durationUnits === 1.5 || noteData.durationUnits === 3.0) {
+                    vfBaseDuration += '.'; 
+                }
+                
+                vexflowEasyScoreNotes.push(`${vfNoteKey}/${vfBaseDuration}`);
+                totalBeatsInSequence += noteData.durationUnits;
+            }
+
+            // VexFlow 팩토리 및 EasyScore 인스턴스 생성
+            const vf = new Factory({ renderer: renderer });
+            const score = vf.EasyScore();
+
+            // 캔버스 너비를 충분히 확보 (총 박자 수에 비례하여)
+            // 1박(4분음표)당 대략적인 픽셀 너비 (조절 가능)
+            const PIXELS_PER_BEAT_APPROX = 60; 
+            canvas.width = Math.max(500, totalBeatsInSequence * PIXELS_PER_BEAT_APPROX + 100); 
+            canvas.height = 200; // 캔버스 높이 고정
+
+            // Stave 생성
+            // 악보 전체를 하나의 긴 Stave로 보고, EasyScore가 마디와 포맷을 처리하도록 합니다.
+            const stave = vf.Stave({ x: 10, y: 30, width: canvas.width - 20 })
+                .addClef('bass') // 베이스 클레프 추가
+                .addTimeSignature(`${beatsPerFullMeasure}/${beatsPerFullMeasure}`); // 4/4 박자표 추가
+
+            try {
+                // EasyScore를 사용하여 음표 문자열로부터 VexFlow Tickable 객체(음표) 생성
+                const voice = score.voice(score.notes(vexflowEasyScoreNotes.join(', ')));
+                
+                // 음표들을 정렬하고 Stave에 맞춤
+                // .joinVoices()는 한 줄에 여러 Voice가 있을 때 사용하지만, 여기서는 단일 Voice.
+                // .formatToStave()가 실제 레이아웃을 계산하고 그릴 준비를 합니다.
+                vf.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+                
+                // Stave 그리기 (오선지, 클레프, 박자표 등)
+                stave.draw();
+
+                // 음표 그리기
+                voice.draw(ctx, stave); 
+
+                // Beaming (음표 묶음) 적용: EasyScore의 .beam() 메서드를 사용
+                // voice.getTickables()는 voice에 추가된 모든 StaveNote 객체를 반환합니다.
+                const beamGroups = score.beam(voice.getTickables()); 
+                beamGroups.forEach(beam => {
+                    beam.setContext(ctx).draw(); // 묶음선 그리기
                 });
 
-                // 점음표 처리
-                if (vfDuration.endsWith('d')) {
-                    staveNote.addDot(0);
-                }
-
-                allNotes.push(staveNote);
-                totalActualBeats += noteData.durationUnits;
-            }
-
-            // 악보를 마디(Stave)로 분할 (주어진 lengthMeasures 마디 수에 맞춰 분할 시도)
-            const measuresInVexFlow = [];
-            let currentMeasureNotes = [];
-            let currentMeasureBeatSum = 0;
-            const beatsPerFullMeasure = 4; // Assuming 4/4 time signature
-
-            for(const note of allNotes) {
-                const noteDuration = note.getTicks().value() / VexFlow.Flow.duration.WHOLE_NOTE.numerator; // Note duration in beats
-                
-                // VexFlow 틱 시스템의 세부사항을 다루려면 복잡하므로, 우리는 그냥 'q'가 1beat라고 가정하고 작업하는 게 간단함
-                // Note: The getTicks().value() method is VexFlow's internal way of getting duration
-                // A simpler way: we've passed durationUnits to this function.
-
-                // This part needs to be very robust to exactly split into measures
-                // For simplicity, let's divide roughly and let Formatter handle the exact measure width
-                currentMeasureNotes.push(note);
-                currentMeasureBeatSum += parseFloat(note.duration.replace('d', '')); // For 8d, qd: this is rough, real is getVexflowDuration map's source
-                // For simplicity use hardcoded map value beats (q=1, 8=0.5, etc.)
-
-                if (currentMeasureBeatSum >= beatsPerFullMeasure || currentMeasureNotes.length > 8) { // Or if too many notes for one stave visually
-                    measuresInVexFlow.push(currentMeasureNotes);
-                    currentMeasureNotes = [];
-                    currentMeasureBeatSum = 0;
-                }
-            }
-            if (currentMeasureNotes.length > 0) { // 마지막 남은 음표들을 마디에 추가
-                measuresInVexFlow.push(currentMeasureNotes);
-            }
-
-            // VexFlow Staves 그리기
-            let xPos = 10;
-            const yPos = 30; // 오선지의 Y 좌표 (캔버스 상단으로부터의 간격)
-            const staveWidthPerMeasure = (canvas.width - 20) / Math.max(measuresInVexFlow.length, lengthMeasures); // 동적 계산
-            // If the sheet music is much longer than requested `lengthMeasures` beats, 
-            // the canvas width must dynamically adapt, potentially even requiring multi-line staves.
-            // For a "loop" it might make more sense to render only `lengthMeasures` as single loop.
-
-            // The 'formatter' attempts to justify notes. For long sequences it can be slow or overflow.
-            // Using a max number of beats per stave might be necessary to control rendering behavior.
-            const NOTES_PER_LINE = 4 * beatsPerFullMeasure; // 4 measures per line as an example visual break
-
-            let currentStaveLineNotes = []; // 현재 오선 한 줄에 들어갈 음표들
-            let lineXPos = 10; // 각 줄의 시작 X 위치
-
-            // 모든 노트가 올플로우 없이 표시될 수 있도록 캔버스 너비를 더 확보
-            canvas.width = Math.max(canvas.width, allNotes.length * 20); // 넉넉하게 음표 하나당 20px
-            if (measuresInVexFlow.length > 0) {
-                 canvas.width = Math.max(canvas.width, measuresInVexFlow.length * PIXELS_PER_MEASURE_APPROX + 50);
-            }
-
-            // Stave와 노트 렌더링
-            for (let i = 0; i < measuresInVexFlow.length; i++) {
-                const measureNotes = measuresInVexFlow[i];
-                let stave = new Stave(lineXPos, yPos, staveWidthPerMeasure);
-
-                if (i === 0) { // 첫 번째 마디에만 클레프와 박자표 추가
-                    stave.addClef('bass'); 
-                    stave.addTimeSignature(`${beatsPerFullMeasure}/${beatsPerFullMeasure}`); 
-                }
-
-                stave.setContext(ctx).draw();
-
-                if (measureNotes.length > 0) {
-                    // Beaming logic (simple for v4.0.0, might need adjustments based on exact library version and complex rhythms)
-                    // For example, grouping 8th or 16th notes together for better readability
-                    // Filter notes that should be beamed
-                    // const beamedNotes = measureNotes.filter(n => ['8','16'].includes(n.duration));
-                    // if (beamedNotes.length >= 2) { // Need at least two notes to beam
-                    //     const beam = new Beam(beamedNotes);
-                    //     beam.setContext(ctx).draw();
-                    // }
-
-                    Formatter.FormatAndDraw(ctx, stave, measureNotes, {
-                        autoJustify: true,
-                        // spaceBetweenStaves: 10,
-                        // spaceBetweenLines: 10,
-                        // maxMeasureWidth: PIXELS_PER_MEASURE_APPROX
-                    });
-                } else {
-                    // 마디가 비어있는 경우 온쉼표 (whole rest) 그리기
-                    const wholeRest = new StaveNote({
-                        clef: 'bass',
-                        keys: ['b/4'], // middle B for rest in bass clef position
-                        duration: 'wr' // w for whole, r for rest
-                    });
-                    Formatter.FormatAndDraw(ctx, stave, [wholeRest], { autoJustify: true });
-                }
-                
-                lineXPos += stave.width; // 다음 스태브의 시작 위치
+            } catch (e) {
+                console.error("VexFlow 악보 그리기 오류:", e);
+                showMessage(`🚨 악보 그리기 오류가 발생했습니다: ${e.message}`, 'error');
             }
         }
     </script>
