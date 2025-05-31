@@ -181,64 +181,64 @@ def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
     return buffer
 
 # --- Music21 기반 전문 악보 생성 함수 ---
-def generate_music21_score(notes_sequence, bpm, key_signature='C'):
-    """Music21을 사용한 전문적인 악보 생성 (PNG 이미지 반환)"""
+def generate_music21_score_with_fallback(
+    notes_sequence,
+    bpm,
+    key_signature="C",
+):
+    """
+    Music21 + MuseScore → PNG 생성. 실패 시 텍스트 악보 반환.
+    (png_path, text_score) 형태 튜플을 돌려줍니다.
+    """
     if not MUSIC21_AVAILABLE:
         raise ValueError("Music21 라이브러리가 설치되지 않았습니다.")
-    
+
+    # 첫 호출 시 Music21 환경 세팅
+    if not setup_music21_environment():
+        raise RuntimeError("Music21 환경 설정 실패")
+
     try:
-        # 새로운 스코어 생성
         score = stream.Score()
-        
-        # 메타데이터 설정
         score.append(tempo.MetronomeMark(number=bpm))
-        score.append(meter.TimeSignature('4/4'))
-        score.append(key.Key(key_signature))
-        
-        # 베이스 파트 생성
-        bass_part = stream.Part()
-        bass_part.append(clef.BassClef())
-        bass_part.append(tempo.MetronomeMark(number=bpm))
-        bass_part.append(meter.TimeSignature('4/4'))
-        bass_part.append(key.Key(key_signature))
-        
-        # 음표들 추가
-        for note_name, octave, duration_val in notes_sequence:
-            if note_name.upper() == 'R':  # 쉼표
-                rest = note.Rest(quarterLength=duration_val)
-                bass_part.append(rest)
+        score.append(meter.TimeSignature("4/4"))
+        score.append(music21_key.Key(key_signature))  # ✅ KeySignature→Key
+
+        part = stream.Part()
+        part.append(clef.BassClef())
+        part.append(tempo.MetronomeMark(number=bpm))
+        part.append(meter.TimeSignature("4/4"))
+        part.append(music21_key.Key(key_signature))
+
+        for n_name, octv, dur in notes_sequence:
+            if n_name.upper() == "R":
+                part.append(note.Rest(quarterLength=dur))
             else:
                 try:
-                    # Music21 음표 생성
-                    n = note.Note(f"{note_name}{octave}")
-                    n.duration = duration.Duration(quarterLength=duration_val)
-                    bass_part.append(n)
+                    n = note.Note(f"{n_name}{octv}")
+                    n.duration = duration.Duration(quarterLength=dur)
+                    part.append(n)
                 except Exception as e:
-                    logger.warning(f"음표 생성 실패 {note_name}{octave}: {e}, 쉼표로 대체")
-                    rest = note.Rest(quarterLength=duration_val)
-                    bass_part.append(rest)
-        
-        score.append(bass_part)
-        
-        # 임시 디렉토리에 PNG로 저장
-        temp_dir = tempfile.mkdtemp()
-        png_path = os.path.join(temp_dir, 'score.png')
-        
-        # MuseScore 없이도 작동하도록 설정
+                    logger.warning(f"음표 변환 실패 → Rest 처리: {n_name}{octv} / {e}")
+                    part.append(note.Rest(quarterLength=dur))
+
+        score.append(part)
+
+        tmp_dir = tempfile.mkdtemp()
+        png_path = os.path.join(tmp_dir, "score.png")
+
         try:
-            score.write('musicxml.png', fp=png_path)
-        except:
-            # MuseScore가 없는 경우 대안 방법
-            score.write('midi', fp=png_path.replace('.png', '.mid'))
-            # 간단한 텍스트 표현으로 대체
+            score.write("musicxml.png", fp=png_path)
+            if os.path.exists(png_path) and os.path.getsize(png_path) > 0:
+                return png_path, None
+            raise RuntimeError("PNG 생성 실패")
+        except Exception as e:
+            logger.warning(f"MuseScore PNG 실패: {e}")
             text_score = generate_text_score(notes_sequence, bpm)
+            shutil.rmtree(tmp_dir, ignore_errors=True)
             return None, text_score
-        
-        return png_path, None
-        
     except Exception as e:
-        logger.error(f"Music21 악보 생성 실패: {e}")
-        raise ValueError(f"Music21 악보 생성 실패: {str(e)}")
+        logger.error(f"악보 생성 실패: {e}")
+        raise
 
 def generate_text_score(notes_sequence, bpm):
     """텍스트 기반 악보 표현 (Music21 실패시 대안)"""
@@ -707,7 +707,7 @@ def generate_score_image():
             return Response("악보 시퀀스가 필요합니다.", status=400, mimetype='text/plain')
         
         notes_sequence = parse_note_sequence_string(notes_sequence_str)
-        png_path, text_score = generate_music21_score(notes_sequence, bpm, key_signature)
+        png_path, text_score = generate_music21_score_with_fallback(notes_sequence, bpm, key_signature)
         
         if png_path and os.path.exists(png_path):
             return send_file(png_path, mimetype='image/png')
