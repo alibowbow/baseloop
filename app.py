@@ -18,6 +18,38 @@ except ImportError:
     MUSIC21_AVAILABLE = False
     print("Warning: music21 라이브러리가 설치되지 않았습니다. 전문 악보 생성을 사용할 수 없습니다.")
 
+# ─── Music21 MuseScore 환경 설정 함수 ───────────────────────
+_M21_CONFIGURED = False
+
+def setup_music21_environment() -> bool:
+    """
+    MuseScore 경로와 Qt 헤드리스 환경 변수를 Music21에 등록합니다.
+    """
+    global _M21_CONFIGURED
+
+    if _M21_CONFIGURED or not MUSIC21_AVAILABLE:
+        return _M21_CONFIGURED
+
+    try:
+        from music21 import environment
+        us = environment.UserSettings()
+
+        # 실제 MuseScore 경로 (서버/OS 환경에 따라 조정 필요)
+        musescore_path = os.getenv("MUSESCORE_PATH", "/usr/bin/musescore3")
+        us["musescoreDirectPNGPath"] = musescore_path
+        us["musicxmlPath"] = musescore_path
+
+        # Headless Qt 환경 설정
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        os.environ.setdefault("DISPLAY", ":99")
+
+        print(f"[Music21 설정] MuseScore 경로 등록 완료: {musescore_path}")
+        _M21_CONFIGURED = True
+        return True
+    except Exception as e:
+        print(f"[Music21 설정 오류] {e}")
+        return False
+
 # MIDI 라이브러리
 try:
     import mido
@@ -181,7 +213,7 @@ def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
     return buffer
 
 # --- Music21 기반 전문 악보 생성 함수 ---
-def generate_music21_score_with_fallback(
+def from music21 import stream, note, meter, tempo, clef, bar, duration, pitch, key as music21_key, layout(
     notes_sequence,
     bpm,
     key_signature="C",
