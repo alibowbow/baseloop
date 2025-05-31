@@ -6,8 +6,8 @@
     <title>🎵 프로 베이스 루프 생성기 🎸</title>
     <!-- Google Fonts - Rubik 폰트 가져오기 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- VexFlow 라이브러리 CDN - 악보 시각화용 -->
-    <script src="https://cdn.jsdelivr.net/npm/vexflow@4.0.0/build/cjs/vexflow.js"></script> 
+    <!-- VexFlow 라이브러리 CDN - 안정적인 3.x 버전 사용 -->
+    <script src="https://unpkg.com/vexflow@3.0.9/releases/vexflow-min.js"></script>
     
     <style>
         /* CSS 변수: 색상 팔레트 정의 */
@@ -194,7 +194,7 @@
         /* 악보 시각화 영역 */
         #notation-area {
             margin-top: 20px;
-            padding-top: 20px;
+            padding: 20px;
             border-top: 1px solid var(--border-color);
             text-align: center; /* 캔버스를 가운데 정렬 */
             background-color: var(--card-background); /* 악보 영역 배경도 하얗게 */
@@ -206,8 +206,7 @@
             background-color: white;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             max-width: 100%; /* 캔버스가 부모 컨테이너를 넘어가지 않도록 */
-            height: auto; /* 비율 유지 */
-            min-height: 100px; /* 최소 높이 설정 */
+            border-radius: 8px;
         }
 
         /* 모바일 반응형 조정 */
@@ -231,7 +230,6 @@
             }
             #sheetMusicCanvas {
                 width: 100%; /* 모바일에서 캔버스 너비 조정 */
-                overflow-x: scroll; /* 필요한 경우 캔버스 자체 스크롤 */
             }
         }
     </style>
@@ -246,8 +244,8 @@
             
             <label for="generation_mode">생성 모드 선택</label>
             <select id="generation_mode" name="generation_mode" onchange="toggleModeOptions()">
-                <option value="random" {% if default_generation_mode == 'random' %}selected{% endif %}>스타일 기반 랜덤 생성</option>
-                <option value="ai" {% if default_generation_mode == 'ai' %}selected{% endif %}>AI (Gemini) 추천 악보</option>
+                <option value="random" selected>스타일 기반 랜덤 생성</option>
+                <option value="ai">AI (Gemini) 추천 악보</option>
             </select>
 
             <!-- AI 모드 관련 필드 (기본은 숨김) -->
@@ -261,31 +259,40 @@
 
             <!-- 공통 파라미터 (모든 모드에서 사용) -->
             <label for="bpm_input">BPM (분당 박자)</label>
-            <input type="number" id="bpm_input" name="bpm_input" value="{{ default_bpm }}" min="30" max="240" required>
+            <input type="number" id="bpm_input" name="bpm_input" value="120" min="30" max="240" required>
 
             <label for="length_input">루프 길이 (마디)</label>
-            <input type="number" id="length_input" name="length_input" value="{{ default_length }}" min="1" max="16" required>
+            <input type="number" id="length_input" name="length_input" value="4" min="1" max="16" required>
             
             <label for="key_note_input">루트 음 (근음)</label>
             <select id="key_note_input" name="key_note_input">
-                {% for note in ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] %}
-                    <option value="{{ note }}" {% if default_key_note == note %}selected{% endif %}>{{ note }}</option>
-                {% endfor %}
+                <option value="C" selected>C</option>
+                <option value="C#">C#</option>
+                <option value="D">D</option>
+                <option value="D#">D#</option>
+                <option value="E">E</option>
+                <option value="F">F</option>
+                <option value="F#">F#</option>
+                <option value="G">G</option>
+                <option value="G#">G#</option>
+                <option value="A">A</option>
+                <option value="A#">A#</option>
+                <option value="B">B</option>
             </select>
             
             <label for="octave_input">기본 옥타브 (C1=1, C2=2 등)</label>
-            <input type="number" id="octave_input" name="octave_input" value="{{ default_octave }}" min="0" max="4" required>
+            <input type="number" id="octave_input" name="octave_input" value="2" min="0" max="4" required>
 
             <label for="genre_input">장르 스타일</label>
             <select id="genre_input" name="genre_input">
-                <option value="rock" {% if default_genre == 'rock' %}selected{% endif %}>락</option>
-                <option value="funk" {% if default_genre == 'funk' %}selected{% endif %}>펑크</option>
-                <option value="pop" {% if default_genre == 'pop' %}selected{% endif %}>팝</option>
-                <option value="jazz" {% if default_genre == 'jazz' %}selected{% endif %}>재즈</option>
-                <option value="blues" {% if default_genre == 'blues' %}selected{% endif %}>블루스</option>
-                <option value="reggae" {% if default_genre == 'reggae' %}selected{% endif %}>레게</option>
-                <option value="hiphop" {% if default_genre == 'hiphop' %}selected{% endif %}>힙합</option>
-                <option value="random" {% if default_genre == 'random' %}selected{% endif %}>완전 랜덤 (정확도 낮음)</option>
+                <option value="rock" selected>락</option>
+                <option value="funk">펑크</option>
+                <option value="pop">팝</option>
+                <option value="jazz">재즈</option>
+                <option value="blues">블루스</option>
+                <option value="reggae">레게</option>
+                <option value="hiphop">힙합</option>
+                <option value="random">완전 랜덤 (정확도 낮음)</option>
             </select>
 
             <!-- 악보 생성 버튼 -->
@@ -293,13 +300,13 @@
             <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
             
             <label for="notes_sequence_input" style="margin-top: 10px;">생성/입력된 악보 시퀀스</label>
-            <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">{{ recommended_notes_str }}</textarea>
+            <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">C2 1.0, G2 1.0, A2 1.0, F2 1.0</textarea>
             <p class="info-text">
                 형식: `음표이름+옥타브 박자단위`를 쉼표로 구분. 예: `C2 1.0, G2 0.5, A2 0.5, F2 1.0`
             </p>
 
             <label for="num_loops_input">오디오 루프 반복 횟수</label>
-            <input type="number" id="num_loops_input" name="num_loops_input" value="{{ default_loops }}" min="1" max="100" required>
+            <input type="number" id="num_loops_input" name="num_loops_input" value="2" min="1" max="100" required>
 
             <!-- 오디오 생성 및 재생 버튼 -->
             <button type="button" id="playAudioBtn" onclick="playGeneratedAudio()">▶️ 베이스 루프 오디오 생성 & 재생</button>
@@ -311,21 +318,39 @@
             <!-- 악보 시각화 영역 추가 -->
             <div id="notation-area">
                 <h3 style="color: var(--primary-color);">생성된 악보</h3>
-                <canvas id="sheetMusicCanvas"></canvas> <!-- width/height 제거: JavaScript에서 동적 조정 -->
+                <canvas id="sheetMusicCanvas" width="600" height="200"></canvas>
             </div>
         </form>
     </div>
 
     <!-- JavaScript 로직 -->
     <script>
-        // VexFlow 런타임 불러오기
-        const { Factory, Renderer, Stave, StaveNote, Formatter, Beam, TimeSignature, Clef } = VexFlow.Flow;
+        // VexFlow 3.x 호환 방식으로 초기화
+        let VF = null;
 
         document.addEventListener('DOMContentLoaded', (event) => {
+            // VexFlow 로딩 상태 확인 및 초기화
+            try {
+                if (typeof Vex !== 'undefined' && Vex.Flow) {
+                    VF = Vex.Flow;
+                    console.log('✅ VexFlow 라이브러리가 성공적으로 로드되었습니다.');
+                } else {
+                    console.error('❌ VexFlow 라이브러리 로딩 실패');
+                    showMessage('악보 시각화 라이브러리 로딩에 실패했습니다.', 'error');
+                }
+            } catch (e) {
+                console.error('VexFlow 초기화 오류:', e);
+            }
+
             // 페이지 로드 시 선택된 기본 모드에 따라 UI 조정
             toggleModeOptions();
             // 메시지 영역 숨기기
             document.getElementById('messageArea').style.display = 'none';
+            
+            // 기본 악보 렌더링 (예시로 악보를 보여주기 위함)
+            renderSheetMusic(document.getElementById('notes_sequence_input').value, 
+                             parseInt(document.getElementById('length_input').value), 
+                             parseInt(document.getElementById('bpm_input').value));
         });
 
         function showMessage(message, type = 'info') {
@@ -338,8 +363,6 @@
                 messageArea.classList.add('error');
             }
             messageArea.style.display = 'block';
-            // 짧게 보여준 후 사라지게 하려면 setTimeout 추가
-            // setTimeout(() => { messageArea.style.display = 'none'; }, 5000);
         }
 
         function setLoadingState(elementId, isLoading, message = "") {
@@ -355,7 +378,6 @@
                 if (button) button.disabled = false;
             }
         }
-
 
         function toggleModeOptions() {
             const modeSelect = document.getElementById('generation_mode');
@@ -379,7 +401,7 @@
             const currentMode = modeSelect.value;
 
             const bpm = document.getElementById('bpm_input').value;
-            const length = document.getElementById('length_input').value; // 루프 마디 길이
+            const length = document.getElementById('length_input').value;
             const genre = document.getElementById('genre_input').value;
             const keyNote = document.getElementById('key_note_input').value;
             const octave = document.getElementById('octave_input').value; 
@@ -398,7 +420,7 @@
                 const formData = new FormData();
                 formData.append('generation_mode', currentMode);
                 formData.append('bpm_input', bpm);
-                formData.append('length_input', length); // 서버로 마디 길이 전송
+                formData.append('length_input', length);
                 formData.append('genre_input', genre);
                 formData.append('key_note_input', keyNote);
                 formData.append('octave_input', octave);
@@ -406,6 +428,7 @@
                 if (currentMode === 'ai') {
                     if (!apiKey.trim()) {
                         showMessage("⚠️ Gemini API 키를 입력해주세요!", 'error');
+                        setLoadingState('loadingSpinnerNotes', false); // 오류 발생 시 로딩 해제
                         return; 
                     }
                     formData.append('gemini_api_key_input', apiKey);
@@ -421,7 +444,7 @@
                 if (response.ok && data.status === 'success') {
                     notesSequenceInput.value = data.notes;
                     showMessage("🎉 악보가 성공적으로 생성되었습니다! 오디오를 재생해보세요.", 'success');
-                    // VexFlow 렌더링 호출 (악보 문자열과 마디 길이 전달)
+                    // VexFlow 렌더링 호출
                     renderSheetMusic(data.notes, parseInt(length), parseInt(bpm)); 
                 } else {
                     const errorMessage = data.message || '알 수 없는 오류가 발생했습니다.';
@@ -451,7 +474,7 @@
             }
 
             setLoadingState('loadingSpinnerAudio', true, '오디오 생성 중...');
-            audioPlayer.src = ''; // 기존 오디오 중지 및 제거
+            audioPlayer.src = ''; 
             audioPlayer.load(); 
 
             try {
@@ -492,26 +515,7 @@
             }
         }
 
-        // --- 악보 시각화 VexFlow 함수 ---
-
-        // VexFlow EasyScore 및 StaveNote에 사용할 기본 음표 길이 매핑
-        const vexflowBaseDurationMap = {
-            '0.25': '16',   // Sixteenth note
-            '0.5': '8',    // Eighth note
-            '0.75': '8',   // Dotted eighth (base is eighth)
-            '1.0': 'q',    // Quarter note
-            '1.5': 'q',    // Dotted quarter (base is quarter)
-            '2.0': 'h',    // Half note
-            '3.0': 'h',    // Dotted half (base is half)
-            '4.0': 'w',    // Whole note
-        };
-
-        // 음표 이름 매핑 (VexFlow는 #을 's'로, 소문자, 옥타브를 "/"로 구분)
-        function getVexflowNoteKey(noteName, octave) {
-            let vexflowNoteName = noteName.toLowerCase(); 
-            vexflowNoteName = vexflowNoteName.replace('#', 's'); // C# -> cs
-            return `${vexflowNoteName}/${octave}`; 
-        }
+        // --- 악보 시각화 VexFlow 함수 (3.x 버전 호환) ---
 
         // 캔버스 초기화
         function clearSheetMusic() {
@@ -521,8 +525,36 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height); 
         }
 
-        // 악보를 렌더링하는 핵심 함수
+        // 음표 이름을 VexFlow 3.x 형식으로 변환
+        function getVexflowNoteName(noteName, octave) {
+            let vfNoteName = noteName.toLowerCase();
+            // C# -> cs, D# -> ds 등으로 변환
+            vfNoteName = vfNoteName.replace('#', 's');
+            return `${vfNoteName}/${octave}`;
+        }
+
+        // 박자를 VexFlow duration으로 변환
+        function getDurationFromBeats(beats) {
+            const durationMap = {
+                '0.25': '16',   // 16분음표
+                '0.5': '8',     // 8분음표
+                '1.0': 'q',     // 4분음표
+                '1.5': 'qd',    // 점 4분음표 (dotted quarter)
+                '2.0': 'h',     // 2분음표
+                '3.0': 'hd',    // 점 2분음표 (dotted half)
+                '4.0': 'w',     // 온음표
+            };
+            return durationMap[beats.toString()] || 'q'; // 매핑되지 않으면 기본 4분음표
+        }
+
+        // 악보를 렌더링하는 핵심 함수 (VexFlow 3.x 호환)
         function renderSheetMusic(notesSequenceStr, lengthMeasures, bpm) {
+            if (!VF) {
+                console.error('VexFlow가 로드되지 않았습니다.');
+                showMessage('악보 라이브러리가 로드되지 않았습니다.', 'error');
+                return;
+            }
+
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) {
                 console.error("Canvas element for sheet music not found!");
@@ -530,87 +562,90 @@
                 return;
             }
 
-            const renderer = new Renderer(canvas, Renderer.Backends.CANVAS);
-            const ctx = renderer.getContext();
-            ctx.clearRect(0, 0, canvas.width, canvas.height); 
-            ctx.setFont('Arial', 10); 
-
-            // 악보 데이터 파싱 (VexFlow EasyScore 문자열 포맷으로 변환)
-            const rawNotes = notesSequenceStr.split(',').map(noteEntry => {
-                const match = noteEntry.trim().match(/([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)/);
-                return match ? {
-                    name: match[1],
-                    octave: parseInt(match[2]),
-                    durationUnits: parseFloat(match[3])
-                } : null;
-            }).filter(n => n !== null);
-            
-            const beatsPerFullMeasure = 4; // 4/4 박자 가정 (각 마디 4박)
-
-            let vexflowEasyScoreNotes = [];
-            let totalBeatsInSequence = 0;
-
-            for (const noteData of rawNotes) {
-                const vfNoteKey = getVexflowNoteKey(noteData.name, noteData.octave);
-                let vfBaseDuration = vexflowBaseDurationMap[noteData.durationUnits.toString()];
-                
-                if (!vfBaseDuration) {
-                    console.warn(`Duration ${noteData.durationUnits} not mapped to VexFlow.`);
-                    continue; 
-                }
-
-                // EasyScore에서 점음표는 duration 뒤에 '.'을 붙입니다.
-                if (noteData.durationUnits === 0.75 || noteData.durationUnits === 1.5 || noteData.durationUnits === 3.0) {
-                    vfBaseDuration += '.'; 
-                }
-                
-                vexflowEasyScoreNotes.push(`${vfNoteKey}/${vfBaseDuration}`);
-                totalBeatsInSequence += noteData.durationUnits;
-            }
-
-            // VexFlow 팩토리 및 EasyScore 인스턴스 생성
-            const vf = new Factory({ renderer: renderer });
-            const score = vf.EasyScore();
-
-            // 캔버스 너비를 충분히 확보 (총 박자 수에 비례하여)
-            // 1박(4분음표)당 대략적인 픽셀 너비 (조절 가능)
-            const PIXELS_PER_BEAT_APPROX = 60; 
-            canvas.width = Math.max(500, totalBeatsInSequence * PIXELS_PER_BEAT_APPROX + 100); 
-            canvas.height = 200; // 캔버스 높이 고정
-
-            // Stave 생성
-            // 악보 전체를 하나의 긴 Stave로 보고, EasyScore가 마디와 포맷을 처리하도록 합니다.
-            const stave = vf.Stave({ x: 10, y: 30, width: canvas.width - 20 })
-                .addClef('bass') // 베이스 클레프 추가
-                .addTimeSignature(`${beatsPerFullMeasure}/${beatsPerFullMeasure}`); // 4/4 박자표 추가
-
             try {
-                // EasyScore를 사용하여 음표 문자열로부터 VexFlow Tickable 객체(음표) 생성
-                const voice = score.voice(score.notes(vexflowEasyScoreNotes.join(', ')));
-                
-                // 음표들을 정렬하고 Stave에 맞춤
-                // .joinVoices()는 한 줄에 여러 Voice가 있을 때 사용하지만, 여기서는 단일 Voice.
-                // .formatToStave()가 실제 레이아웃을 계산하고 그릴 준비를 합니다.
-                vf.Formatter().joinVoices([voice]).formatToStave([voice], stave);
-                
-                // Stave 그리기 (오선지, 클레프, 박자표 등)
-                stave.draw();
+                // 캔버스 초기화
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // 기존 내용 지우기
+
+                // 악보 데이터 파싱
+                const rawNotes = notesSequenceStr.split(',').map(noteEntry => {
+                    const match = noteEntry.trim().match(/([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)/);
+                    return match ? {
+                        name: match[1],
+                        octave: parseInt(match[2]),
+                        durationUnits: parseFloat(match[3])
+                    } : null;
+                }).filter(n => n !== null);
+
+                if (rawNotes.length === 0) {
+                    console.warn('파싱된 음표가 없습니다. 악보를 그리지 않습니다.');
+                    showMessage('생성된 음표가 없습니다. 유효한 악보 시퀀스를 입력하세요.', 'info');
+                    return;
+                }
+
+                // VexFlow 렌더러 생성
+                const renderer = new VF.Renderer(canvas, VF.Renderer.Backends.CANVAS);
+                const context = renderer.getContext();
+                context.setFont('Arial', 10); // 폰트 설정
+
+                // Stave 생성 (오선지)
+                const stave = new VF.Stave(10, 40, canvas.width - 20); // x, y, width
+                stave.addClef('bass').addTimeSignature('4/4'); // 베이스 클레프, 4/4 박자
+                stave.setContext(context).draw(); // 오선지 그리기
+
+                // 음표들을 VexFlow StaveNote로 변환
+                const notes = rawNotes.map(noteData => {
+                    const noteName = getVexflowNoteName(noteData.name, noteData.octave);
+                    const duration = getDurationFromBeats(noteData.durationUnits);
+                    
+                    const staveNote = new VF.StaveNote({
+                        clef: 'bass',
+                        keys: [noteName],
+                        duration: duration
+                    });
+                    
+                    // 임시표 처리 (#, b 기호)
+                    if (noteData.name.includes('#')) {
+                        staveNote.addAccidental(0, new VF.Accidental("#"));
+                    } else if (noteData.name.includes('b')) { // 'b' 기호가 있다면 (현재 파서는 #만 처리하지만, 확장 가능)
+                        staveNote.addAccidental(0, new VF.Accidental("b"));
+                    }
+                    return staveNote;
+                });
+
+                // Voice 생성 및 음표 추가
+                // num_beats와 beat_value는 VexFlow가 박자를 계산하는 데 사용
+                // 여기서는 전체 루프 길이에 맞춰 박자를 계산 (4/4 박자 기준 마디당 4박)
+                const voice = new VF.Voice({
+                    num_beats: rawNotes.reduce((sum, note) => sum + note.durationUnits, 0), // 전체 음표 박자 합
+                    beat_value: 4, // 4분음표가 1박
+                    resolution: VF.Resolution.Common.R16 // 16분음표가 가장 작은 단위
+                });
+
+                voice.addTickables(notes);
+
+                // 포매터로 음표 정렬 및 공간 할당
+                const formatter = new VF.Formatter().joinVoices([voice]).format([voice], canvas.width - 50);
 
                 // 음표 그리기
-                voice.draw(ctx, stave); 
+                voice.draw(context, stave);
 
-                // Beaming (음표 묶음) 적용: EasyScore의 .beam() 메서드를 사용
-                // voice.getTickables()는 voice에 추가된 모든 StaveNote 객체를 반환합니다.
-                const beamGroups = score.beam(voice.getTickables()); 
-                beamGroups.forEach(beam => {
-                    beam.setContext(ctx).draw(); // 묶음선 그리기
+                // 음표 묶음 (Beaming) 처리 - 8분음표/16분음표 등 꼬리 묶기
+                const beamGroups = VF.Beam.generateBeams(notes, {
+                    stem_direction: VF.Stem.UP, // 스템 방향 (UP/DOWN)
                 });
+                beamGroups.forEach(beam => {
+                    beam.setContext(context).draw();
+                });
+
+
+                console.log('✅ 악보가 성공적으로 렌더링되었습니다.');
 
             } catch (e) {
                 console.error("VexFlow 악보 그리기 오류:", e);
                 showMessage(`🚨 악보 그리기 오류가 발생했습니다: ${e.message}`, 'error');
             }
-        }
-    </script>
+        } 
+    </script> 
 </body>
 </html>
