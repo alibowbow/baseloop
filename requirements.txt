@@ -1,3 +1,4 @@
+# 기존 라이브러리
 Flask==2.3.3
 numpy==1.24.3
 scipy==1.11.1
@@ -5,3 +6,14 @@ gunicorn==21.2.0
 google-generativeai==0.3.0
 python-dotenv==1.0.0
 Werkzeug==2.3.7
+
+# 새로 추가된 음악 관련 라이브러리
+music21==9.1.0
+mido==1.3.2
+
+# Music21 의존성 (선택적 - MuseScore 없이도 작동)
+# musescore는 별도 설치 필요 (프로덕션에서는 주로 생략)
+
+# 추가 의존성 (음악 처리 관련)
+matplotlib==3.7.2
+Pillow==10.0.0
