@@ -3,12 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI/랜덤 베이스 루프 생성기</title>
+    <title>🎵 프로 베이스 루프 생성기 🎸</title>
+    <!-- Google Fonts - Rubik 폰트 가져오기 -->
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
+        /* CSS 변수: 색상 팔레트 정의 */
+        :root {
+            --primary-color: #3b82f6; /* Tailwind Blue 500 */
+            --primary-hover-color: #2563eb; /* Tailwind Blue 600 */
+            --accent-color: #10b981; /* Tailwind Emerald 500 */
+            --background-color: #f8fafc; /* Tailwind Slate 50 */
+            --card-background: #ffffff;
+            --text-color: #334155; /* Tailwind Slate 700 */
+            --light-text-color: #64748b; /* Tailwind Slate 500 */
+            --border-color: #e2e8f0; /* Tailwind Slate 200 */
+            --error-color: #ef4444; /* Tailwind Red 500 */
+            --success-color: #22c55e; /* Tailwind Green 500 */
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            color: #333;
+            font-family: 'Rubik', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
             line-height: 1.6;
             margin: 0;
             padding: 20px;
@@ -17,30 +33,37 @@
             align-items: flex-start; 
             min-height: 100vh;
             box-sizing: border-box;
+            -webkit-font-smoothing: antialiased; /* 폰트 부드럽게 */
+            -moz-osx-font-smoothing: grayscale;
         }
         .container {
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
+            background-color: var(--card-background);
+            padding: 35px;
+            border-radius: 16px; /* 모서리 더 둥글게 */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08); /* 그림자 더 깊게 */
+            max-width: 650px; /* 너비 약간 증가 */
             width: 100%;
-            margin-top: 20px;
+            margin-top: 30px;
+            box-sizing: border-box;
         }
         h1 {
-            color: #2c3e50;
+            color: var(--primary-color);
             text-align: center;
-            margin-bottom: 30px;
-            font-size: 1.8em;
+            margin-bottom: 35px;
+            font-size: 2.2em; /* 폰트 크기 증가 */
+            font-weight: 700; /* 더 굵게 */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.05);
         }
         form {
             display: flex;
             flex-direction: column;
+            gap: 15px; /* 요소들 사이 간격 */
         }
         label {
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #555;
+            margin-bottom: 5px;
+            font-weight: 500; /* 중간 굵기 */
+            color: var(--text-color);
+            font-size: 1.05em;
         }
         input[type="number"],
         input[type="text"],
@@ -48,69 +71,105 @@
         select,
         textarea {
             width: 100%;
-            padding: 12px;
-            margin-bottom: 20px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
+            padding: 14px 16px; /* 패딩 증가 */
+            margin-bottom: 0; /* 간격은 form-gap으로 대체 */
+            border: 1px solid var(--border-color);
+            border-radius: 8px; /* 모서리 둥글게 */
             box-sizing: border-box;
             font-size: 1em;
-            background-color: #f9f9f9;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); /* 포커스 시 빛 효과 */
+            outline: none;
         }
         textarea {
-            min-height: 100px;
+            min-height: 120px;
             resize: vertical;
-            font-family: 'Fira Code', 'Roboto Mono', monospace;
+            font-family: 'Fira Code', 'Roboto Mono', monospace; /* 코딩 폰트 */
+            line-height: 1.5;
         }
         .button-group {
             display: flex;
-            gap: 15px;
-            margin-top: 10px;
+            flex-wrap: wrap; /* 작은 화면에서 줄바꿈 되도록 */
+            gap: 15px; /* 버튼 간격 */
+            margin-top: 15px;
             margin-bottom: 25px;
-            flex-wrap: wrap;
         }
         button {
             flex-grow: 1;
-            background-color: #3498db;
+            background-color: var(--primary-color);
             color: white;
-            padding: 12px 25px;
+            padding: 14px 28px; /* 패딩 증가 */
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 1.05em;
-            font-weight: bold;
-            transition: background-color 0.3s ease, transform 0.2s ease;
+            font-size: 1.1em; /* 폰트 크기 증가 */
+            font-weight: 700;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
         }
-        button:hover {
-            background-color: #2980b9;
+        button:hover:not(:disabled) {
+            background-color: var(--primary-hover-color);
             transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
         }
-        button:active {
+        button:active:not(:disabled) {
             transform: translateY(0);
+            box-shadow: none;
+        }
+        button:disabled {
+            background-color: #9ca3af; /* 회색 비활성화 */
+            cursor: not-allowed;
+            opacity: 0.8;
         }
         .info-text {
             font-size: 0.85em;
-            color: #666;
-            margin-top: -15px;
-            margin-bottom: 20px;
+            color: var(--light-text-color);
+            margin-top: -10px; /* 라벨과의 간격 조정 */
+            margin-bottom: 10px; /* 다음 요소와의 간격 */
         }
-        #loadingSpinner {
+        .warning-text {
+            color: var(--error-color);
+            font-weight: 500;
+        }
+        .message-area {
+            padding: 10px 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 0.95em;
+            word-wrap: break-word; /* 긴 메시지 줄바꿈 */
+        }
+        .message-area.success {
+            background-color: rgba(34, 197, 94, 0.1); /* Tailwind Green 50 (opacity) */
+            color: var(--success-color);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        .message-area.error {
+            background-color: rgba(239, 68, 68, 0.1); /* Tailwind Red 50 (opacity) */
+            color: var(--error-color);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .loading-spinner {
             display: none;
             text-align: center;
             font-size: 1.2em;
-            color: #607d8b;
+            color: var(--primary-color);
             margin-top: 15px;
             font-weight: bold;
         }
-        #loadingSpinner::after {
+        .loading-spinner::after {
             content: '';
             display: inline-block;
             width: 1.2em;
             height: 1.2em;
             margin-left: 0.5em;
-            border: 0.15em solid #f3f3f3;
-            border-top: 0.15em solid #607d8b;
+            border: 0.15em solid rgba(59, 130, 246, 0.3);
+            border-top: 0.15em solid var(--primary-color);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -119,22 +178,28 @@
         /* Style for the audio player */
         audio {
             width: 100%;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            background-color: #f0f0f0;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            background-color: var(--background-color);
             border-radius: 8px;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.05);
+            padding: 5px;
         }
-
-        /* Responsive adjustments */
-        @media (max-width: 480px) {
+        
+        /* 모바일 반응형 조정 */
+        @media (max-width: 680px) {
             .container {
                 padding: 20px;
-                margin-top: 10px;
+                margin-top: 15px;
+                border-radius: 10px;
             }
             h1 {
-                font-size: 1.5em;
-                margin-bottom: 20px;
+                font-size: 1.6em;
+                margin-bottom: 25px;
+            }
+            button {
+                padding: 10px 20px;
+                font-size: 1em;
             }
             .button-group {
                 flex-direction: column;
@@ -146,7 +211,10 @@
 <body>
     <div class="container">
         <h1>🎵 베이스 루프 자동 생성기 🎸</h1>
-        <form id="bassGeneratorForm"> <!-- action 및 method 속성을 JavaScript가 처리하므로 제거 -->
+
+        <div id="messageArea" class="message-area" style="display:none;"></div>
+
+        <form id="bassGeneratorForm">
             
             <label for="generation_mode">생성 모드 선택</label>
             <select id="generation_mode" name="generation_mode" onchange="toggleModeOptions()">
@@ -158,7 +226,7 @@
             <div id="ai_mode_options" style="display:none;">
                 <label for="gemini_api_key_input">Gemini API 키</label>
                 <input type="password" id="gemini_api_key_input" name="gemini_api_key_input" placeholder="Google AI Studio에서 발급받은 키 입력">
-                <p class="info-text" style="color: #d32f2f; margin-top: -15px;">
+                <p class="info-text warning-text">
                     ⚠️ 경고: 이 키는 웹 서버로 전송됩니다. 학습/테스트용으로만 사용하며 보안에 주의하세요.
                 </p>
             </div>
@@ -192,11 +260,11 @@
                 <option value="random" {% if default_genre == 'random' %}selected{% endif %}>완전 랜덤 (정확도 낮음)</option>
             </select>
 
-            <!-- 악보 생성 버튼 (모드에 따라 동작 다름) -->
-            <button type="button" onclick="generateNotes()">악보 자동 생성</button>
-            <div id="loadingSpinnerNotes" style="display:none;">악보 생성 중... (잠시만 기다려주세요)</div>
+            <!-- 악보 생성 버튼 -->
+            <button type="button" id="generateNotesBtn" onclick="generateNotes()">🎼 악보 자동 생성</button>
+            <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
             
-            <label for="notes_sequence_input" style="margin-top: 25px;">생성/입력된 악보 시퀀스</label>
+            <label for="notes_sequence_input" style="margin-top: 10px;">생성/입력된 악보 시퀀스</label>
             <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">{{ recommended_notes_str }}</textarea>
             <p class="info-text">
                 형식: `음표이름+옥타브 박자단위`를 쉼표로 구분. 예: `C2 1.0, G2 0.5, A2 0.5, F2 1.0`
@@ -205,9 +273,9 @@
             <label for="num_loops_input">오디오 루프 반복 횟수</label>
             <input type="number" id="num_loops_input" name="num_loops_input" value="{{ default_loops }}" min="1" max="100" required>
 
-            <!-- 오디오 생성 버튼 (공통) -->
-            <button type="button" onclick="playGeneratedAudio()">베이스 루프 오디오 생성 & 재생</button>
-            <div id="loadingSpinnerAudio" style="display:none;">오디오 생성 중... (잠시만 기다려주세요)</div>
+            <!-- 오디오 생성 및 재생 버튼 -->
+            <button type="button" id="playAudioBtn" onclick="playGeneratedAudio()">▶️ 베이스 루프 오디오 생성 & 재생</button>
+            <div id="loadingSpinnerAudio" class="loading-spinner">오디오 생성 중...</div>
 
             <!-- 오디오 플레이어 추가 -->
             <audio controls id="audioPlayer"></audio>
@@ -219,7 +287,36 @@
         document.addEventListener('DOMContentLoaded', (event) => {
             // 페이지 로드 시 선택된 기본 모드에 따라 UI 조정
             toggleModeOptions();
+            // 메시지 영역 숨기기
+            document.getElementById('messageArea').style.display = 'none';
         });
+
+        function showMessage(message, type = 'info') {
+            const messageArea = document.getElementById('messageArea');
+            messageArea.textContent = message;
+            messageArea.className = 'message-area'; // Reset classes
+            if (type === 'success') {
+                messageArea.classList.add('success');
+            } else if (type === 'error') {
+                messageArea.classList.add('error');
+            }
+            messageArea.style.display = 'block';
+        }
+
+        function setLoadingState(elementId, isLoading, message = "") {
+            const spinner = document.getElementById(elementId);
+            const button = document.getElementById(elementId.replace('loadingSpinner', '') + 'Btn'); // 예를 들어 loadingSpinnerNotes -> generateNotesBtn
+
+            if (isLoading) {
+                spinner.textContent = message;
+                spinner.style.display = 'block';
+                if (button) button.disabled = true;
+            } else {
+                spinner.style.display = 'none';
+                if (button) button.disabled = false;
+            }
+        }
+
 
         function toggleModeOptions() {
             const modeSelect = document.getElementById('generation_mode');
@@ -236,6 +333,7 @@
                 geminiApiKeyInput.removeAttribute('required');
                 geminiApiKeyInput.value = ''; // 키 필드 비우기
             }
+            showMessage("", 'info'); // 모드 전환 시 메시지 지우기
         }
 
         async function generateNotes() {
@@ -247,14 +345,16 @@
             const genre = document.getElementById('genre_input').value;
             const keyNote = document.getElementById('key_note_input').value;
             const octave = document.getElementById('octave_input').value;
-            const apiKey = document.getElementById('gemini_api_key_input').value; // AI 모드일 때만 사용
+            const apiKey = document.getElementById('gemini_api_key_input').value; 
 
-            const loadingSpinner = document.getElementById('loadingSpinnerNotes'); // 악보 생성용 스피너
             const notesSequenceInput = document.getElementById('notes_sequence_input');
             
+            notesSequenceInput.value = ""; // 기존 악보 비우기
+            showMessage("", 'info'); // 기존 메시지 비우기
+
             // 로딩 상태 시작
-            loadingSpinner.style.display = 'block';
-            notesSequenceInput.value = `(${currentMode === 'ai' ? 'AI가' : '랜덤 생성기로부터'}) 악보를 생성하고 있습니다. 잠시만 기다려주세요...`;
+            setLoadingState('loadingSpinnerNotes', true, 
+                            `${currentMode === 'ai' ? 'AI가' : '랜덤 생성기가'} 악보를 생성 중입니다...`);
 
             try {
                 const formData = new FormData();
@@ -266,11 +366,8 @@
                 formData.append('octave_input', octave);
 
                 if (currentMode === 'ai') {
-                    // AI 모드일 때만 API 키 추가 및 유효성 검사
                     if (!apiKey.trim()) {
-                        alert("Gemini API 키를 입력해주세요!");
-                        loadingSpinner.style.display = 'none';
-                        notesSequenceInput.value = 'AI 추천을 위해서는 API 키가 필요합니다.';
+                        showMessage("⚠️ Gemini API 키를 입력해주세요!", 'error');
                         return; // 함수 실행 중단
                     }
                     formData.append('gemini_api_key_input', apiKey);
@@ -285,18 +382,17 @@
 
                 if (response.ok && data.status === 'success') {
                     notesSequenceInput.value = data.notes;
+                    showMessage("🎉 악보가 성공적으로 생성되었습니다! 오디오를 재생해보세요.", 'success');
                 } else {
                     const errorMessage = data.message || '알 수 없는 오류가 발생했습니다.';
-                    alert('악보 생성에 실패했습니다: ' + errorMessage);
-                    notesSequenceInput.value = '악보 생성에 실패했습니다. 다시 시도하거나 서버 로그를 확인하세요.'; 
-                    console.error('Server response error:', data);
+                    showMessage(`🚨 악보 생성 실패: ${errorMessage}`, 'error');
+                    console.error('Server response error:', response.status, errorMessage);
                 }
             } catch (error) {
+                showMessage('⚠️ 네트워크 오류 또는 서버 문제가 발생했습니다.', 'error');
                 console.error('Error fetching notes:', error);
-                alert('네트워크 오류 또는 서버 문제가 발생했습니다.');
-                notesSequenceInput.value = '악보 생성 중 네트워크 또는 서버 오류가 발생했습니다.';
             } finally {
-                loadingSpinner.style.display = 'none'; // 로딩 상태 종료
+                setLoadingState('loadingSpinnerNotes', false); // 로딩 상태 종료
             }
         }
 
@@ -306,16 +402,18 @@
             const numLoops = document.getElementById('num_loops_input').value;
 
             const audioPlayer = document.getElementById('audioPlayer');
-            const loadingSpinner = document.getElementById('loadingSpinnerAudio'); // 오디오 생성용 스피너
             
+            showMessage("", 'info'); // 기존 메시지 비우기
+
             if (!notesSequence.trim()) {
-                alert("먼저 악보 시퀀스를 생성하거나 입력해주세요!");
+                showMessage("❗ 먼저 악보 시퀀스를 생성하거나 입력해주세요!", 'error');
                 return;
             }
 
-            loadingSpinner.style.display = 'block'; // 로딩 스피너 표시
+            // 로딩 상태 시작
+            setLoadingState('loadingSpinnerAudio', true, '오디오 생성 중...');
             audioPlayer.src = ''; // 기존 오디오 중지 및 제거
-            audioPlayer.load(); // 플레이어 리로드
+            audioPlayer.load(); 
 
             try {
                 const formData = new FormData();
@@ -330,27 +428,28 @@
 
                 if (response.ok) {
                     const audioBlob = await response.blob();
-                    const audioUrl = URL.createObjectURL(audioBlob); // Blob URL 생성
+                    const audioUrl = URL.createObjectURL(audioBlob); 
                     
-                    audioPlayer.src = audioUrl; // 오디오 플레이어 소스 설정
-                    audioPlayer.play(); // 오디오 재생
+                    audioPlayer.src = audioUrl; 
+                    await audioPlayer.play(); // Promise를 기다림 (재생 시작 전)
+                    showMessage("🎶 오디오 재생을 시작합니다!", 'success');
                     
-                    // Blob URL은 더 이상 필요 없으면 해제 (메모리 관리)
                     audioPlayer.onended = () => {
                         URL.revokeObjectURL(audioUrl); 
                         audioPlayer.onended = null;
+                        showMessage("재생이 완료되었습니다.", 'info');
                     };
                 } else {
-                    const errorMessage = await response.text(); // 서버가 오류 메시지를 텍스트로 보낼 것
-                    alert('오디오 생성에 실패했습니다: ' + errorMessage);
+                    const errorMessage = await response.text();
+                    showMessage(`🚨 오디오 생성 실패: ${errorMessage}`, 'error');
                     console.error('Server response error:', response.status, errorMessage);
                 }
 
             } catch (error) {
+                showMessage('⚠️ 오디오 재생 중 네트워크 오류 또는 서버 문제가 발생했습니다.', 'error');
                 console.error('Error playing audio:', error);
-                alert('오디오를 재생하는 중 네트워크 오류 또는 서버 문제가 발생했습니다.');
             } finally {
-                loadingSpinner.style.display = 'none'; // 로딩 스피너 숨김
+                setLoadingState('loadingSpinnerAudio', false); // 로딩 상태 종료
             }
         }
     </script>
