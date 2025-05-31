@@ -804,7 +804,7 @@ if __name__ == '__main__':
     except:
         pass
 
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
     logger.info(f"서버 시작 - 포트: {port}, 디버그: {debug_mode}")
