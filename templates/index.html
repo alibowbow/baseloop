@@ -6,6 +6,9 @@
     <title>🎵 프로 베이스 루프 생성기 🎸</title>
     <!-- Google Fonts - Rubik 폰트 가져오기 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- VexFlow 라이브러리 CDN - 악보 시각화용 -->
+    <script src="https://cdn.jsdelivr.net/npm/vexflow@4.0.0/build/cjs/vexflow.js"></script> 
+    
     <style>
         /* CSS 변수: 색상 팔레트 정의 */
         :root {
@@ -33,15 +36,15 @@
             align-items: flex-start; 
             min-height: 100vh;
             box-sizing: border-box;
-            -webkit-font-smoothing: antialiased; /* 폰트 부드럽게 */
+            -webkit-font-smoothing: antialiased; 
             -moz-osx-font-smoothing: grayscale;
         }
         .container {
             background-color: var(--card-background);
             padding: 35px;
-            border-radius: 16px; /* 모서리 더 둥글게 */
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08); /* 그림자 더 깊게 */
-            max-width: 650px; /* 너비 약간 증가 */
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08); 
+            max-width: 650px; 
             width: 100%;
             margin-top: 30px;
             box-sizing: border-box;
@@ -50,18 +53,18 @@
             color: var(--primary-color);
             text-align: center;
             margin-bottom: 35px;
-            font-size: 2.2em; /* 폰트 크기 증가 */
-            font-weight: 700; /* 더 굵게 */
+            font-size: 2.2em; 
+            font-weight: 700; 
             text-shadow: 1px 1px 2px rgba(0,0,0,0.05);
         }
         form {
             display: flex;
             flex-direction: column;
-            gap: 15px; /* 요소들 사이 간격 */
+            gap: 15px; 
         }
         label {
             margin-bottom: 5px;
-            font-weight: 500; /* 중간 굵기 */
+            font-weight: 500; 
             color: var(--text-color);
             font-size: 1.05em;
         }
@@ -71,10 +74,10 @@
         select,
         textarea {
             width: 100%;
-            padding: 14px 16px; /* 패딩 증가 */
-            margin-bottom: 0; /* 간격은 form-gap으로 대체 */
+            padding: 14px 16px; 
+            margin-bottom: 0; 
             border: 1px solid var(--border-color);
-            border-radius: 8px; /* 모서리 둥글게 */
+            border-radius: 8px; 
             box-sizing: border-box;
             font-size: 1em;
             background-color: var(--background-color);
@@ -83,19 +86,19 @@
         }
         input:focus, select:focus, textarea:focus {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); /* 포커스 시 빛 효과 */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); 
             outline: none;
         }
         textarea {
             min-height: 120px;
             resize: vertical;
-            font-family: 'Fira Code', 'Roboto Mono', monospace; /* 코딩 폰트 */
+            font-family: 'Fira Code', 'Roboto Mono', monospace; 
             line-height: 1.5;
         }
         .button-group {
             display: flex;
-            flex-wrap: wrap; /* 작은 화면에서 줄바꿈 되도록 */
-            gap: 15px; /* 버튼 간격 */
+            flex-wrap: wrap; 
+            gap: 15px; 
             margin-top: 15px;
             margin-bottom: 25px;
         }
@@ -103,11 +106,11 @@
             flex-grow: 1;
             background-color: var(--primary-color);
             color: white;
-            padding: 14px 28px; /* 패딩 증가 */
+            padding: 14px 28px; 
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 1.1em; /* 폰트 크기 증가 */
+            font-size: 1.1em; 
             font-weight: 700;
             transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
         }
@@ -121,15 +124,15 @@
             box-shadow: none;
         }
         button:disabled {
-            background-color: #9ca3af; /* 회색 비활성화 */
+            background-color: #9ca3af; 
             cursor: not-allowed;
             opacity: 0.8;
         }
         .info-text {
             font-size: 0.85em;
             color: var(--light-text-color);
-            margin-top: -10px; /* 라벨과의 간격 조정 */
-            margin-bottom: 10px; /* 다음 요소와의 간격 */
+            margin-top: -10px; 
+            margin-bottom: 10px; 
         }
         .warning-text {
             color: var(--error-color);
@@ -140,15 +143,15 @@
             margin-bottom: 20px;
             border-radius: 8px;
             font-size: 0.95em;
-            word-wrap: break-word; /* 긴 메시지 줄바꿈 */
+            word-wrap: break-word; 
         }
         .message-area.success {
-            background-color: rgba(34, 197, 94, 0.1); /* Tailwind Green 50 (opacity) */
+            background-color: rgba(34, 197, 94, 0.1); 
             color: var(--success-color);
             border: 1px solid rgba(34, 197, 94, 0.3);
         }
         .message-area.error {
-            background-color: rgba(239, 68, 68, 0.1); /* Tailwind Red 50 (opacity) */
+            background-color: rgba(239, 68, 68, 0.1); 
             color: var(--error-color);
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
@@ -186,6 +189,21 @@
             padding: 5px;
         }
         
+        /* 악보 시각화용 캔버스 컨테이너 */
+        #notation-area {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: center; /* 캔버스를 가운데 정렬 */
+        }
+        #sheetMusicCanvas {
+            border: 1px solid var(--border-color);
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            max-width: 100%; /* 캔버스가 부모 컨테이너를 넘어가지 않도록 */
+            height: auto; /* 비율 유지 */
+        }
+
         /* 모바일 반응형 조정 */
         @media (max-width: 680px) {
             .container {
@@ -214,7 +232,7 @@
 
         <div id="messageArea" class="message-area" style="display:none;"></div>
 
-        <form id="bassGeneratorForm">
+        <form id="bassGeneratorForm"> 
             
             <label for="generation_mode">생성 모드 선택</label>
             <select id="generation_mode" name="generation_mode" onchange="toggleModeOptions()">
@@ -279,11 +297,20 @@
 
             <!-- 오디오 플레이어 추가 -->
             <audio controls id="audioPlayer"></audio>
+
+            <!-- 악보 시각화 영역 추가 -->
+            <div id="notation-area">
+                <h3 style="color: var(--primary-color);">생성된 악보</h3>
+                <canvas id="sheetMusicCanvas" width="600" height="200"></canvas>
+            </div>
         </form>
     </div>
 
     <!-- JavaScript 로직 -->
     <script>
+        // VexFlow 런타임 불러오기
+        const { Factory, Renderer, Stave, StaveNote, Formatter, Beam, TimeSignature, Clef } = VexFlow.Flow;
+
         document.addEventListener('DOMContentLoaded', (event) => {
             // 페이지 로드 시 선택된 기본 모드에 따라 UI 조정
             toggleModeOptions();
@@ -301,11 +328,13 @@
                 messageArea.classList.add('error');
             }
             messageArea.style.display = 'block';
+            // 짧게 보여준 후 사라지게 하려면 setTimeout 추가
+            // setTimeout(() => { messageArea.style.display = 'none'; }, 5000);
         }
 
         function setLoadingState(elementId, isLoading, message = "") {
             const spinner = document.getElementById(elementId);
-            const button = document.getElementById(elementId.replace('loadingSpinner', '') + 'Btn'); // 예를 들어 loadingSpinnerNotes -> generateNotesBtn
+            const button = document.getElementById(elementId.replace('loadingSpinner', '') + 'Btn'); 
 
             if (isLoading) {
                 spinner.textContent = message;
@@ -325,15 +354,14 @@
             
             if (modeSelect.value === 'ai') {
                 aiOptionsDiv.style.display = 'block';
-                // AI 모드에서는 API 키 필드를 필수 (required)로 만듬
                 geminiApiKeyInput.setAttribute('required', 'true');
             } else {
                 aiOptionsDiv.style.display = 'none';
-                // 랜덤 모드에서는 API 키 필드 필수 해제
                 geminiApiKeyInput.removeAttribute('required');
-                geminiApiKeyInput.value = ''; // 키 필드 비우기
+                geminiApiKeyInput.value = ''; 
             }
             showMessage("", 'info'); // 모드 전환 시 메시지 지우기
+            clearSheetMusic(); // 모드 전환 시 악보 지우기
         }
 
         async function generateNotes() {
@@ -344,13 +372,14 @@
             const length = document.getElementById('length_input').value;
             const genre = document.getElementById('genre_input').value;
             const keyNote = document.getElementById('key_note_input').value;
-            const octave = document.getElementById('octave_input').value;
+            const octave = document.getElementById('octave_input').value; // 이 옥타브가 VexFlow에도 영향을 줌
             const apiKey = document.getElementById('gemini_api_key_input').value; 
 
             const notesSequenceInput = document.getElementById('notes_sequence_input');
             
-            notesSequenceInput.value = ""; // 기존 악보 비우기
-            showMessage("", 'info'); // 기존 메시지 비우기
+            notesSequenceInput.value = ""; 
+            showMessage("", 'info'); 
+            clearSheetMusic(); // 새로운 악보 생성 전에 이전 악보 지우기
 
             // 로딩 상태 시작
             setLoadingState('loadingSpinnerNotes', true, 
@@ -368,7 +397,7 @@
                 if (currentMode === 'ai') {
                     if (!apiKey.trim()) {
                         showMessage("⚠️ Gemini API 키를 입력해주세요!", 'error');
-                        return; // 함수 실행 중단
+                        return; 
                     }
                     formData.append('gemini_api_key_input', apiKey);
                 }
@@ -383,6 +412,7 @@
                 if (response.ok && data.status === 'success') {
                     notesSequenceInput.value = data.notes;
                     showMessage("🎉 악보가 성공적으로 생성되었습니다! 오디오를 재생해보세요.", 'success');
+                    renderSheetMusic(data.notes, parseInt(length)); // 악보 시각화 함수 호출!
                 } else {
                     const errorMessage = data.message || '알 수 없는 오류가 발생했습니다.';
                     showMessage(`🚨 악보 생성 실패: ${errorMessage}`, 'error');
@@ -392,7 +422,7 @@
                 showMessage('⚠️ 네트워크 오류 또는 서버 문제가 발생했습니다.', 'error');
                 console.error('Error fetching notes:', error);
             } finally {
-                setLoadingState('loadingSpinnerNotes', false); // 로딩 상태 종료
+                setLoadingState('loadingSpinnerNotes', false); 
             }
         }
 
@@ -431,7 +461,7 @@
                     const audioUrl = URL.createObjectURL(audioBlob); 
                     
                     audioPlayer.src = audioUrl; 
-                    await audioPlayer.play(); // Promise를 기다림 (재생 시작 전)
+                    await audioPlayer.play(); 
                     showMessage("🎶 오디오 재생을 시작합니다!", 'success');
                     
                     audioPlayer.onended = () => {
@@ -449,9 +479,166 @@
                 showMessage('⚠️ 오디오 재생 중 네트워크 오류 또는 서버 문제가 발생했습니다.', 'error');
                 console.error('Error playing audio:', error);
             } finally {
-                setLoadingState('loadingSpinnerAudio', false); // 로딩 상태 종료
+                setLoadingState('loadingSpinnerAudio', false); 
             }
         }
+
+        // --- 악보 시각화 VexFlow 함수 ---
+
+        // VexFlow duration mapping: 우리 포맷의 숫자(4분음표=1.0)를 VexFlow 문자열로 변환
+        const durationMap = {
+            '4': 'q',   // Quarter note (1.0 beat)
+            '8': '8',   // Eighth note (0.5 beat)
+            '16': '16', // Sixteenth note (0.25 beat)
+            '2': 'h',   // Half note (2.0 beats)
+            '1': 'w',   // Whole note (4.0 beats)
+        };
+        // 정확한 박자(e.g., 0.75, 1.5)를 지원하려면 점음표(dot)나 쉼표를 복잡하게 조합해야 함.
+        // 현재는 가장 가까운 값으로 반올림하거나 제한적인 기본 값만 허용합니다.
+
+        function getVexflowDuration(durationUnits) {
+            // durationUnits에 따라 적절한 VexFlow 길이를 반환
+            // 현재 우리 앱에서는 0.25, 0.5, 1.0, 2.0만 생성됨. (나머지는 랜덤에서 약간만)
+            if (durationUnits === 0.25) return '16';
+            if (durationUnits === 0.5) return '8';
+            if (durationUnits === 0.75) return '8d'; // dotted eighth (for swing/triplet feel)
+            if (durationUnits === 1.0) return 'q';
+            if (durationUnits === 1.5) return 'qd'; // dotted quarter
+            if (durationUnits === 2.0) return 'h';
+            if (durationUnits === 3.0) return 'hd'; // dotted half
+            if (durationUnits === 4.0) return 'w'; // whole
+            // 매핑되지 않는 경우 기본값 반환 또는 오류 처리
+            console.warn(`Unknown duration unit: ${durationUnits}. Defaulting to 'q'.`);
+            return 'q'; // Fallback
+        }
+
+        // 음표 이름 매핑 (VexFlow는 옥타브를 "/"로 구분)
+        function getVexflowNote(noteName, octave) {
+            // VexFlow는 #을 's'로 표현 (C# -> Cs, D# -> Ds 등)
+            // 우리 입력 형식은 'C#', 'D#' 등임.
+            let vexflowNoteName = noteName.replace('#', 's');
+            // 베이스 기타는 낮은 옥타브를 주로 사용하므로 VexFlow에서 더 낮은 옥타브로 맵핑 필요.
+            // MIDI 기준: C4=Middle C. C2 (MIDI 36) 베이스 기타에서 많이 쓰임.
+            // VexFlow 옥타브는 보통 scientific pitch notation (C4가 미들C)을 따름.
+            // 우리가 입력하는 Octave (1, 2)를 VexFlow에 적합한 표기로 변환
+            // 예를 들어, C2 (우리앱)는 VexFlow의 C/2
+            return `${vexflowNoteName}/${octave}`; 
+        }
+
+        // 기존 캔버스 내용 지우기
+        function clearSheetMusic() {
+            const canvas = document.getElementById('sheetMusicCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // 캔버스 지우기
+            // HTML 구조도 비울 필요가 있을 수 있지만 VexFlow는 다시 그림
+        }
+
+        // notesSequenceStr: "C2 1.0, G2 0.5, ..." 형태
+        // lengthMeasures: 몇 마디짜리 루프인지 (예: 4)
+        function renderSheetMusic(notesSequenceStr, lengthMeasures) {
+            const canvas = document.getElementById('sheetMusicCanvas');
+            const renderer = new Renderer(canvas, Renderer.Backends.CANVAS);
+            const ctx = renderer.getContext();
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // 이전 내용 클리어
+            ctx.setFont('Arial', 10); // 기본 폰트 설정 (VexFlow는 폰트 로드 필요 없을 수도 있음)
+
+            const BEATS_PER_MEASURE = 4; // 4/4 박자 가정
+
+            // notes: StaveNote 객체의 배열
+            const notes = [];
+            const vexflowNotes = [];
+            const vexflowDurations = [];
+
+            // 텍스트 악보 시퀀스를 파싱
+            notesSequenceStr.split(',').forEach(noteEntry => {
+                const parts = noteEntry.trim().match(/([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)/);
+                if (parts) {
+                    const noteName = parts[1];
+                    const octave = parseInt(parts[2]);
+                    const durationUnits = parseFloat(parts[3]);
+
+                    vexflowNotes.push(getVexflowNote(noteName, octave));
+                    vexflowDurations.push(getVexflowDuration(durationUnits));
+                }
+            });
+
+            // 마디별로 음표 나누기 및 박자 조절
+            // (간단화를 위해 음표 개수를 고정적으로 나눔 - 더 정확하게는 total_beats로 나눠야 함)
+            // 총 비트 계산: 모든 durationUnits의 합. 4/4박자이므로 total_beats / 4 = 마디 수
+            let currentBeatCount = 0;
+            const measures = []; // 마디별로 묶인 음표 배열
+            let currentMeasureNotes = [];
+            const TIME_SIGNATURE_TOP = 4; // 분자
+            const TIME_SIGNATURE_BOTTOM = 4; // 분모
+
+            for (let i = 0; i < vexflowNotes.length; i++) {
+                const vfNoteString = vexflowNotes[i];
+                const vfDurationString = vexflowDurations[i];
+                const durationUnits = parseFloat(notesSequenceStr.split(',')[i].trim().match(/\d+(\.\d+)?/)[0]); // 원본 duration
+                
+                const note = new StaveNote({
+                    clef: 'bass', // 베이스 클레프 (베이스 기타용)
+                    keys: [vfNoteString],
+                    duration: vfDurationString,
+                });
+
+                // 점음표 추가 (if needed)
+                if (vfDurationString.endsWith('d')) {
+                    note.addDot(0); // 첫 번째 노트에 점 추가 (인덱스 0)
+                }
+
+                currentMeasureNotes.push(note);
+                currentBeatCount += durationUnits;
+
+                if (currentBeatCount >= BEATS_PER_MEASURE) {
+                    measures.push(currentMeasureNotes);
+                    currentMeasureNotes = [];
+                    currentBeatCount = 0;
+                }
+            }
+            if (currentMeasureNotes.length > 0) { // 마지막 마디에 남은 음표 추가
+                measures.push(currentMeasureNotes);
+            }
+
+            // Stave (오선지) 그리기
+            let xPos = 10;
+            const yPos = 30; // 오선지 세로 위치
+
+            const staveWidth = (canvas.width - 20) / measures.length; // 마디 수에 따라 너비 분할 (간단화)
+            
+            // 모든 마디에 공통 시간표 추가
+            // (한 번만 첫 마디에 추가하는게 일반적이지만, 여기서는 각 stave마다 설정)
+            measures.forEach((measureNotes, index) => {
+                const stave = new Stave(xPos, yPos, staveWidth);
+                if (index === 0) {
+                    stave.addClef('bass'); // 베이스 클레프 (악기 상징)
+                    stave.addTimeSignature(`${TIME_SIGNATURE_TOP}/${TIME_SIGNATURE_BOTTOM}`); // 4/4박자
+                }
+                stave.setContext(ctx).draw();
+
+                // 음표가 없을 경우 기본 4분쉼표 추가 (옵션: 악보를 비어있지 않게)
+                if (measureNotes.length === 0) {
+                     measureNotes.push(new StaveNote({
+                        clef: 'bass',
+                        keys: ['b/2'], // B2 for default rest position (dummy note for rest placement)
+                        duration: 'qr' // Quarter Rest
+                    }));
+                }
+
+                Formatter.FormatAndDraw(ctx, stave, measureNotes, {
+                    autoJustify: true,
+                    // 베이스 클레프는 B/2, D/3, F/3, A/3, C/4 기준으로 (가운데 C가 C4)
+                    // 베이스는 C1, C2, C3 같은 낮은 음들을 많이 사용
+                    // ensureMinimumLength: true,
+                    // stem_direction: -1, // all stems down - might be too aggressive, let VexFlow decide.
+                });
+                xPos += stave.width; // 다음 오선지 위치 이동
+            });
+            // 캔버스가 작으면 잘릴 수 있으니 크기 조정 권장
+            // 예를 들어 canvas.width = xPos + 10;
+            // canvas.height = yPos + 100;
+        }
+
     </script>
 </body>
 </html>
