@@ -347,10 +347,8 @@
             // 메시지 영역 숨기기
             document.getElementById('messageArea').style.display = 'none';
             
-            // 기본 악보 렌더링 (예시로 악보를 보여주기 위함)
-            renderSheetMusic(document.getElementById('notes_sequence_input').value, 
-                             parseInt(document.getElementById('length_input').value), 
-                             parseInt(document.getElementById('bpm_input').value));
+            // 기본 악보 렌더링
+            renderSheetMusic("C2 1.0, G2 1.0, A2 1.0, F2 1.0", 4, 120);
         });
 
         function showMessage(message, type = 'info') {
@@ -428,7 +426,6 @@
                 if (currentMode === 'ai') {
                     if (!apiKey.trim()) {
                         showMessage("⚠️ Gemini API 키를 입력해주세요!", 'error');
-                        setLoadingState('loadingSpinnerNotes', false); // 오류 발생 시 로딩 해제
                         return; 
                     }
                     formData.append('gemini_api_key_input', apiKey);
@@ -539,12 +536,12 @@
                 '0.25': '16',   // 16분음표
                 '0.5': '8',     // 8분음표
                 '1.0': 'q',     // 4분음표
-                '1.5': 'qd',    // 점 4분음표 (dotted quarter)
+                '1.5': 'qd',    // 점 4분음표
                 '2.0': 'h',     // 2분음표
-                '3.0': 'hd',    // 점 2분음표 (dotted half)
+                '3.0': 'hd',    // 점 2분음표
                 '4.0': 'w',     // 온음표
             };
-            return durationMap[beats.toString()] || 'q'; // 매핑되지 않으면 기본 4분음표
+            return durationMap[beats.toString()] || 'q';
         }
 
         // 악보를 렌더링하는 핵심 함수 (VexFlow 3.x 호환)
@@ -565,7 +562,7 @@
             try {
                 // 캔버스 초기화
                 const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // 기존 내용 지우기
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 // 악보 데이터 파싱
                 const rawNotes = notesSequenceStr.split(',').map(noteEntry => {
@@ -578,70 +575,49 @@
                 }).filter(n => n !== null);
 
                 if (rawNotes.length === 0) {
-                    console.warn('파싱된 음표가 없습니다. 악보를 그리지 않습니다.');
-                    showMessage('생성된 음표가 없습니다. 유효한 악보 시퀀스를 입력하세요.', 'info');
+                    console.warn('파싱된 음표가 없습니다.');
                     return;
                 }
 
                 // VexFlow 렌더러 생성
                 const renderer = new VF.Renderer(canvas, VF.Renderer.Backends.CANVAS);
                 const context = renderer.getContext();
-                context.setFont('Arial', 10); // 폰트 설정
+                context.setFont('Arial', 10);
 
                 // Stave 생성 (오선지)
-                const stave = new VF.Stave(10, 40, canvas.width - 20); // x, y, width
-                stave.addClef('bass').addTimeSignature('4/4'); // 베이스 클레프, 4/4 박자
-                stave.setContext(context).draw(); // 오선지 그리기
+                const stave = new VF.Stave(10, 40, canvas.width - 20);
+                stave.addClef('bass').addTimeSignature('4/4');
+                stave.setContext(context).draw();
 
                 // 음표들을 VexFlow StaveNote로 변환
                 const notes = rawNotes.map(noteData => {
                     const noteName = getVexflowNoteName(noteData.name, noteData.octave);
                     const duration = getDurationFromBeats(noteData.durationUnits);
                     
-                    const staveNote = new VF.StaveNote({
+                    return new VF.StaveNote({
                         clef: 'bass',
                         keys: [noteName],
                         duration: duration
                     });
-                    
-                    // 임시표 처리 (#, b 기호)
-                    if (noteData.name.includes('#')) {
-                        staveNote.addAccidental(0, new VF.Accidental("#"));
-                    } else if (noteData.name.includes('b')) { // 'b' 기호가 있다면 (현재 파서는 #만 처리하지만, 확장 가능)
-                        staveNote.addAccidental(0, new VF.Accidental("b"));
-                    }
-                    return staveNote;
                 });
 
                 // Voice 생성 및 음표 추가
-                // num_beats와 beat_value는 VexFlow가 박자를 계산하는 데 사용
-                // 여기서는 전체 루프 길이에 맞춰 박자를 계산 (4/4 박자 기준 마디당 4박)
                 const voice = new VF.Voice({
-                    num_beats: rawNotes.reduce((sum, note) => sum + note.durationUnits, 0), // 전체 음표 박자 합
-                    beat_value: 4, // 4분음표가 1박
-                    resolution: VF.Resolution.Common.R16 // 16분음표가 가장 작은 단위
+                    num_beats: lengthMeasures * 4,  // 4/4 박자 기준
+                    beat_value: 4
                 });
 
                 voice.addTickables(notes);
 
-                // 포매터로 음표 정렬 및 공간 할당
+                // 포매터로 음표 정렬
                 const formatter = new VF.Formatter().joinVoices([voice]).format([voice], canvas.width - 50);
 
                 // 음표 그리기
                 voice.draw(context, stave);
 
-                // 음표 묶음 (Beaming) 처리 - 8분음표/16분음표 등 꼬리 묶기
-                const beamGroups = VF.Beam.generateBeams(notes, {
-                    stem_direction: VF.Stem.UP, // 스템 방향 (UP/DOWN)
-                });
-                beamGroups.forEach(beam => {
-                    beam.setContext(context).draw();
-                });
-
-
                 console.log('✅ 악보가 성공적으로 렌더링되었습니다.');
 
-            } catch (e) {
+            } catch (error) {
                 console.error("VexFlow 악보 그리기 오류:", e);
                 showMessage(`🚨 악보 그리기 오류가 발생했습니다: ${e.message}`, 'error');
             }
