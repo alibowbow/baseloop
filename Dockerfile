@@ -5,6 +5,7 @@ FROM python:3.10-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     musescore3 \
     xvfb \
+    xauth \
     fontconfig \
     # 기존에 추가했던Qt, X11, 그래픽 관련 라이브러리들
     libgconf-2-4 \
@@ -85,5 +86,5 @@ RUN chmod +x /start.sh
 EXPOSE 5000
 
 # 애플리케이션 시작 (컨테이너가 시작될 때 start.sh 스크립트를 실행합니다.)
-# start.sh 스크립트 내부에서 xvfb-run을 사용하여 최종 앱을 실행합니다.
+# start.sh 스크립트 내부에서 Xvfb를 시작하고 Flask 앱을 실행합니다.
 CMD ["/start.sh"]
