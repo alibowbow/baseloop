@@ -337,7 +337,7 @@ def generate_music21_score_with_fallback(
         temp_dir = tempfile.mkdtemp()
         png_path = os.path.join(temp_dir, "score.png")
 
-try:
+        try:
             # Music21이 MuseScore를 호출하여 PNG를 생성합니다.
             # 먼저 MusicXML로 변환 후 PNG로 변환하는 2단계 접근법 시도
             logger.info("PNG 생성 시도 중...")
