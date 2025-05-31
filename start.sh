@@ -2,7 +2,6 @@
 # start.sh - Render.com용 시작 스크립트
 
 # Xvfb 가상 디스플레이 시작 (GUI 없는 환경에서 MuseScore 실행용)
-# 더 상세한 설정과 로깅 추가
 echo "Starting Xvfb virtual display..."
 Xvfb :99 -screen 0 1280x1024x24 -ac +extension GLX +render -noreset &
 XVFB_PID=$!
