@@ -38,16 +38,19 @@ def setup_music21_environment() -> bool:
 
         musescore_path = os.getenv("MUSESCORE_PATH")
         if not musescore_path:
-            # Render 환경에서는 /usr/bin/musescore3 이 일반적
             musescore_path = "/usr/bin/musescore3" 
             logger.warning(f"MUSESCORE_PATH 환경 변수가 설정되지 않았습니다. 기본 경로 '{musescore_path}'를 사용합니다. MuseScore가 설치된 실제 경로로 설정해주세요.")
 
         us["musescoreDirectPNGPath"] = musescore_path
         us["musicxmlPath"] = musescore_path
 
-        # Headless 환경 변수 설정 (Dockerfile 또는 start.sh에서 이미 설정했을 수도 있음)
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         os.environ.setdefault("DISPLAY", ":99")
+
+        # Music21 디버그 로깅 활성화 (MuseScore 오류 상세 정보 확인용)
+        us['debug'] = True 
+        # Music21의 GUI를 억제 (headless 모드에서 필수)
+        us['graphicsBackend'] = 'None' 
 
         logger.info(f"[Music21 설정] MuseScore 경로 등록 완료: {musescore_path}")
         _M21_CONFIGURED = True
@@ -86,7 +89,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Flask 앱 초기화
-# template_folder와 static_folder를 명시하여 Render.com 배포 환경에서 파일 경로 문제를 방지합니다.
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # --- 오디오 생성 관련 상수 및 기본 함수 ---
@@ -98,49 +100,31 @@ def get_note_frequency(note_name_chromatic, octave):
     음표 이름 (C, C#, D, Eb 등 완전한 이름)과 옥타브를 받아 주파수를 계산합니다.
     note_name_chromatic은 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B' 중 하나여야 합니다.
     """
-    # 크로매틱 스케일과 해당 노트의 A4로부터의 반음 간격 (A4=440Hz, MIDI 69)
-    # C4 = MIDI 60
     chromatic_notes_midi_offset = {
-        'C': -9, 'C#': -8, 'D': -7, 'D#': -6, 'E': -5, 'F': -4,
-        'F#': -3, 'G': -2, 'G#': -1, 'A': 0, 'A#': 1, 'B': 2
+        'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5,
+        'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11
     }
     
-    try:
-        # 입력된 음이름을 표준화 (Eb -> D#, Fb -> E, B# -> C 등)
-        # Music21의 pitch.Pitch.name 로직과 유사하게, 내부적으로 반음을 #으로 통일하는 경우가 많음
-        # 여기서는 get_note_frequency가 C, C#, D, D# 등만 받으므로, 입력값을 그대로 사용
-        if note_name_chromatic not in chromatic_notes_midi_offset:
-            # Db, Eb, Gb, Ab, Bb 등을 #으로 변환
-            if note_name_chromatic == 'Db': note_name_chromatic = 'C#'
-            elif note_name_chromatic == 'Eb': note_name_chromatic = 'D#'
-            elif note_name_chromatic == 'Fb': note_name_chromatic = 'E' # 실제로는 E
-            elif note_name_chromatic == 'Gb': note_name_chromatic = 'F#'
-            elif note_name_chromatic == 'Ab': note_name_chromatic = 'G#'
-            elif note_name_chromatic == 'Bb': note_name_chromatic = 'A#'
-            elif note_name_chromatic == 'B#': note_name_chromatic = 'C' # 실제로는 C
-            elif note_name_chromatic == 'Cb': note_name_chromatic = 'B' # 실제로는 B
-            
-            if note_name_chromatic not in chromatic_notes_midi_offset:
-                raise ValueError(f"유효하지 않은 크로매틱 음표 이름: {note_name_chromatic}")
+    # 표준 크로매틱 음이름으로 변환 (Db -> C#, Eb -> D#, etc.)
+    # Music21의 pitch.Pitch는 Eb를 Eb로 유지하지만, 주파수 계산은 내부적으로 D#과 동일하게 처리.
+    # 여기서는 Music21의 표준 음이름(nameWith");'을 따르는 것이 아니라, 단순 주파수 계산이므로
+    # 모든 플랫을 샵으로 변환하여 ['C', 'C#', 'D', 'D#', ...] 형태에 맞춥니다.
+    note_name_std = note_name_chromatic.replace('Db', 'C#').replace('Eb', 'D#') \
+                                       .replace('Gb', 'F#').replace('Ab', 'G#') \
+                                       .replace('Bb', 'A#').replace('Cb', 'B') \
+                                       .replace('B#', 'C') # B#은 C와 같음
+    
+    if note_name_std not in chromatic_notes_midi_offset:
+        raise ValueError(f"유효하지 않은 크로매틱 음표 이름: {note_name_chromatic} (변환 후: {note_name_std})")
 
-        # A4 (440Hz)는 MIDI 노트 69
-        # MIDI 노트 번호 = 69 + 반음 간격 (A4로부터)
-        # 옥타브 4의 A는 69 (offset 0)
-        # 옥타브 4의 C는 60 (offset -9)
-        midi_note_number = (octave * 12) + chromatic_notes_midi_offset[note_name_chromatic] + 57 # C0의 MIDI 노트는 12 (0옥타브 C)
-        # A4=440Hz = MIDI 69
-        # C4=261.63Hz = MIDI 60
-        # Formula: freq = 440 * (2^((midi_note_number - 69)/12))
-        
-        A4_MIDI = 69
-        A4_FREQ = 440.0
-        
-        return A4_FREQ * (2 ** ((midi_note_number - A4_MIDI) / 12.0))
-
-    except ValueError as ve:
-        raise ValueError(f"주파수 계산 오류: {note_name_chromatic}{octave} - {ve}")
-    except KeyError:
-        raise ValueError(f"지원하지 않는 음표 이름: {note_name_chromatic}")
+    # A4 (440Hz)는 MIDI 노트 69
+    # MIDI 노트 번호 = (옥타브 + 1) * 12 + 음이름 인덱스 (C0이 0번 인덱스)
+    midi_note_number = (octave + 1) * 12 + chromatic_notes_midi_offset[note_name_std]
+    
+    A4_MIDI = 69
+    A4_FREQ = 440.0
+    
+    return A4_FREQ * (2 ** ((midi_note_number - A4_MIDI) / 12.0))
 
 
 def generate_note_waveform(frequency, duration_seconds, sample_rate, amplitude):
@@ -188,11 +172,10 @@ def parse_note_sequence_string(notes_sequence_str):
             continue
         
         # 음표 파싱 (예: C#2 1.0, Eb3 0.5)
-        # ([A-Ga-g])       -> 음이름 (C, D, E, F, G, A, B)
-        # (#|b)?           -> # 또는 b (선택적)
-        # (\d+)            -> 옥타브 숫자
-        # \s+              -> 공백
-        # (\d+(?:\.\d+)?)  -> 박자 (1, 0.5, 1.25 등)
+        # Group 1: Base note name (A-G)
+        # Group 2: Accidental (# or b, optional)
+        # Group 3: Octave (digits)
+        # Group 4: Duration (number with optional decimal)
         match_note = re.match(r"([A-Ga-g])(#|b)?(\d+)\s+(\d+(?:\.\d+)?)", note_entry, re.IGNORECASE)
         if match_note:
             note_name = match_note.group(1).upper()
@@ -202,13 +185,14 @@ def parse_note_sequence_string(notes_sequence_str):
             
             if not (0 <= octave <= 8):
                 raise ValueError(f"옥타브는 0-8 범위여야 합니다: {octave} (음표: {note_entry})")
-            if not (0 < duration <= 8):
+            if not (0 < duration <= 8): # duration 0보다 크고 8보다 작거나 같음
                 raise ValueError(f"음표 길이는 0보다 크고 8보다 작거나 같아야 합니다: {duration} (음표: {note_entry})")
                 
             parsed_notes.append((note_name, octave, duration, False, accidental))
             continue
 
         # 쉼표 파싱 (예: R 1.0)
+        # Group 1: Duration (number with optional decimal)
         match_rest = re.match(r"R\s+(\d+(?:\.\d+)?)", note_entry, re.IGNORECASE)
         if match_rest:
             duration = float(match_rest.group(1))
@@ -249,17 +233,11 @@ def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
             if is_rest:
                 freq = 0 # 쉼표는 무음
             else:
-                # get_note_frequency 함수가 'C#', 'D#', 'F#', 'G#', 'A#' 또는 'Db', 'Eb' 등으로 변환된 음이름을 받도록 처리
+                # get_note_frequency 함수가 'C#', 'Eb' 같은 문자열을 받도록 처리
                 note_name_for_freq = note_name
-                if accidental == '#':
-                    note_name_for_freq += '#'
-                elif accidental == 'b':
-                    # 플랫 음표를 #으로 변환하여 get_note_frequency에 전달
-                    chromatic_scale = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-                    base_index = chromatic_scale.index(note_name)
-                    flat_index = (base_index - 1) % 12
-                    note_name_for_freq = chromatic_scale[flat_index] # 예를 들어 Eb는 D#으로
-                
+                if accidental:
+                    note_name_for_freq += accidental # Eb, C# 형태로 전달
+
                 freq = get_note_frequency(note_name_for_freq, octave_val)
             
             actual_duration = duration_units * quarter_note_duration
@@ -339,7 +317,9 @@ def generate_music21_score_with_fallback(
         png_path = os.path.join(temp_dir, "score.png")
 
         try:
-            # score.write("musicxml.png")는 MuseScore를 호출하여 PNG를 만듭니다.
+            # score.write("musicxml.png")는 Music21이 MuseScore를 호출하여 PNG를 만듭니다.
+            # Music21이 MuseScore의 Stderr를 catch하여 Python 에러로 변환하지 않는 경우가 많으므로
+            # Music21의 debug=True 설정을 통해 MuseScore의 실제 에러를 잡아내는 것이 중요합니다.
             score.write("musicxml.png", fp=png_path) 
             
             if os.path.exists(png_path) and os.path.getsize(png_path) > 0:
@@ -351,6 +331,7 @@ def generate_music21_score_with_fallback(
         except Exception as e:
             logger.warning(f"MuseScore PNG 생성 실패: {e}")
             logger.warning("MuseScore PNG 실패: PNG 생성 실패 (MuseScore 설치 및 환경 변수 MUSESCORE_PATH 설정 권장, 또는 xvfb 필요)")
+            # MuseScore가 출력한 상세 에러 메시지는 Music21 debug=True 로그에서 확인 가능
             text_score = generate_text_score(notes_sequence, bpm)
             return None, text_score # PNG 실패 시 텍스트 악보 반환
     except Exception as e:
@@ -554,44 +535,44 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
     
     styles = {
         "rock": {
-            "scale": ["C", "D", "E", "F", "G", "A", "B"], # 기본 Major Scale
-            "intervals": [0, 7, 5, 3], # Root, 5th, 4th, 3rd (relative to root)
-            "rhythms": [1.0, 0.5], # Quarter, Eighth
+            "scale": ["C", "D", "E", "F", "G", "A", "B"], 
+            "intervals": [0, 7, 5, 3], 
+            "rhythms": [1.0, 0.5], 
         },
         "funk": {
-            "scale": ["C", "D", "Eb", "F", "G", "A", "Bb"], # Mixolydian or Dorian feel
-            "intervals": [0, 7, 10, 5], # Root, 5th, b7th, 4th
-            "rhythms": [0.25, 0.5, 1.0], # 16th, Eighth, Quarter
+            "scale": ["C", "D", "Eb", "F", "G", "A", "Bb"], 
+            "intervals": [0, 7, 10, 5], 
+            "rhythms": [0.25, 0.5, 1.0], 
         },
         "pop": {
-            "scale": ["C", "D", "E", "F", "G", "A", "B"], # Major Scale
-            "intervals": [0, 7, 3, 5], # Root, 5th, 3rd, 4th
-            "rhythms": [0.5, 1.0], # Eighth, Quarter
+            "scale": ["C", "D", "E", "F", "G", "A", "B"], 
+            "intervals": [0, 7, 3, 5], 
+            "rhythms": [0.5, 1.0], 
         },
         "jazz": {
-            "scale": ["C", "D", "Eb", "F", "G", "A", "Bb"], # Dorian or Minor scales
-            "intervals": [0, 3, 7, 9, 10], # Root, b3rd, 5th, 6th, b7th
-            "rhythms": [0.25, 0.5, 0.75, 1.0], # 16th, Eighth, Dotted Eighth, Quarter
+            "scale": ["C", "D", "Eb", "F", "G", "A", "Bb"], 
+            "intervals": [0, 3, 7, 9, 10], 
+            "rhythms": [0.25, 0.5, 0.75, 1.0], 
         },
         "blues": {
-            "scale": ["C", "Eb", "F", "F#", "G", "Bb"], # Blues Scale
-            "intervals": [0, 3, 5, 6, 7, 10], # Root, b3rd, 4th, b5th, 5th, b7th
-            "rhythms": [0.5, 1.0], # Eighth, Quarter
+            "scale": ["C", "Eb", "F", "F#", "G", "Bb"], 
+            "intervals": [0, 3, 5, 6, 7, 10], 
+            "rhythms": [0.5, 1.0], 
         },
         "reggae": {
             "scale": ["C", "D", "E", "F", "G", "A", "B"], 
             "intervals": [0, 7, 5, 3], 
-            "rhythms": [0.5, 1.0, 1.5], # Eighth, Quarter, Dotted Quarter (often off-beat)
+            "rhythms": [0.5, 1.0, 1.5], 
         },
         "hiphop": {
-            "scale": ["C", "D", "Eb", "G", "Ab"], # Minor Pentatonic or similar
+            "scale": ["C", "D", "Eb", "G", "Ab"], 
             "intervals": [0, 3, 5, 7, 8, 10], 
-            "rhythms": [0.25, 0.5, 1.0, 2.0], # 16th, Eighth, Quarter, Half
+            "rhythms": [0.25, 0.5, 1.0, 2.0], 
         },
         "random": { 
-            "scale": ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'], # Full chromatic
-            "intervals": list(range(12)), # Any interval
-            "rhythms": [0.25, 0.5, 0.75, 1.0, 1.5, 2.0], # Various rhythms
+            "scale": ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+            "intervals": list(range(12)),
+            "rhythms": [0.25, 0.5, 0.75, 1.0, 1.5, 2.0],
         }
     }
     
@@ -599,10 +580,8 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
     base_scale_notes_raw = selected_style["scale"] # 예를 들어 'Eb'가 포함될 수 있음
     base_rhythms = selected_style["rhythms"]
     
-    # Music21 또는 오디오 계산에 필요한 표준 크로매틱 음표 리스트
     chromatic_notes_std = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
     
-    # 루트 노트가 유효한지 확인
     try:
         root_idx_chromatic = chromatic_notes_std.index(key_root_note.upper())
     except ValueError:
@@ -612,7 +591,7 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
     total_beats_per_loop = length_measures * 4 
     current_beats = 0
 
-    while current_beats < total_beats_per_loop - 0.001: # 약간의 오차 허용
+    while current_beats < total_beats_per_loop - 0.001: 
         remaining_beats = total_beats_per_loop - current_beats
         
         available_rhythms = [r for r in base_rhythms if r <= remaining_beats]
@@ -624,48 +603,48 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
         
         duration_unit = np.random.choice(available_rhythms, p=rhythm_weights) 
         
-        selected_note_name = ''
+        selected_base_note_name = '' # C, D, E
         selected_octave = 0
-        accidental = '' # 임시표
+        accidental = '' # # 또는 b
         
         is_strong_beat = (current_beats % 1.0 == 0) and (duration_unit >= 0.5) 
 
-        if is_strong_beat and np.random.rand() < 0.6: # 강박에 주요음 선택 비중 높임
+        if is_strong_beat and np.random.rand() < 0.6: 
             chosen_interval_semitones = np.random.choice(selected_style["intervals"]) 
             
             root_midi_note_base_val = 12 * (octave + 1) + chromatic_notes_std.index(key_root_note.upper())
             target_midi_number = root_midi_note_base_val + chosen_interval_semitones
             
-            # MIDI 번호에서 옥타브와 음이름 추출 (임시표 포함 여부는 여기서 결정)
             target_octave_raw = target_midi_number // 12 - 1 
             target_note_idx_chromatic = target_midi_number % 12
             
-            # 옥타브 범위 제한 (선택 옥타브 및 그 위 옥타브까지)
             selected_octave = min(octave + 1, max(octave, target_octave_raw))
-            if selected_octave < 0: selected_octave = 0 # 최소 옥타브 보장
+            if selected_octave < 0: selected_octave = 0 
 
             # Music21에 전달할 수 있는 형태로 음이름과 임시표 분리
             target_note_name_chromatic = chromatic_notes_std[target_note_idx_chromatic]
             
             # 베이스 스케일 노트에 해당하는 음이름이 있으면 그대로 사용
-            # (예: "Eb" 스케일이 있다면, D# 대신 Eb를 선택하게)
-            if target_note_name_chromatic in base_scale_notes_raw:
-                selected_note_name = target_note_name_chromatic
-            elif target_note_name_chromatic.replace('b', '#') in base_scale_notes_raw: # Eb -> D#
-                selected_note_name = target_note_name_chromatic.replace('b', '#')
-            else: # 스케일에 없는 경우, 가장 가까운 스케일 음으로 대체하거나 루트 음으로
-                # 간단화를 위해, 스케일에 없으면 루트 음으로 폴백
-                selected_note_name = key_root_note
-                selected_octave = octave
-                accidental = ''
-
-            # 선택된 음이름에서 임시표 추출
-            if len(selected_note_name) > 1:
-                accidental = selected_note_name[1] # # 또는 b
-                selected_note_name = selected_note_name[0] # 기본 음이름 (예: "C#") -> "C"
+            selected_base_note_name = target_note_name_chromatic
+            if len(selected_base_note_name) > 1: # C# 같은 경우
+                accidental = selected_base_note_name[1] 
+                selected_base_note_name = selected_base_note_name[0] # 기본 음이름 (예: "C#") -> "C"
+            
+            # 스케일에 포함되지 않는 경우 (특히 랜덤 선택 시)
+            if selected_base_note_name + accidental not in base_scale_notes_raw and \
+               selected_base_note_name + ('#' if accidental == 'b' else '') not in base_scale_notes_raw:
+                # 스케일 음으로 다시 선택
+                if base_scale_notes_raw:
+                    rand_base_note = np.random.choice(base_scale_notes_raw)
+                    selected_base_note_name = rand_base_note[0] if len(rand_base_note) > 1 else rand_base_note
+                    accidental = rand_base_note[1] if len(rand_base_note) > 1 else ''
+                else: # 비상 fallback
+                    selected_base_note_name = key_root_note
+                    selected_octave = octave
+                    accidental = ''
 
         # 위 조건에 맞지 않거나, 옥타브가 유효하지 않은 경우
-        if not selected_note_name: 
+        if not selected_base_note_name: 
             # 풀 스케일 리스트를 생성 (Music21에 맞는 형태: (음이름, 옥타브, 임시표))
             full_scale_parsed = []
             for current_chromatic_octave in range(max(0, octave), min(5, octave + 2)): 
@@ -677,24 +656,24 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
 
             if style != "random" and full_scale_parsed:
                 chosen_note_info = full_scale_parsed[np.random.randint(len(full_scale_parsed))]
-                selected_note_name = chosen_note_info[0]
+                selected_base_note_name = chosen_note_info[0]
                 selected_octave = chosen_note_info[1]
                 accidental = chosen_note_info[2]
             elif chromatic_notes_std: # 마지막 비상 fallback (아무 음이나)
                 rand_note_idx = np.random.randint(len(chromatic_notes_std))
                 rand_octave_offset = np.random.randint(2) 
-                selected_note_name = chromatic_notes_std[rand_note_idx]
+                selected_base_note_name = chromatic_notes_std[rand_note_idx]
                 selected_octave = max(0, octave + rand_octave_offset)
-                accidental = '' # 랜덤이므로 임시표는 일단 없다고 가정
-                if len(selected_note_name) > 1: # C# 같은 경우
-                    accidental = selected_note_name[1]
-                    selected_note_name = selected_note_name[0]
+                accidental = '' 
+                if len(selected_base_note_name) > 1: # C# 같은 경우
+                    accidental = selected_base_note_name[1]
+                    selected_base_note_name = selected_base_note_name[0]
             else: # 정말 아무것도 생성 못할 때의 비상
-                selected_note_name = 'C'
+                selected_base_note_name = 'C'
                 selected_octave = max(1, octave)
                 accidental = ''
 
-        notes_sequence_output.append((selected_note_name, selected_octave, duration_unit, False, accidental))
+        notes_sequence_output.append((selected_base_note_name, selected_octave, duration_unit, False, accidental))
         current_beats += duration_unit
         
     if not notes_sequence_output:
@@ -720,7 +699,6 @@ def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
         genai.configure(api_key=api_key.strip()) 
         gemini_model = genai.GenerativeModel('gemini-pro') 
         
-        # 프롬프트 변경: accidental을 따로 반환하도록 요청
         prompt = f"""Generate a bassline sequence in Python list of tuples format: [('NoteName', Octave, DurationUnit, Accidental), ...].
         Example: `[('C', 2, 1.0, ''), ('G', 2, 0.5, ''), ('A', 2, 0.5, '#'), ('F', 2, 1.0, 'b'), ('R', 4, 1.0, '')]`
         - NoteName: C, D, E, F, G, A, B (uppercase). For rests, use 'R'.
@@ -744,37 +722,33 @@ def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
         response = gemini_model.generate_content(prompt)
         text_response = response.text.strip()
         
-        # Markdown 코드 블록 제거
         if text_response.startswith('```python') and text_response.endswith('```'):
             text_response = text_response[len('```python'):-len('```')].strip()
         elif text_response.startswith('```') and text_response.endswith('```'):
             text_response = text_response[3:-3].strip()
-        
-        # list() 생성자 형식 제거 (예: list([('C', 2, 1.0, '')]))
+            
         if text_response.startswith('list(') and text_response.endswith(')'):
              text_response = text_response[len('list('):-len(')')].strip()
         
-        logger.info(f"Gemini 응답 원본: {text_response[:500]}...") # 로그 길이 늘림
+        logger.info(f"Gemini 응답 원본: {text_response[:500]}...")
         
-        # 안전한 파싱
-        parsed_sequence_raw = ast.literal_eval(text_response) # 일단 AI가 준 그대로 파싱
+        parsed_sequence_raw = ast.literal_eval(text_response)
         
         if not isinstance(parsed_sequence_raw, list):
             raise ValueError("AI가 Python 리스트를 반환하지 않았습니다.")
             
-        final_parsed_sequence_for_output = [] # 실제 앱에서 사용될 파싱된 시퀀스
+        final_parsed_sequence_for_output = [] 
         for item in parsed_sequence_raw:
-            if not isinstance(item, tuple) or len(item) != 4: # 정확히 4개의 원소를 가진 튜플
+            if not isinstance(item, tuple) or len(item) != 4: 
                 raise ValueError(f"AI가 잘못된 형식의 튜플을 반환했습니다: {item}. (NoteName, Octave, DurationUnit, Accidental) 형식이어야 합니다.")
             
             note_name = str(item[0]).upper()
             octave = int(item[1])
             duration = float(item[2])
-            accidental = str(item[3]) # Accidental 필드 그대로 사용
+            accidental = str(item[3])
 
             is_rest = (note_name == 'R')
 
-            # 유효성 검사 (AI가 이상한 값 줄 경우 대비)
             if not (0 <= octave <= 8):
                 logger.warning(f"AI 생성 옥타브 범위 오류: {octave}. 2로 강제 조정합니다.")
                 octave = 2
@@ -787,8 +761,7 @@ def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
 
             final_parsed_sequence_for_output.append((note_name, octave, duration, is_rest, accidental))
         
-        # 최종적으로 프론트엔드 형식으로 변환 (accidental 포함)
-        formatted_sequence_str = ", ".join([f"{n[0]}{n[4]}{n[1]} {float(n[2])}" for n in final_parsed_sequence_for_output]) # n[4]는 accidental
+        formatted_sequence_str = ", ".join([f"{n[0]}{n[4]}{n[1]} {float(n[2])}" for n in final_parsed_sequence_for_output])
         logger.info(f"Gemini 생성 시퀀스 (프론트엔드 형식): {formatted_sequence_str}")
         return formatted_sequence_str
         
@@ -981,40 +954,32 @@ def get_features_status():
     """라이브러리 설치 상태 확인 API"""
     music21_configured = False
     if MUSIC21_AVAILABLE:
-        # Music21이 설치되어 있다면, MuseScore 환경 설정도 시도합니다.
-        # 이 호출은 _M21_CONFIGURED 플래그를 업데이트할 것입니다.
         music21_configured = setup_music21_environment() 
 
     return jsonify({
-        'music21_available': MUSIC21_AVAILABLE, # Music21 라이브러리 import 성공 여부
-        'music21_configured_for_png': music21_configured, # MuseScore 경로 설정 성공 여부
-        'midi_available': MIDI_AVAILABLE, # Mido 라이브러리 import 성공 여부
-        'gemini_available': GEMINI_AVAILABLE # Gemini 라이브러리 import 성공 여부
+        'music21_available': MUSIC21_AVAILABLE, 
+        'music21_configured_for_png': music21_configured, 
+        'midi_available': MIDI_AVAILABLE, 
+        'gemini_available': GEMINI_AVAILABLE
     })
 
 @app.errorhandler(404)
 def not_found_error(error):
-    # Flask가 template_folder를 모르기 때문에 명시해줌
     return render_template('index.html'), 404
 
 @app.errorhandler(500)
 def internal_error(error):
     logger.error(f"500 오류: {error}")
-    # Render.com에서 상세한 오류 메시지를 제공하지 않으므로 일반적인 메시지 반환
     return "Internal server error. Check server logs for more details.", 500
 
 if __name__ == '__main__':
     try:
         load_dotenv()
     except:
-        pass # .env 파일이 없어도 앱 실행에는 지장 없음
+        pass 
 
-    # Render.com은 $PORT 환경 변수를 통해 포트를 할당합니다.
-    port = int(os.environ.get('PORT', 10000)) # 기본값 10000
+    port = int(os.environ.get('PORT', 10000))
 
-    # 디버그 모드는 개발 환경에서만 True로 설정해야 합니다.
-    # Render.com 배포 환경에서는 False로 설정하는 것이 좋습니다.
-    # FLASK_DEBUG 환경 변수로 제어 가능
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
     logger.info(f"서버 시작 - 포트: {port}, 디버그: {debug_mode}")
@@ -1022,5 +987,4 @@ if __name__ == '__main__':
     logger.info(f"Music21 사용 가능: {MUSIC21_AVAILABLE}")
     logger.info(f"MIDI 사용 가능: {MIDI_AVAILABLE}")
     
-    # 0.0.0.0으로 바인딩하여 외부 접속 허용 (Render.com에 필요)
     app.run(host='0.0.0.0', port=port, debug=debug_mode)
