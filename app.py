@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.io.wavfile import write as write_wav
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, Response
 import io 
 import re
 import os
@@ -9,7 +9,7 @@ import ast # For safe parsing of LLM output
 # Google Gemini 라이브러리 (AI 모드 사용 시 필수)
 import google.generativeai as genai
 
-# 로컬 개발용 .env 파일 로딩 (배포 시에는 Render 환경 변수 사용)
+# 로컬 개발용 .env 파일 로딩 (배포 시 Render 환경 변수 사용이 권장되지만, 로컬 테스트를 위해)
 from dotenv import load_dotenv
 load_dotenv() 
 
@@ -98,7 +98,7 @@ def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
 
     buffer = io.BytesIO()
     write_wav(buffer, SAMPLE_RATE, audio_data_int16)
-    buffer.seek(0)
+    buffer.seek(0) # 스트림 시작 지점으로 포인터 이동
     
     return buffer
 
@@ -161,7 +161,7 @@ def create_random_bass_loop_by_style(
     notes_in_chromatic_octave = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
     root_idx_chromatic = notes_in_chromatic_octave.index(key_root_note.upper())
 
-    for current_chromatic_octave in range(octave, octave + 2): # 보통 베이스는 2옥타브 정도의 음역대를 사용
+    for current_chromatic_octave in range(octave, octave + 2): 
         for note_name_in_chromatic in notes_in_chromatic_octave:
             if note_name_in_chromatic in base_scale_notes:
                 full_scale.append((note_name_in_chromatic, current_chromatic_octave))
@@ -181,7 +181,7 @@ def create_random_bass_loop_by_style(
         is_strong_beat = (current_beats % 1.0 == 0) and (duration_unit >= 0.5) 
 
         if is_strong_beat and np.random.rand() < 0.6: 
-            chosen_interval_semitones = np.random.choice(selected_style["intervals"])
+            chosen_interval_semitones = np.random.choice(selected_style["intervals"]) 
             
             root_midi_note_base_val = 12 * (octave + 1) + notes_in_chromatic_octave.index(key_root_note.upper())
             target_midi_number = root_midi_note_base_val + chosen_interval_semitones
@@ -189,11 +189,10 @@ def create_random_bass_loop_by_style(
             target_octave = target_midi_number // 12 - 1 
             target_note_name = notes_in_chromatic_octave[target_midi_number % 12]
 
-            # 최종 옥타브 보정 (너무 높으면 내림)
             if target_octave > octave + 1:
-                target_octave = octave + 1 # max 1 octave higher than base
+                target_octave = octave + 1
             elif target_octave < octave:
-                target_octave = octave # min at base octave
+                target_octave = octave
                 
             selected_note_info = (target_note_name, target_octave)
         
@@ -262,17 +261,17 @@ def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
 # --- Flask 웹 라우트 ---
 
 @app.route('/')
-def index_page(): # 함수 이름을 더 일반적인 이름으로 변경
-    """메인 페이지 렌더링 - 이제 'index.html'을 렌더링합니다."""
+def index_page(): 
+    """메인 페이지 렌더링 - 'index.html'을 사용합니다."""
     default_bpm = 120
     default_loops = 2
-    default_length = 4 # 마디 단위
+    default_length = 4 
     default_genre = "rock" 
     default_key_note = "C"
     default_octave = 2 
     default_generation_mode = "random" 
     
-    return render_template('index.html', # <--- 이 부분을 'index.html'로 수정!
+    return render_template('index.html', # <--- 'index.html'로 명확히 지정!
                            default_bpm=default_bpm, 
                            default_loops=default_loops,
                            default_length=default_length,
@@ -326,31 +325,29 @@ def generate_notes():
 
 @app.route('/generate_audio', methods=['POST'])
 def generate_audio():
-    """사용자 입력 악보 시퀀스를 기반으로 베이스 루프 오디오 생성"""
+    """사용자 입력 악보 시퀀스를 기반으로 베이스 루프 오디오 생성하여 반환 (다운로드 대신 스트리밍/재생 목적)"""
     try:
         notes_sequence_str = request.form['notes_sequence_input']
         bpm = int(request.form['bpm_input'])
         num_loops = int(request.form['num_loops_input'])
 
-        # 파싱 함수를 재활용
         notes_sequence = parse_note_sequence_string(notes_sequence_str)
 
         if not notes_sequence:
-            return "악보 시퀀스가 비어 있습니다. 음표를 생성하거나 입력해주세요.", 400
+            return Response("악보 시퀀스가 비어 있습니다. 음표를 생성하거나 입력해주세요.", status=400, mimetype='text/plain')
 
         audio_buffer = create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops)
 
-        return send_file(audio_buffer, 
-                         mimetype='audio/wav', 
-                         as_attachment=True, 
-                         download_name='bass_loop.wav')
+        # `send_file` 대신 `Response` 객체를 직접 사용하여 `audio/wav`로 데이터 스트림 반환
+        # 이렇게 하면 브라우저는 해당 데이터를 `<audio>` 태그나 기타 오디오 처리 API로 바로 처리할 수 있습니다.
+        return Response(audio_buffer.getvalue(), mimetype='audio/wav')
 
     except ValueError as ve:
-        return f"악보 파싱 오류: {str(ve)}", 400
+        return Response(f"악보 파싱 오류: {str(ve)}", status=400, mimetype='text/plain')
     except Exception as e:
         import traceback
         print(traceback.format_exc()) 
-        return f"오류 발생: {str(e)}. 서버 로그를 확인하세요.", 500
+        return Response(f"오류 발생: {str(e)}. 서버 로그를 확인하세요.", status=500, mimetype='text/plain')
 
 if __name__ == '__main__':
     load_dotenv() 
