@@ -25,7 +25,7 @@
         }
 
         body {
-            font-family: 'Rubik', sans-serif; /* Google Fonts 적용 */
+            font-family: 'Rubik', sans-serif;
             background-color: var(--background-color);
             color: var(--text-color);
             line-height: 1.6;
@@ -33,38 +33,38 @@
             padding: 20px;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* 컨텐츠 상단 정렬 (키보드 팝업 시 화면 짤림 방지) */
+            align-items: flex-start;
             min-height: 100vh;
-            box-sizing: border-box; /* 패딩이 전체 크기에 포함되도록 */
-            -webkit-font-smoothing: antialiased; /* 폰트 렌더링 부드럽게 */
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
         .container {
             background-color: var(--card-background);
             padding: 35px;
-            border-radius: 16px; /* 모서리를 더 둥글게 */
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08); /* 그림자를 더 깊게 */
-            max-width: 650px; /* 컨테이너 너비 증가 */
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            max-width: 800px; /* 다중 줄 악보를 위해 너비 증가 */
             width: 100%;
-            margin-top: 30px; /* 상단 여백 */
+            margin-top: 30px;
             box-sizing: border-box;
         }
         h1 {
             color: var(--primary-color);
             text-align: center;
             margin-bottom: 35px;
-            font-size: 2.2em; /* 폰트 크기 증가 */
-            font-weight: 700; /* 더 굵게 */
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.05); /* 약간의 그림자 효과 */
+            font-size: 2.2em;
+            font-weight: 700;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.05);
         }
         form {
             display: flex;
             flex-direction: column;
-            gap: 15px; /* 폼 요소들 사이 간격 */
+            gap: 15px;
         }
         label {
             margin-bottom: 5px;
-            font-weight: 500; /* 중간 굵기 */
+            font-weight: 500;
             color: var(--text-color);
             font-size: 1.05em;
         }
@@ -74,39 +74,32 @@
         select,
         textarea {
             width: 100%;
-            padding: 14px 16px; /* 패딩 증가 */
+            padding: 14px 16px;
             margin-bottom: 0; 
             border: 1px solid var(--border-color);
-            border-radius: 8px; /* 모서리 둥글게 */
+            border-radius: 8px;
             box-sizing: border-box;
             font-size: 1em;
             background-color: var(--background-color);
             color: var(--text-color);
-            transition: all 0.3s ease; /* 전환 효과 */
+            transition: all 0.3s ease;
         }
         input:focus, select:focus, textarea:focus {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); /* 포커스 시 그림자 효과 */
-            outline: none; /* 기본 아웃라인 제거 */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            outline: none;
         }
         textarea {
             min-height: 120px;
-            resize: vertical; /* 세로 크기 조절만 가능 */
-            font-family: 'Fira Code', 'Roboto Mono', monospace; /* 코딩용 고정폭 폰트 */
+            resize: vertical;
+            font-family: 'Fira Code', 'Roboto Mono', monospace;
             line-height: 1.5;
         }
-        .button-group { /* 사용하지 않음 (대신 버튼에 flex-grow 적용) */
-            display: flex;
-            flex-wrap: wrap; 
-            gap: 15px; 
-            margin-top: 15px;
-            margin-bottom: 25px;
-        }
         button {
-            flex-grow: 1; /* 버튼들이 가로 공간을 동일하게 채움 */
+            flex-grow: 1;
             background-color: var(--primary-color);
             color: white;
-            padding: 14px 28px; /* 패딩 증가 */
+            padding: 14px 28px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
@@ -116,7 +109,7 @@
         }
         button:hover:not(:disabled) {
             background-color: var(--primary-hover-color);
-            transform: translateY(-2px); /* 호버 시 약간 위로 */
+            transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
         }
         button:active:not(:disabled) {
@@ -124,7 +117,7 @@
             box-shadow: none;
         }
         button:disabled {
-            background-color: #9ca3af; /* 비활성화 시 회색 */
+            background-color: #9ca3af;
             cursor: not-allowed;
             opacity: 0.8;
         }
@@ -144,7 +137,7 @@
             margin-bottom: 20px;
             border-radius: 8px;
             font-size: 0.95em;
-            word-wrap: break-word; /* 긴 메시지 줄바꿈 */
+            word-wrap: break-word;
         }
         .message-area.success {
             background-color: rgba(34, 197, 94, 0.1); 
@@ -196,17 +189,19 @@
             margin-top: 20px;
             padding: 20px;
             border-top: 1px solid var(--border-color);
-            text-align: center; /* 캔버스를 가운데 정렬 */
-            background-color: var(--card-background); /* 악보 영역 배경도 하얗게 */
+            text-align: center;
+            background-color: var(--card-background);
             border-radius: 12px;
-            overflow-x: auto; /* 악보가 길면 스크롤되도록 */
+            overflow-x: auto;
         }
         #sheetMusicCanvas {
             border: 1px solid var(--border-color);
             background-color: white;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            max-width: 100%; /* 캔버스가 부모 컨테이너를 넘어가지 않도록 */
+            max-width: 100%;
             border-radius: 8px;
+            display: block;
+            margin: 0 auto;
         }
 
         /* 모바일 반응형 조정 */
@@ -215,6 +210,7 @@
                 padding: 20px;
                 margin-top: 15px;
                 border-radius: 10px;
+                max-width: 95%;
             }
             h1 {
                 font-size: 1.6em;
@@ -224,12 +220,8 @@
                 padding: 10px 20px;
                 font-size: 1em;
             }
-            .button-group {
-                flex-direction: column;
-                gap: 10px;
-            }
             #sheetMusicCanvas {
-                width: 100%; /* 모바일에서 캔버스 너비 조정 */
+                width: 100%;
             }
         }
     </style>
@@ -334,6 +326,7 @@
                 if (typeof Vex !== 'undefined' && Vex.Flow) {
                     VF = Vex.Flow;
                     console.log('✅ VexFlow 라이브러리가 성공적으로 로드되었습니다.');
+                    console.log('VexFlow 버전:', VF.BUILD?.VERSION || '3.x');
                 } else {
                     console.error('❌ VexFlow 라이브러리 로딩 실패');
                     showMessage('악보 시각화 라이브러리 로딩에 실패했습니다.', 'error');
@@ -347,16 +340,18 @@
             // 메시지 영역 숨기기
             document.getElementById('messageArea').style.display = 'none';
             
-            // 기본 악보 렌더링 (예시로 악보를 보여주기 위함)
-            renderSheetMusic(document.getElementById('notes_sequence_input').value, 
-                             parseInt(document.getElementById('length_input').value), 
-                             parseInt(document.getElementById('bpm_input').value));
+            // 기본 악보 렌더링
+            setTimeout(() => {
+                renderSheetMusic(document.getElementById('notes_sequence_input').value, 
+                               parseInt(document.getElementById('length_input').value), 
+                               parseInt(document.getElementById('bpm_input').value));
+            }, 100); // 약간의 지연으로 DOM이 완전히 로드된 후 실행
         });
 
         function showMessage(message, type = 'info') {
             const messageArea = document.getElementById('messageArea');
             messageArea.textContent = message;
-            messageArea.className = 'message-area'; // Reset classes
+            messageArea.className = 'message-area';
             if (type === 'success') {
                 messageArea.classList.add('success');
             } else if (type === 'error') {
@@ -392,8 +387,8 @@
                 geminiApiKeyInput.removeAttribute('required');
                 geminiApiKeyInput.value = ''; 
             }
-            showMessage("", 'info'); // 모드 전환 시 메시지 지우기
-            clearSheetMusic(); // 모드 전환 시 악보 지우기
+            showMessage("", 'info');
+            clearSheetMusic();
         }
 
         async function generateNotes() {
@@ -434,8 +429,6 @@
                     formData.append('gemini_api_key_input', apiKey);
                 }
 
-                // 이 부분은 서버가 필요합니다. Flask 서버 코드도 있어야 합니다.
-                // 현재는 프론트엔드 코드만 제공되었으므로, 서버 호출은 실패할 것입니다.
                 const response = await fetch('/generate_notes', {
                     method: 'POST',
                     body: formData,
@@ -446,7 +439,6 @@
                 if (response.ok && data.status === 'success') {
                     notesSequenceInput.value = data.notes;
                     showMessage("🎉 악보가 성공적으로 생성되었습니다! 오디오를 재생해보세요.", 'success');
-                    // VexFlow 렌더링 호출
                     renderSheetMusic(data.notes, parseInt(length), parseInt(bpm)); 
                 } else {
                     const errorMessage = data.message || '알 수 없는 오류가 발생했습니다.';
@@ -480,7 +472,6 @@
             audioPlayer.load(); 
 
             try {
-                // 이 부분도 서버가 필요합니다. Flask 서버 코드도 있어야 합니다.
                 const formData = new FormData();
                 formData.append('notes_sequence_input', notesSequence);
                 formData.append('bpm_input', bpm);
@@ -518,15 +509,13 @@
             }
         }
 
-        // --- 악보 시각화 VexFlow 함수 (3.x 버전 호환) ---
+        // --- 악보 시각화 VexFlow 함수 (수정된 버전) ---
 
-        // VexFlow 렌더링에 사용되는 상수
-        const STAVE_START_X = 10;
-        const STAVE_START_Y = 40; // 첫 줄의 Y 시작 위치
-        const STAVE_LINE_HEIGHT = 120; // 악보 한 줄(시스템)의 높이
-        const BEATS_PER_MEASURE = 4; // 4/4 박자 기준 마디당 박자
-        const MEASURES_PER_LINE = 4; // 한 줄에 표시할 마디 수
-        const INITIAL_STAVE_WIDTH = 250; // 초기 오선지 폭 (Formatter가 조정)
+        // VexFlow 렌더링 상수
+        const STAVE_WIDTH = 350; // 각 오선지의 고정 너비
+        const STAVE_HEIGHT = 120; // 오선지 간 세로 간격
+        const STAVE_MARGIN = 10; // 좌우 여백
+        const BEATS_PER_MEASURE = 4; // 4/4 박자
 
         // 캔버스 초기화
         function clearSheetMusic() {
@@ -536,30 +525,80 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height); 
         }
 
-        // 음표 이름을 VexFlow 3.x 형식으로 변환
+        // 음표 이름을 VexFlow 형식으로 변환
         function getVexflowNoteName(noteName, octave) {
             let vfNoteName = noteName.toLowerCase();
-            vfNoteName = vfNoteName.replace('#', 's'); // C# -> cs
+            vfNoteName = vfNoteName.replace('#', 's');
             return `${vfNoteName}/${octave}`;
         }
 
         // 박자를 VexFlow duration으로 변환
         function getDurationFromBeats(beats) {
-            // VexFlow duration string: 'w' (whole), 'h' (half), 'q' (quarter), '8' (eighth), '16' (16th)
-            // 'd' suffix for dotted notes (e.g., 'qd' for dotted quarter)
             const durationMap = {
-                '0.25': '16',   // 16분음표
-                '0.5': '8',     // 8분음표
-                '1.0': 'q',     // 4분음표
-                '1.5': 'qd',    // 점 4분음표 (dotted quarter)
-                '2.0': 'h',     // 2분음표
-                '3.0': 'hd',    // 점 2분음표 (dotted half)
-                '4.0': 'w',     // 온음표
+                '0.25': '16',
+                '0.5': '8',
+                '1.0': 'q',
+                '1.5': 'qd',
+                '2.0': 'h',
+                '3.0': 'hd',
+                '4.0': 'w',
             };
-            return durationMap[beats.toString()] || 'q'; // 매핑되지 않으면 기본 4분음표
+            return durationMap[beats.toString()] || 'q'; 
         }
 
-        // 악보를 렌더링하는 핵심 함수 (VexFlow 3.x 호환)
+        // 음표들을 마디별로 그룹화
+        function groupNotesByMeasures(rawNotes) {
+            const measures = [];
+            let currentMeasure = [];
+            let currentBeats = 0;
+
+            for (const note of rawNotes) {
+                if (currentBeats + note.durationUnits > BEATS_PER_MEASURE) {
+                    // 현재 마디가 넘치면 이전 마디를 완료하고 새 마디 시작
+                    if (currentMeasure.length > 0) {
+                        // 남은 박자를 쉼표로 채움
+                        const remainingBeats = BEATS_PER_MEASURE - currentBeats;
+                        if (remainingBeats > 0) {
+                            currentMeasure.push({
+                                name: 'R',
+                                octave: 4,
+                                durationUnits: remainingBeats
+                            });
+                        }
+                        measures.push(currentMeasure);
+                    }
+                    currentMeasure = [note];
+                    currentBeats = note.durationUnits;
+                } else {
+                    currentMeasure.push(note);
+                    currentBeats += note.durationUnits;
+                }
+
+                // 마디가 정확히 채워진 경우
+                if (currentBeats === BEATS_PER_MEASURE) {
+                    measures.push(currentMeasure);
+                    currentMeasure = [];
+                    currentBeats = 0;
+                }
+            }
+
+            // 마지막 마디 처리
+            if (currentMeasure.length > 0) {
+                const remainingBeats = BEATS_PER_MEASURE - currentBeats;
+                if (remainingBeats > 0) {
+                    currentMeasure.push({
+                        name: 'R',
+                        octave: 4,
+                        durationUnits: remainingBeats
+                    });
+                }
+                measures.push(currentMeasure);
+            }
+
+            return measures;
+        }
+
+        // 수정된 악보 렌더링 함수
         function renderSheetMusic(notesSequenceStr, lengthMeasures, bpm) {
             if (!VF) {
                 console.error('VexFlow가 로드되지 않았습니다.');
@@ -575,186 +614,212 @@
             }
 
             try {
-                // 캔버스 초기화
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height); 
-                // ctx.setFont('Arial', 10); // 이 설정은 VexFlow가 덮어쓸 수 있으므로 필수 아님
+                console.log('악보 렌더링 시작:', notesSequenceStr);
 
-                // 악보 데이터 파싱 (음표 이름, 옥타브, 박자단위)
+                // 악보 데이터 파싱
                 const rawNotes = notesSequenceStr.split(',').map(noteEntry => {
-                    const trimmedEntry = noteEntry.trim();
-                    const noteMatch = trimmedEntry.match(/([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)/);
-                    if (noteMatch) {
-                        return {
-                            name: noteMatch[1],
-                            octave: parseInt(noteMatch[2]),
-                            durationUnits: parseFloat(noteMatch[3])
-                        };
-                    } else if (trimmedEntry.toUpperCase().startsWith('R') && trimmedEntry.match(/R\s+(\d+(\.\d+)?)/)) {
-                        // 쉼표 (Rest) 처리
-                        const restMatch = trimmedEntry.match(/R\s+(\d+(\.\d+)?)/);
-                        return {
-                            name: 'R', // Rest
-                            octave: 4, // 쉼표는 옥타브가 중요하지 않지만 VexFlow StaveNote에 필요함 (중앙선에 표시)
-                            durationUnits: parseFloat(restMatch[1])
-                        };
-                    }
-                    return null;
+                    const match = noteEntry.trim().match(/([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)/);
+                    return match ? {
+                        name: match[1],
+                        octave: parseInt(match[2]),
+                        durationUnits: parseFloat(match[3])
+                    } : null;
                 }).filter(n => n !== null);
 
                 if (rawNotes.length === 0) {
-                    console.warn('파싱된 음표가 없습니다. 악보를 그리지 않습니다.');
-                    showMessage('생성된 음표가 없습니다. 유효한 악보 시퀀스를 입력하세요.', 'info');
+                    console.warn('파싱된 음표가 없습니다.');
+                    displaySimpleNotation(notesSequenceStr);
                     return;
                 }
 
+                console.log('파싱된 음표들:', rawNotes);
+
+                // 마디별로 그룹화
+                const measures = groupNotesByMeasures(rawNotes);
+                console.log('마디별 그룹:', measures);
+
+                // 캔버스 크기 설정
+                const measuresPerLine = 2; // 한 줄에 2마디씩
+                const numberOfLines = Math.ceil(measures.length / measuresPerLine);
+                canvas.width = (STAVE_WIDTH * measuresPerLine) + (STAVE_MARGIN * 2);
+                canvas.height = (STAVE_HEIGHT * numberOfLines) + 100;
+
+                // VexFlow 렌더러 초기화
                 const renderer = new VF.Renderer(canvas, VF.Renderer.Backends.CANVAS);
                 const context = renderer.getContext();
-                
-                let current_y = STAVE_START_Y;
-                let first_stave_of_song = true; // 곡 전체에서 첫 번째 오선지인지
-                
-                let notes_for_current_measure = [];
-                let current_measure_beats = 0;
-                
-                // 1단계: 음표들을 마디 단위로 그룹화
-                const measures_data = [];
-                for (let i = 0; i < rawNotes.length; i++) {
-                    const note = rawNotes[i];
-                    
-                    // 현재 음표를 추가했을 때 마디 박자를 초과하는지 확인
-                    if (current_measure_beats + note.durationUnits > BEATS_PER_MEASURE && current_measure_beats > 0) {
-                        // 남은 박자를 쉼표로 채워 현재 마디를 완성
-                        const remaining = BEATS_PER_MEASURE - current_measure_beats;
-                        if (remaining > 0) {
-                            notes_for_current_measure.push({ name: 'R', octave: 4, durationUnits: remaining });
-                        }
-                        measures_data.push(notes_for_current_measure);
-                        notes_for_current_measure = [];
-                        current_measure_beats = 0;
+                context.clearRect(0, 0, canvas.width, canvas.height);
+
+                let currentLine = 0;
+                let measureInLine = 0;
+
+                // 각 마디를 렌더링
+                measures.forEach((measureNotes, measureIndex) => {
+                    const x = STAVE_MARGIN + (measureInLine * STAVE_WIDTH);
+                    const y = 40 + (currentLine * STAVE_HEIGHT);
+
+                    // Stave 생성
+                    const stave = new VF.Stave(x, y, STAVE_WIDTH);
+
+                    // 첫 번째 마디에만 클레프와 박자표 추가
+                    if (measureIndex === 0) {
+                        stave.addClef('bass').addTimeSignature('4/4');
                     }
-                    
-                    notes_for_current_measure.push(note);
-                    current_measure_beats += note.durationUnits;
 
-                    // 한 마디가 채워졌거나, 마지막 음표인 경우
-                    if (current_measure_beats >= BEATS_PER_MEASURE || i === rawNotes.length - 1) {
-                        // 남은 박자가 있으면 쉼표로 채워 마디를 완성
-                        if (current_measure_beats < BEATS_PER_MEASURE) {
-                            const remaining = BEATS_PER_MEASURE - current_measure_beats;
-                            if (remaining > 0) { // 0인 경우 추가하지 않도록
-                                notes_for_current_measure.push({ name: 'R', octave: 4, durationUnits: remaining });
-                            }
-                        }
-                        
-                        measures_data.push(notes_for_current_measure);
-                        notes_for_current_measure = [];
-                        current_measure_beats = 0;
+                    // 마지막 마디에 종료 마디선 추가
+                    if (measureIndex === measures.length - 1) {
+                        stave.setEndBarType(VF.Barline.type.END);
                     }
-                }
-                const total_measures_calculated = measures_data.length;
 
-                // 캔버스 크기 동적 조정 (최소 너비를 확보)
-                // 각 마디가 대략 150-200px 정도 필요하다고 가정 (클레프, 박자표 등 고려)
-                const min_stave_width_per_measure = 180; // 각 마디 최소 너비
-                const system_width = (MEASURES_PER_LINE * min_stave_width_per_measure) + (STAVE_START_X * 2); // 한 시스템의 총 너비
-                
-                const num_lines = Math.max(1, Math.ceil(total_measures_calculated / MEASURES_PER_LINE));
-                canvas.width = system_width; 
-                canvas.height = (num_lines * STAVE_LINE_HEIGHT) + STAVE_START_Y + 40; // 세로 여백 추가
+                    stave.setContext(context).draw();
 
-                // 2단계: 마디 데이터를 기반으로 VexFlow Stave 및 Voice 생성 및 렌더링
-                let system_staves = []; // 현재 시스템(한 줄)에 그릴 오선지들
-                let system_voices = []; // 현재 시스템에 그릴 보이스들
+                    // 음표들을 VexFlow StaveNote로 변환
+                    const vfNotes = measureNotes.map(noteData => {
+                        const duration = getDurationFromBeats(noteData.durationUnits);
 
-                for (let i = 0; i < total_measures_calculated; i++) {
-                    const measure_notes_data = measures_data[i];
-
-                    // VexFlow StaveNote 객체 생성
-                    const vf_notes_for_measure = measure_notes_data.map(noteData => {
                         if (noteData.name.toUpperCase() === 'R') {
+                            // 쉼표 생성
                             return new VF.StaveNote({
                                 clef: 'bass',
-                                keys: ['b/4'], // 쉼표의 위치 (중앙선)
-                                duration: getDurationFromBeats(noteData.durationUnits) + 'r' // 'r'은 쉼표를 의미
+                                keys: ['b/4'],
+                                duration: duration + 'r'
                             });
                         } else {
-                            const staveNote = new VF.StaveNote({
+                            // 일반 음표 생성
+                            const note = new VF.StaveNote({
                                 clef: 'bass',
                                 keys: [getVexflowNoteName(noteData.name, noteData.octave)],
-                                duration: getDurationFromBeats(noteData.durationUnits)
+                                duration: duration
                             });
-                            // 임시표 (#, b) 처리
+
+                            // 임시표 추가
                             if (noteData.name.includes('#')) {
-                                staveNote.addAccidental(0, new VF.Accidental("#"));
+                                note.addAccidental(0, new VF.Accidental('#'));
                             } else if (noteData.name.includes('b')) {
-                                staveNote.addAccidental(0, new VF.Accidental("b"));
+                                note.addAccidental(0, new VF.Accidental('b'));
                             }
-                            return staveNote;
+
+                            return note;
                         }
                     });
 
-                    // 각 마디에 대한 Stave 객체 생성
-                    // VexFlow Formatter가 실제 X 위치와 너비를 결정하므로, 일단 초기값으로 생성
-                    const stave_segment = new VF.Stave(0, current_y, INITIAL_STAVE_WIDTH); 
-
-                    if (first_stave_of_song && system_staves.length === 0) { // 곡의 첫 번째 오선지에서만 클레프/박자표 추가
-                        stave_segment.addClef('bass').addTimeSignature(`${BEATS_PER_MEASURE}/${BEATS_PER_MEASURE}`);
-                    }
-                    
-                    // 마디선 타입 설정
-                    if (i === total_measures_calculated - 1) { // 마지막 마디
-                        stave_segment.setEndBarType(VF.BarLine.type.FINAL);
-                    } else {
-                        stave_segment.setEndBarType(VF.BarLine.type.SINGLE);
-                    }
-                    
-                    // Stave를 여기에 바로 그리지 않습니다. Formatter가 위치를 조정한 후 그립니다.
-                    // stave_segment.setContext(context).draw(); // <-- 이 줄은 제거합니다.
-
-                    // Voice 생성 및 음표 추가
+                    // Voice 생성 및 포맷팅
                     const voice = new VF.Voice({
-                        num_beats: BEATS_PER_MEASURE, 
-                        beat_value: BEATS_PER_MEASURE,
-                        resolution: VF.Resolution.Common.R16 // 가장 작은 단위 설정
+                        num_beats: BEATS_PER_MEASURE,
+                        beat_value: 4
                     });
-                    voice.addTickables(vf_notes_for_measure);
 
-                    system_staves.push(stave_segment);
-                    system_voices.push(voice);
-                    
-                    // 현재 줄에 정해진 마디 수가 채워졌거나, 모든 마디를 처리한 경우
-                    if (system_staves.length === MEASURES_PER_LINE || i === total_measures_calculated - 1) {
-                        // 현재 줄의 모든 Stave와 Voice를 포매터로 정렬하고 그리기
-                        const formatter = new VF.Formatter();
-                        // Formatter가 Stave들의 X 위치와 너비를 결정합니다.
-                        formatter.joinVoices(system_voices).format(system_voices, system_width); 
+                    voice.addTickables(vfNotes);
 
-                        // 정렬된 Stave와 Voice를 실제로 그립니다.
-                        system_staves.forEach((stave, idx) => {
-                            stave.setContext(context).draw(); // Stave 그리기
-                            system_voices[idx].draw(context, stave); // Voice 그리기
+                    // 포맷터로 음표 정렬
+                    new VF.Formatter().joinVoices([voice]).format([voice], STAVE_WIDTH - 50);
 
-                            // 음표 묶음 (Beaming) 처리 - Voice를 그린 후에 처리합니다.
-                            const beamGroups = VF.Beam.generateBeams(system_voices[idx].getTickables(), { stem_direction: VF.Stem.UP });
-                            beamGroups.forEach(beam => beam.setContext(context).draw());
-                        });
+                    // 음표 그리기
+                    voice.draw(context, stave);
 
-                        // 다음 줄을 위해 Y 위치 및 상태 초기화
-                        current_y += STAVE_LINE_HEIGHT;
-                        system_staves = [];
-                        system_voices = [];
-                        first_stave_of_song = false; // 첫 오선지는 이미 그렸으므로 플래그 변경
+                    // 8분음표나 16분음표 묶음 처리
+                    try {
+                        const beams = VF.Beam.generateBeams(vfNotes);
+                        beams.forEach(beam => beam.setContext(context).draw());
+                    } catch (e) {
+                        console.warn('Beam 생성 중 오류 (무시됨):', e.message);
                     }
-                }
+
+                    // 다음 위치 계산
+                    measureInLine++;
+                    if (measureInLine >= measuresPerLine) {
+                        measureInLine = 0;
+                        currentLine++;
+                    }
+                });
 
                 console.log('✅ 악보가 성공적으로 렌더링되었습니다.');
 
-            } catch (e) {
-                console.error("VexFlow 악보 그리기 오류:", e);
-                showMessage(`🚨 악보 그리기 오류가 발생했습니다: ${e.message}`, 'error');
+            } catch (error) {
+                console.error("VexFlow 악보 그리기 오류:", error);
+                showMessage(`🚨 악보 그리기 오류가 발생했습니다: ${error.message}`, 'error');
+                
+                // 오류 발생시 간단한 텍스트 악보로 대체
+                displaySimpleNotation(notesSequenceStr);
             }
-        } 
+        }
+
+        // VexFlow 실패 시 간단한 텍스트 기반 악보 표시
+        function displaySimpleNotation(notesSequenceStr) {
+            const canvas = document.getElementById('sheetMusicCanvas');
+            if (!canvas) return;
+
+            // 캔버스 크기 설정
+            canvas.width = 600;
+            canvas.height = 200;
+
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 배경
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 제목
+            ctx.fillStyle = '#3b82f6';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('생성된 베이스 라인 (텍스트 모드)', canvas.width / 2, 30);
+            
+            // 음표들 표시
+            const notes = notesSequenceStr.split(',').map(n => n.trim());
+            let yPos = 70;
+            let xPos = 20;
+            
+            ctx.fillStyle = '#334155';
+            ctx.font = '14px monospace';
+            ctx.textAlign = 'left';
+            
+            // 마디 구분선 그리기
+            let currentBeats = 0;
+            let measureCount = 1;
+            
+            ctx.fillStyle = '#64748b';
+            ctx.font = '12px Arial';
+            ctx.fillText(`마디 ${measureCount}:`, 20, yPos - 15);
+            
+            notes.forEach((note, index) => {
+                if (xPos > canvas.width - 100) {
+                    xPos = 20;
+                    yPos += 40;
+                    
+                    if (yPos < canvas.height - 30) {
+                        measureCount++;
+                        ctx.fillStyle = '#64748b';
+                        ctx.font = '12px Arial';
+                        ctx.fillText(`마디 ${measureCount}:`, 20, yPos - 15);
+                    }
+                }
+                
+                // 마디 구분 (4박마다)
+                const match = note.match(/(\d+(\.\d+)?)$/);
+                if (match) {
+                    const beats = parseFloat(match[1]);
+                    currentBeats += beats;
+                    
+                    if (currentBeats >= 4) {
+                        ctx.fillStyle = '#e2e8f0';
+                        ctx.fillRect(xPos + ctx.measureText(note).width + 5, yPos - 15, 2, 25);
+                        currentBeats = 0;
+                    }
+                }
+                
+                ctx.fillStyle = '#334155';
+                ctx.font = '14px monospace';
+                ctx.fillText(note, xPos, yPos);
+                xPos += ctx.measureText(note).width + 15;
+            });
+            
+            // 하단 안내 메시지
+            ctx.fillStyle = '#64748b';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('VexFlow 악보 렌더링이 실패하여 텍스트 모드로 표시됩니다.', canvas.width / 2, canvas.height - 20);
+        }
     </script> 
 </body>
 </html>
