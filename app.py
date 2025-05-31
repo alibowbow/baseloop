@@ -193,14 +193,14 @@ def generate_music21_score(notes_sequence, bpm, key_signature='C'):
         # 메타데이터 설정
         score.append(tempo.MetronomeMark(number=bpm))
         score.append(meter.TimeSignature('4/4'))
-        score.append(key.key(key_signature))
+        score.append(key.Key(key_signature))
         
         # 베이스 파트 생성
         bass_part = stream.Part()
         bass_part.append(clef.BassClef())
         bass_part.append(tempo.MetronomeMark(number=bpm))
         bass_part.append(meter.TimeSignature('4/4'))
-        bass_part.append(key.key(key_signature))
+        bass_part.append(key.Key(key_signature))
         
         # 음표들 추가
         for note_name, octave, duration_val in notes_sequence:
