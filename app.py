@@ -152,7 +152,7 @@ logger = logging.getLogger(__name__)
 
 # --- Hardcoded MusicXML Test (글로벌 플래그) ---
 # 이 플래그를 True로 설정하면 generate_music21_score_with_fallback 함수가
-# music21 스코어 생성 로직을 건너뛰고 미리 정의된 MusicXML을 사용하여 PNG 생성을 시도합니다.
+# music21 스코어 생성 로직을 건너뛰고 미리 정의된 MusicXML을 사용하여 SVG 생성을 시도합니다.
 # MuseScore 직접 실행 기능 테스트 및 디버깅에 유용합니다.
 USE_HARDCODED_XML_TEST = False # True로 변경하여 테스트 활성화
 
@@ -365,15 +365,15 @@ def generate_music21_score_with_fallback(
     key_signature="C",
 ):
     """
-    Music21 + MuseScore → PNG 생성. 실패 시 텍스트 악보 반환.
-    (png_data_base64, text_score) 형태 튜플을 돌려줍니다.
+    Music21 + MuseScore → SVG 생성. 실패 시 텍스트 악보 반환.
+    (svg_data_base64, text_score) 형태 튜플을 돌려줍니다.
     """
     if not MUSIC21_AVAILABLE:
         logger.warning("Music21 라이브러리가 설치되지 않아 전문 악보 생성을 할 수 없습니다.")
         return None, generate_text_score(notes_sequence, bpm)
 
     if not setup_music21_environment():
-        logger.error("Music21 환경 설정 실패. MuseScore PNG 생성을 건너뛰고 텍스트 악보를 생성합니다.")
+        logger.error("Music21 환경 설정 실패. MuseScore SVG 생성을 건너뛰고 텍스트 악보를 생성합니다.") # Changed PNG to SVG
         return None, generate_text_score(notes_sequence, bpm)
 
     temp_dir = None
@@ -382,9 +382,9 @@ def generate_music21_score_with_fallback(
         logger.info(f"악보 생성을 위한 임시 디렉토리 생성: {temp_dir}")
 
         if USE_HARDCODED_XML_TEST:
-            logger.warning("하드코딩된 MusicXML 테스트 경로를 사용합니다.")
+            logger.warning("하드코딩된 MusicXML 테스트 경로를 사용합니다 (SVG 출력).")
             hardcoded_xml_path = os.path.join(temp_dir, "hardcoded_score.xml")
-            hardcoded_png_path = os.path.join(temp_dir, "hardcoded_score.png")
+            hardcoded_svg_path = os.path.join(temp_dir, "hardcoded_score.svg") # Changed to SVG
 
             try:
                 with open(hardcoded_xml_path, "w", encoding="utf-8") as f:
@@ -459,123 +459,75 @@ def generate_music21_score_with_fallback(
                     part.append(note.Rest(quarterLength=dur))
 
         score.append(part)
-        logger.info("Music21 악보 객체 생성 완료. MuseScore PNG 생성을 시도합니다.")
+        logger.info("Music21 악보 객체 생성 완료. MuseScore SVG 생성을 시도합니다.")
 
-        # temp_dir = tempfile.mkdtemp() # Moved earlier
-        png_path = os.path.join(temp_dir, "score.png") # This will be used by normal path
+        svg_path = os.path.join(temp_dir, "score.svg") # Changed to SVG
 
         try:
-            # Music21이 MuseScore를 호출하여 PNG를 생성합니다.
-            # 먼저 MusicXML로 변환 후 PNG로 변환하는 2단계 접근법 시도
-            logger.info("PNG 생성 시도 중...")
+            # Attempt 1: Direct SVG generation via score.write (relies on music21's MuseScore integration for SVG)
+            logger.info(f"SVG 생성 시도 1: score.write('musicxml.svg', fp={svg_path})")
+            score.write('musicxml.svg', fp=svg_path) # Try to write directly as SVG
             
-            # 방법 1: 직접 PNG 생성
+            if os.path.exists(svg_path) and os.path.getsize(svg_path) > 0:
+                logger.info(f"score.write('musicxml.svg') 성공: {svg_path}, 크기: {os.path.getsize(svg_path)} 바이트")
+                # If successful, this SVG will be picked up by the check later.
+            else:
+                logger.warning(f"score.write('musicxml.svg') 후 SVG 파일이 없거나 비어있음: {svg_path}")
+                # This will effectively make it fall through to Attempt 2 if the file isn't valid
+                raise RuntimeError(f"score.write('musicxml.svg') failed to produce a valid file at {svg_path}")
+
+        except Exception as e_direct_svg:
+            logger.warning(f"SVG 생성 시도 1 (score.write) 실패: {e_direct_svg}")
+            logger.info("SVG 생성 시도 2: MusicXML로 저장 후 MuseScore 직접 호출")
+
+            # Attempt 2: Explicit MuseScore call using an intermediate MusicXML file
+            xml_path_for_svg = os.path.join(temp_dir, "score_temp.xml")
             try:
-                # --- Temporary MusicXML logging ---
-                temp_xml_file = None
-                try:
-                    with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".musicxml", dir=temp_dir) as temp_xml_file_obj:
-                        temp_xml_file_path = temp_xml_file_obj.name
-                        score.write("musicxml", fp=temp_xml_file_path)
-                        logger.info(f"임시 MusicXML 파일 생성: {temp_xml_file_path}")
-                        temp_xml_file_obj.seek(0)
-                        content = temp_xml_file_obj.read(1000)
-                        logger.info(f"임시 MusicXML 파일 내용 (처음 1000자): {content}...")
-                except Exception as ex_temp_xml:
-                    logger.warning(f"임시 MusicXML 파일 로깅 중 오류: {ex_temp_xml}")
-                finally:
-                    if temp_xml_file_path and os.path.exists(temp_xml_file_path):
-                        try:
-                            os.remove(temp_xml_file_path)
-                            logger.info(f"임시 MusicXML 파일 삭제: {temp_xml_file_path}")
-                        except Exception as ex_remove:
-                            logger.warning(f"임시 MusicXML 파일 삭제 중 오류: {ex_remove}")
-                # --- End Temporary MusicXML logging ---
-
-                score.write("musicxml.png", fp=png_path)
-                logger.info(f"직접 PNG 생성 시도 완료: {png_path}")
-
-                # --- PNG file existence and size logging ---
-                if os.path.exists(png_path):
-                    logger.info(f"PNG 파일 존재 확인: {png_path} (존재함)")
-                    logger.info(f"PNG 파일 크기: {os.path.getsize(png_path)} 바이트")
+                score.write("musicxml", fp=xml_path_for_svg)
+                logger.info(f"중간 MusicXML 파일 생성 (SVG 생성용): {xml_path_for_svg}")
+                if os.path.exists(xml_path_for_svg) and os.path.getsize(xml_path_for_svg) > 0:
+                    logger.info(f"중간 MusicXML 파일 크기: {os.path.getsize(xml_path_for_svg)} 바이트")
+                    # Log first 1000 chars of the MusicXML
+                    with open(xml_path_for_svg, "r", encoding="utf-8") as f_xml_check:
+                        logger.info(f"중간 MusicXML 내용 (처음 1000자): {f_xml_check.read(1000)}...")
                 else:
-                    logger.info(f"PNG 파일 존재 확인: {png_path} (존재하지 않음)")
-                # --- End PNG file logging ---
+                    logger.error(f"중간 MusicXML 파일 생성 실패 또는 비어있음: {xml_path_for_svg}")
+                    raise RuntimeError(f"Failed to create valid intermediate MusicXML at {xml_path_for_svg}")
 
-            except Exception as e:
-                logger.warning(f"직접 PNG 생성 실패: {e}")
+                musescore_exec_path = os.environ.get("MUSESCORE_PATH", "/usr/bin/musescore3")
+                cmd_explicit_svg = [musescore_exec_path, "-o", svg_path, xml_path_for_svg]
                 
-                # 방법 2: lily.png 시도 (LilyPond 경유)
-                try:
-                    score.write("lily.png", fp=png_path)
-                    logger.info("LilyPond 경유 PNG 생성 시도")
-                except Exception as e2:
-                    logger.warning(f"LilyPond PNG 생성도 실패: {e2}")
-                    
-                    # 방법 3: 명시적으로 MuseScore 호출
-                    try:
-                        from music21 import converter
-                        # 먼저 MusicXML로 저장
-                        xml_path = os.path.join(temp_dir, "score.xml")
-                        score.write("musicxml", fp=xml_path)
-                        
-                        # MuseScore 명령어로 직접 변환
-                        musescore_path = os.environ.get("MUSESCORE_PATH", "/usr/bin/musescore3")
-                        import subprocess
+                logger.info(f"MuseScore SVG 직접 실행 명령: {' '.join(cmd_explicit_svg)}")
+                result_svg = subprocess.run(cmd_explicit_svg, capture_output=True, text=True, timeout=30)
 
-                        # --- Logging before subprocess.run ---
-                        logger.info(f"MuseScore 직접 실행 명령: {musescore_path} -o {png_path} {xml_path}")
-                        if os.path.exists(xml_path):
-                            logger.info(f"입력 MusicXML 파일({xml_path}) 존재 확인: 존재함")
-                            logger.info(f"입력 MusicXML 파일({xml_path}) 크기: {os.path.getsize(xml_path)} 바이트")
-                            try:
-                                with open(xml_path, "r", encoding="utf-8") as f_xml:
-                                    xml_content_preview = f_xml.read(1000)
-                                    logger.info(f"입력 MusicXML 파일({xml_path}) 내용 (처음 1000자): {xml_content_preview}...")
-                            except Exception as ex_read_xml:
-                                logger.warning(f"입력 MusicXML 파일({xml_path}) 읽기 중 오류: {ex_read_xml}")
-                        else:
-                            logger.warning(f"입력 MusicXML 파일({xml_path}) 존재 확인: 존재하지 않음!")
-                        # --- End logging before subprocess.run ---
+                logger.info(f"MuseScore SVG 직접 실행 Return Code: {result_svg.returncode}")
+                if result_svg.stdout:
+                    logger.info(f"MuseScore SVG 직접 실행 STDOUT: {result_svg.stdout.strip()}")
+                if result_svg.stderr:
+                    logger.warning(f"MuseScore SVG 직접 실행 STDERR: {result_svg.stderr.strip()}")
 
-                        cmd = [musescore_path, "-o", png_path, xml_path]
-                        # logger.info(f"MuseScore 직접 실행: {' '.join(cmd)}") # Already logged above in more detail
-                        
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-
-                        # --- Logging after subprocess.run ---
-                        logger.info(f"MuseScore 실행 Return Code: {result.returncode}")
-                        if result.stdout:
-                            logger.info(f"MuseScore 실행 STDOUT: {result.stdout.strip()}")
-                        if result.stderr: # Log stderr even if returncode is 0
-                            logger.info(f"MuseScore 실행 STDERR: {result.stderr.strip()}")
-                        # --- End logging after subprocess.run ---
-
-                        if result.returncode != 0:
-                            # logger.error(f"MuseScore 실행 실패: {result.stderr}") # Already logged by the generic STDERR log
-                            raise RuntimeError(f"MuseScore 실행 실패 (자세한 내용은 이전 로그 참조)")
-                            
-                    except Exception as e3:
-                        logger.error(f"MuseScore 직접 호출 실패: {e3}")
-                        raise
+                if result_svg.returncode != 0:
+                    raise RuntimeError(f"MuseScore SVG 직접 실행 실패 (Return Code: {result_svg.returncode})")
             
-            # PNG 파일 확인
-            if os.path.exists(png_path) and os.path.getsize(png_path) > 0:
-                logger.info(f"MuseScore PNG 파일 생성 성공: {png_path}, 크기: {os.path.getsize(png_path)} 바이트")
-                with open(png_path, "rb") as f:
-                    png_data = f.read()
-                return base64.b64encode(png_data).decode('utf-8'), None 
-            
-            # 파일이 없거나 비어있는 경우
-            raise RuntimeError("MuseScore로 PNG 생성 실패: 파일이 없거나 비어 있습니다.")
-        except Exception as e:
-            logger.warning(f"MuseScore PNG 생성 실패: {e}")
-            logger.warning("MuseScore PNG 실패: PNG 생성에 실패했습니다. (MuseScore 설치 및 환경 변수 MUSESCORE_PATH 설정, 또는 xvfb 필요)")
-            text_score = generate_text_score(notes_sequence, bpm)
-            return None, text_score 
+            except Exception as e_explicit_musescore_svg:
+                logger.error(f"SVG 생성 시도 2 (MuseScore 직접 호출) 실패: {e_explicit_musescore_svg}")
+                # This error will be caught by the outer try-except block, leading to text score generation
+                raise RuntimeError(f"All SVG generation attempts failed. Last error: {e_explicit_musescore_svg}")
+
+
+        # Check if SVG file was successfully created by any method
+        if os.path.exists(svg_path) and os.path.getsize(svg_path) > 0:
+            logger.info(f"MuseScore SVG 파일 생성 성공: {svg_path}, 크기: {os.path.getsize(svg_path)} 바이트")
+            with open(svg_path, "rb") as f_svg: # Read as binary for base64
+                svg_data_content = f_svg.read()
+            return base64.b64encode(svg_data_content).decode('utf-8'), None
+        else:
+            # This path should ideally be caught by specific exceptions above, but as a final catch
+            # This will be caught by the outer try-except block, leading to text score generation
+            raise RuntimeError(f"SVG 파일 생성 최종 실패: 파일이 없거나 비어 있습니다. 경로: {svg_path}")
+
     except Exception as e:
-        logger.error(f"악보 생성 중 예상치 못한 오류 발생: {e}")
+        logger.error(f"SVG 악보 이미지 생성 중 오류 발생: {e}") # Changed from "악보 생성 중 예상치 못한 오류 발생"
         logger.error(traceback.format_exc())
         text_score = generate_text_score(notes_sequence, bpm)
         return None, text_score
@@ -1109,19 +1061,19 @@ def generate_score_image_route():
             return jsonify({"status": "error", "message": "악보 시퀀스가 필요합니다."}), 400
         
         notes_sequence = parse_note_sequence_string(notes_sequence_str)
-        png_data_base64, text_score = generate_music21_score_with_fallback(notes_sequence, bpm, key_signature)
+        svg_data_base64, text_score = generate_music21_score_with_fallback(notes_sequence, bpm, key_signature) # Changed png_data_base64
         
-        if png_data_base64:
-            return jsonify({"status": "success", "image_data": png_data_base64, "format": "png"})
+        if svg_data_base64:
+            return jsonify({"status": "success", "image_data": svg_data_base64, "format": "svg"}) # Changed format to svg
         elif text_score:
             return jsonify({"status": "success", "text_data": text_score, "format": "text"})
         else:
-            return jsonify({"status": "error", "message": "악보 이미지/텍스트 생성에 실패했습니다."}), 500
+            return jsonify({"status": "error", "message": "악보 이미지/텍스트 생성에 실패했습니다."}), 500 # Generic message is fine
             
     except Exception as e:
         logger.error(f"악보 이미지 생성 오류: {e}")
         logger.error(traceback.format_exc())
-        return jsonify({"status": "error", "message": f"악보 생성 오류: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"악보 이미지 생성 오류: {str(e)}"}), 500 # Changed message from "악보 생성 오류"
 
 @app.route('/generate_midi', methods=['POST'])
 def generate_midi_route(): 
