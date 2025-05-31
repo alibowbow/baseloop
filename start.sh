@@ -59,6 +59,5 @@ except Exception as e:
 # 포트 설정 확인
 echo "Starting Gunicorn on port ${PORT:-10000}..."
 
-# Gunicorn으로 Flask 앱 시작 (xvfb-run 사용)
-# xvfb-run을 사용하면 더 안정적인 가상 디스플레이 환경 제공
-exec xvfb-run -a --server-args="-screen 0 1280x1024x24" gunicorn --bind 0.0.0.0:${PORT:-10000} --timeout 120 --workers 1 app:app
+# Gunicorn으로 Flask 앱 시작 (Xvfb는 이미 백그라운드에서 실행 중)
+exec gunicorn --bind 0.0.0.0:${PORT:-10000} --timeout 120 --workers 1 app:app
