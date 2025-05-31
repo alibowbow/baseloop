@@ -5,13 +5,27 @@ import io
 import re
 import os
 import ast # For safe parsing of LLM output
+import traceback
+import logging
 
 # Google Gemini 라이브러리 (AI 모드 사용 시 필수)
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    print("Warning: google-generativeai 라이브러리가 설치되지 않았습니다. AI 모드를 사용할 수 없습니다.")
 
-# 로컬 개발용 .env 파일 로딩 (배포 시 Render 환경 변수 사용이 권장되지만, 로컬 테스트를 위해)
-from dotenv import load_dotenv
-load_dotenv() 
+# 로컬 개발용 .env 파일 로딩
+try:
+    from dotenv import load_dotenv
+    load_dotenv() 
+except ImportError:
+    print("Warning: python-dotenv 라이브러리가 설치되지 않았습니다.")
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -20,6 +34,7 @@ SAMPLE_RATE = 44100
 MAX_AMPLITUDE = 0.5 * (2**15 - 1)
 
 def get_note_frequency(note_name, octave):
+    """음표 이름과 옥타브를 받아 주파수를 계산합니다."""
     notes_in_octave = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
     
     try:
@@ -33,10 +48,15 @@ def get_note_frequency(note_name, octave):
     return A4_FREQ * (2 ** (midi_note_offset / 12.0))
 
 def generate_note_waveform(frequency, duration_seconds, sample_rate, amplitude):
+    """단일 음표의 파형을 생성합니다."""
     num_samples = int(duration_seconds * sample_rate)
+    if num_samples <= 0:
+        return np.array([])
+        
     t = np.linspace(0, duration_seconds, num_samples, endpoint=False)
     waveform = amplitude * np.sin(2 * np.pi * frequency * t)
     
+    # ADSR 엔벨로프 적용 (간단한 Attack-Release)
     attack_percent = 0.01
     release_percent = 0.2
 
@@ -59,6 +79,9 @@ def parse_note_sequence_string(notes_sequence_str):
     """
     "C2 1.0, G2 0.5" 형태의 문자열을 파싱하여 [('C', 2, 1.0), ...] 형태로 변환
     """
+    if not notes_sequence_str or not notes_sequence_str.strip():
+        raise ValueError("악보 시퀀스가 비어 있습니다.")
+        
     notes_sequence = []
     for note_entry in notes_sequence_str.split(','):
         note_entry = note_entry.strip()
@@ -73,41 +96,75 @@ def parse_note_sequence_string(notes_sequence_str):
         note_name = match.group(1)
         octave = int(match.group(2))
         duration = float(match.group(3))
+        
+        # 유효성 검사
+        if octave < 0 or octave > 8:
+            raise ValueError(f"옥타브는 0-8 범위여야 합니다: {octave}")
+        if duration <= 0 or duration > 8:
+            raise ValueError(f"음표 길이는 0보다 크고 8보다 작아야 합니다: {duration}")
+            
         notes_sequence.append((note_name, octave, duration))
+    
+    if not notes_sequence:
+        raise ValueError("파싱된 음표가 없습니다. 올바른 형식으로 입력해주세요.")
+        
     return notes_sequence
-
 
 def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
     """
     파싱된 음표 시퀀스 ([('C', 2, 1.0), ...])를 기반으로 오디오 버퍼 생성
     """
+    if not notes_sequence:
+        raise ValueError("음표 시퀀스가 비어 있습니다.")
+    
+    if bpm <= 0 or bpm > 300:
+        raise ValueError(f"BPM은 1-300 범위여야 합니다: {bpm}")
+        
+    if num_loops <= 0 or num_loops > 100:
+        raise ValueError(f"루프 횟수는 1-100 범위여야 합니다: {num_loops}")
+    
     quarter_note_duration = 60 / bpm 
     full_loop_waveform = np.array([])
 
+    logger.info(f"생성 중: {len(notes_sequence)}개 음표, BPM {bpm}, {num_loops}회 반복")
+
     for note_info in notes_sequence:
         note_name, octave_val, duration_units = note_info
-        freq = get_note_frequency(note_name, octave_val)
-        actual_duration = duration_units * quarter_note_duration
-        note_waveform = generate_note_waveform(freq, actual_duration, SAMPLE_RATE, MAX_AMPLITUDE)
-        full_loop_waveform = np.concatenate((full_loop_waveform, note_waveform))
+        try:
+            freq = get_note_frequency(note_name, octave_val)
+            actual_duration = duration_units * quarter_note_duration
+            note_waveform = generate_note_waveform(freq, actual_duration, SAMPLE_RATE, MAX_AMPLITUDE)
+            full_loop_waveform = np.concatenate((full_loop_waveform, note_waveform))
+        except Exception as e:
+            logger.error(f"음표 생성 실패 {note_name}{octave_val}: {e}")
+            # 음표 생성 실패시 무음으로 대체
+            silence_samples = int(duration_units * quarter_note_duration * SAMPLE_RATE)
+            silence = np.zeros(silence_samples)
+            full_loop_waveform = np.concatenate((full_loop_waveform, silence))
     
+    if len(full_loop_waveform) == 0:
+        raise ValueError("생성된 오디오 데이터가 없습니다.")
+    
+    # 루프 반복
     final_waveform = np.tile(full_loop_waveform, num_loops)
-    if len(final_waveform) > 0: # 정규화 전에 비어있지 않은지 확인
-        final_waveform = final_waveform / np.max(np.abs(final_waveform)) * MAX_AMPLITUDE 
+    
+    # 정규화
+    max_val = np.max(np.abs(final_waveform))
+    if max_val > 0:
+        final_waveform = final_waveform / max_val * MAX_AMPLITUDE 
+    
     audio_data_int16 = final_waveform.astype(np.int16)
 
     buffer = io.BytesIO()
     write_wav(buffer, SAMPLE_RATE, audio_data_int16)
-    buffer.seek(0) # 스트림 시작 지점으로 포인터 이동
+    buffer.seek(0)
     
     return buffer
 
-
 # --- 스타일 기반 랜덤 생성 함수 (랜덤 모드) ---
-def create_random_bass_loop_by_style(
-    style, key_root_note, octave, length_measures, bpm
-):
-    print(f"Generating {style} bass loop (Key: {key_root_note}{octave}, BPM: {bpm}, Measures: {length_measures})")
+def create_random_bass_loop_by_style(style, key_root_note, octave, length_measures, bpm):
+    """스타일에 따른 랜덤 베이스 라인 생성"""
+    logger.info(f"생성 중: {style} 베이스 루프 (키: {key_root_note}{octave}, BPM: {bpm}, 마디: {length_measures})")
     
     styles = {
         "rock": {
@@ -159,9 +216,14 @@ def create_random_bass_loop_by_style(
     full_scale = []
     
     notes_in_chromatic_octave = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-    root_idx_chromatic = notes_in_chromatic_octave.index(key_root_note.upper())
+    
+    # 루트 노트가 유효한지 확인
+    try:
+        root_idx_chromatic = notes_in_chromatic_octave.index(key_root_note.upper())
+    except ValueError:
+        raise ValueError(f"유효하지 않은 루트 음: {key_root_note}")
 
-    for current_chromatic_octave in range(octave, octave + 2): 
+    for current_chromatic_octave in range(max(0, octave), min(5, octave + 2)): 
         for note_name_in_chromatic in notes_in_chromatic_octave:
             if note_name_in_chromatic in base_scale_notes:
                 full_scale.append((note_name_in_chromatic, current_chromatic_octave))
@@ -171,10 +233,19 @@ def create_random_bass_loop_by_style(
     current_beats = 0
 
     while current_beats < total_beats_per_loop:
-        rhythm_weights = [1.0/r for r in base_rhythms]
+        # 남은 박자 수 계산
+        remaining_beats = total_beats_per_loop - current_beats
+        
+        # 가능한 리듬 중에서 남은 박자를 초과하지 않는 것만 선택
+        available_rhythms = [r for r in base_rhythms if r <= remaining_beats]
+        if not available_rhythms:
+            # 남은 박자에 맞는 리듬이 없으면 나머지를 쉼표로 채움
+            break
+            
+        rhythm_weights = [1.0/r for r in available_rhythms]
         rhythm_weights = [w / sum(rhythm_weights) for w in rhythm_weights]
         
-        duration_unit = np.random.choice(base_rhythms, p=rhythm_weights) 
+        duration_unit = np.random.choice(available_rhythms, p=rhythm_weights) 
         
         selected_note_info = None
         
@@ -189,99 +260,125 @@ def create_random_bass_loop_by_style(
             target_octave = target_midi_number // 12 - 1 
             target_note_name = notes_in_chromatic_octave[target_midi_number % 12]
 
+            # 옥타브 범위 제한
             if target_octave > octave + 1:
                 target_octave = octave + 1
-            elif target_octave < octave:
-                target_octave = octave
+            elif target_octave < max(0, octave):
+                target_octave = max(0, octave)
                 
             selected_note_info = (target_note_name, target_octave)
         
-        if selected_note_info is None or selected_note_info[1] < octave: 
+        if selected_note_info is None or selected_note_info[1] < 0: 
             if style != "random" and len(full_scale) > 0:
                 selected_note_info = full_scale[np.random.randint(len(full_scale))]
             elif len(notes_in_chromatic_octave) > 0:
                 rand_note_idx = np.random.randint(len(notes_in_chromatic_octave))
                 rand_octave_offset = np.random.randint(2)
-                selected_note_info = (notes_in_chromatic_octave[rand_note_idx], octave + rand_octave_offset)
+                selected_note_info = (notes_in_chromatic_octave[rand_note_idx], max(0, octave + rand_octave_offset))
             else:
-                selected_note_info = ('C', octave)
+                selected_note_info = ('C', max(1, octave))
 
         note_name, final_octave = selected_note_info
         
         notes_sequence.append((note_name, final_octave, duration_unit))
         current_beats += duration_unit
         
+    if not notes_sequence:
+        # 최소한의 기본 시퀀스 생성
+        notes_sequence = [('C', max(1, octave), 1.0), ('G', max(1, octave), 1.0)]
+        
     formatted_sequence = ", ".join([f"{n[0]}{n[1]} {float(n[2])}" for n in notes_sequence])
+    logger.info(f"생성된 시퀀스: {formatted_sequence}")
     return formatted_sequence
-
 
 # --- Gemini LLM 설정 및 호출 함수 (AI 모드) ---
 def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
-    # API 키를 프런트엔드에서 받음 (보안 경고)
-    if not api_key:
+    """Gemini AI를 사용한 베이스 라인 생성"""
+    if not GEMINI_AVAILABLE:
+        raise ValueError("Google Generative AI 라이브러리가 설치되지 않았습니다. pip install google-generativeai를 실행하세요.")
+        
+    if not api_key or not api_key.strip():
         raise ValueError("Gemini API 키가 필요합니다. 입력해주세요.")
 
-    genai.configure(api_key=api_key) 
-    gemini_model = genai.GenerativeModel('gemini-pro') 
-    
-    prompt = f"""Generate a bassline sequence in Python tuple list format: [('NoteName', Octave, DurationUnit), ...].
-    Example: `[('C', 2, 1.0), ('G', 2, 0.5), ('A', 2, 0.5), ('F', 2, 1.0)]`
-    The genre is {genre}. BPM is {bpm}. The bassline should start around {key_note}{octave} and be approximately {measures * 4} beats long (each measure has 4 beats).
-    Focus on common bass notes in lower octaves (mostly octave {octave} to {octave + 1}) and rhythms appropriate for {genre}.
-    Ensure the sequence can be parsed as a Python list of tuples. Do not include any explanation or extra text, just the Python list.
-    Provide about {measures * 4} beats of notes in the sequence (e.g. four 1.0 duration notes for a 1-measure loop).
-    """
-    
     try:
+        genai.configure(api_key=api_key.strip()) 
+        gemini_model = genai.GenerativeModel('gemini-pro') 
+        
+        prompt = f"""Generate a bassline sequence in Python tuple list format: [('NoteName', Octave, DurationUnit), ...].
+        Example: `[('C', 2, 1.0), ('G', 2, 0.5), ('A', 2, 0.5), ('F', 2, 1.0)]`
+        
+        Requirements:
+        - Genre: {genre}
+        - BPM: {bpm}
+        - Key: {key_note}
+        - Starting octave: {octave}
+        - Total beats: {measures * 4} (each measure has 4 beats)
+        - Use octaves {octave} to {octave + 1} mainly
+        - Duration units should be: 0.25, 0.5, 1.0, 1.5, 2.0, etc.
+        - Make it musically appropriate for {genre}
+        
+        Return ONLY the Python list, no explanation or extra text.
+        """
+        
         response = gemini_model.generate_content(prompt)
         text_response = response.text.strip()
         
+        # 응답 정리
         if text_response.startswith('```python') and text_response.endswith('```'):
             text_response = text_response[len('```python'):-len('```')].strip()
+        elif text_response.startswith('```') and text_response.endswith('```'):
+            text_response = text_response[3:-3].strip()
+            
         if text_response.startswith('list(') and text_response.endswith(')'):
              text_response = text_response[len('list('):-len(')')].strip()
         
+        logger.info(f"Gemini 응답: {text_response[:100]}...")
+        
+        # 안전한 파싱
         parsed_sequence = ast.literal_eval(text_response)
         
         if not isinstance(parsed_sequence, list):
-            raise ValueError("AI did not return a Python list.")
+            raise ValueError("AI가 Python 리스트를 반환하지 않았습니다.")
+            
         for item in parsed_sequence:
             if not (isinstance(item, tuple) and len(item) == 3 and
                     isinstance(item[0], str) and isinstance(item[1], int) and isinstance(item[2], (float, int))):
-                raise ValueError(f"AI returned invalid item format: {item}. Expected ('NoteName', Octave, DurationUnit)")
+                raise ValueError(f"AI가 잘못된 형식을 반환했습니다: {item}. ('NoteName', Octave, DurationUnit) 형식이어야 합니다.")
+        
+        # 추가 유효성 검사
+        for note_name, oct, dur in parsed_sequence:
+            if oct < 0 or oct > 8:
+                raise ValueError(f"옥타브 범위 오류: {oct}")
+            if dur <= 0 or dur > 8:
+                raise ValueError(f"음표 길이 오류: {dur}")
                 
-        return ", ".join([f"{n[0]}{n[1]} {float(n[2])}" for n in parsed_sequence])
+        formatted_sequence = ", ".join([f"{n[0]}{n[1]} {float(n[2])}" for n in parsed_sequence])
+        logger.info(f"Gemini 생성 시퀀스: {formatted_sequence}")
+        return formatted_sequence
         
     except ValueError as ve:
-        raise ValueError(f"AI 응답 파싱 또는 유효성 검사 오류: {str(ve)}. API 키가 유효하거나 AI 응답 형식을 확인하세요.")
+        raise ValueError(f"AI 응답 파싱 또는 유효성 검사 오류: {str(ve)}")
     except Exception as e:
-        raise ValueError(f"Gemini API 호출 중 오류: {str(e)}. API 키가 유효하거나 요청 할당량을 확인하세요.")
-
+        logger.error(f"Gemini API 호출 오류: {e}")
+        raise ValueError(f"Gemini API 호출 중 오류: {str(e)}. API 키가 유효한지 확인하세요.")
 
 # --- Flask 웹 라우트 ---
 
 @app.route('/')
 def index_page(): 
-    """메인 페이지 렌더링 - 'index.html'을 사용합니다."""
-    default_bpm = 120
-    default_loops = 2
-    default_length = 4 
-    default_genre = "rock" 
-    default_key_note = "C"
-    default_octave = 2 
-    default_generation_mode = "random" 
+    """메인 페이지 렌더링"""
+    default_values = {
+        'default_bpm': 120,
+        'default_loops': 2,
+        'default_length': 4,
+        'default_genre': "rock",
+        'default_key_note': "C",
+        'default_octave': 2,
+        'default_generation_mode': "random",
+        'recommended_notes_str': "C2 1.0, G2 1.0, A2 1.0, F2 1.0"
+    }
     
-    return render_template('index.html', # <--- 'index.html'로 명확히 지정!
-                           default_bpm=default_bpm, 
-                           default_loops=default_loops,
-                           default_length=default_length,
-                           default_genre=default_genre,
-                           default_key_note=default_key_note,
-                           default_octave=default_octave,
-                           default_generation_mode=default_generation_mode,
-                           recommended_notes_str="C2 1.0, G2 1.0, A2 1.0, F2 1.0" # 기본 베이스라인 예시
-                          )
-
+    return render_template('index.html', **default_values)
 
 @app.route('/generate_notes', methods=['POST'])
 def generate_notes():
@@ -289,11 +386,24 @@ def generate_notes():
     try:
         generation_mode = request.form.get('generation_mode', 'random') 
         
-        bpm = int(request.form.get('bpm_input', 120))
-        length_measures = int(request.form.get('length_input', 4))
+        # 입력값 검증
+        try:
+            bpm = int(request.form.get('bpm_input', 120))
+            length_measures = int(request.form.get('length_input', 4))
+            octave = int(request.form.get('octave_input', 2))
+        except ValueError:
+            return {'status': 'error', 'message': 'BPM, 마디 길이, 옥타브는 숫자여야 합니다.'}, 400
+        
         genre = request.form.get('genre_input', 'rock')
         key_note = request.form.get('key_note_input', 'C')
-        octave = int(request.form.get('octave_input', 2))
+
+        # 범위 검증
+        if not (30 <= bpm <= 240):
+            return {'status': 'error', 'message': 'BPM은 30-240 범위여야 합니다.'}, 400
+        if not (1 <= length_measures <= 16):
+            return {'status': 'error', 'message': '마디 길이는 1-16 범위여야 합니다.'}, 400
+        if not (0 <= octave <= 4):
+            return {'status': 'error', 'message': '옥타브는 0-4 범위여야 합니다.'}, 400
 
         generated_notes_str = ""
 
@@ -315,42 +425,63 @@ def generate_notes():
             return {'status': 'error', 'message': '악보 생성에 실패했습니다.'}, 500
 
     except ValueError as ve:
-        print(f"Error during note generation: {ve}")
+        logger.error(f"악보 생성 중 ValueError: {ve}")
         return {'status': 'error', 'message': str(ve)}, 400
     except Exception as e:
-        import traceback
-        print(traceback.format_exc()) 
+        logger.error(f"악보 생성 중 예외 발생: {e}")
+        logger.error(traceback.format_exc())
         return {'status': 'error', 'message': f"서버 오류 발생: {str(e)}"}, 500
-
 
 @app.route('/generate_audio', methods=['POST'])
 def generate_audio():
-    """사용자 입력 악보 시퀀스를 기반으로 베이스 루프 오디오 생성하여 반환 (다운로드 대신 스트리밍/재생 목적)"""
+    """사용자 입력 악보 시퀀스를 기반으로 베이스 루프 오디오 생성하여 반환"""
     try:
-        notes_sequence_str = request.form['notes_sequence_input']
-        bpm = int(request.form['bpm_input'])
-        num_loops = int(request.form['num_loops_input'])
+        notes_sequence_str = request.form.get('notes_sequence_input', '').strip()
+        
+        try:
+            bpm = int(request.form.get('bpm_input', 120))
+            num_loops = int(request.form.get('num_loops_input', 2))
+        except ValueError:
+            return Response("BPM과 루프 횟수는 숫자여야 합니다.", status=400, mimetype='text/plain')
 
-        notes_sequence = parse_note_sequence_string(notes_sequence_str)
-
-        if not notes_sequence:
+        if not notes_sequence_str:
             return Response("악보 시퀀스가 비어 있습니다. 음표를 생성하거나 입력해주세요.", status=400, mimetype='text/plain')
 
+        # 악보 파싱
+        notes_sequence = parse_note_sequence_string(notes_sequence_str)
+
+        # 오디오 생성
         audio_buffer = create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops)
 
-        # `send_file` 대신 `Response` 객체를 직접 사용하여 `audio/wav`로 데이터 스트림 반환
-        # 이렇게 하면 브라우저는 해당 데이터를 `<audio>` 태그나 기타 오디오 처리 API로 바로 처리할 수 있습니다.
         return Response(audio_buffer.getvalue(), mimetype='audio/wav')
 
     except ValueError as ve:
+        logger.error(f"오디오 생성 중 ValueError: {ve}")
         return Response(f"악보 파싱 오류: {str(ve)}", status=400, mimetype='text/plain')
     except Exception as e:
-        import traceback
-        print(traceback.format_exc()) 
+        logger.error(f"오디오 생성 중 예외 발생: {e}")
+        logger.error(traceback.format_exc())
         return Response(f"오류 발생: {str(e)}. 서버 로그를 확인하세요.", status=500, mimetype='text/plain')
 
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('index.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"500 오류: {error}")
+    return "Internal server error", 500
+
 if __name__ == '__main__':
-    load_dotenv() 
+    try:
+        load_dotenv()
+    except:
+        pass
 
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    
+    logger.info(f"서버 시작 - 포트: {port}, 디버그: {debug_mode}")
+    logger.info(f"Gemini AI 사용 가능: {GEMINI_AVAILABLE}")
+    
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
