@@ -1,6 +1,7 @@
-Flask==2.3.3             # 웹 프레임워크
-numpy==1.26.0            # 과학 계산 (오디오 파형 생성 등)
-scipy==1.11.3            # 과학 계산 (특히 scipy.io.wavfile.write 사용)
-gunicorn==21.2.0         # 프로덕션 환경에서 Flask 앱을 서빙하기 위한 WSGI HTTP 서버 (필수 아님, 배포 시 필요)
-google-generativeai==0.3.0 # Google Gemini AI API 연동 라이브러리 (AI 모드 사용 시 필수)
-python-dotenv==1.0.0     # .env 파일에서 환경 변수를 로드하기 위한 라이브러리
+Flask==2.3.3
+numpy==1.24.3
+scipy==1.11.1
+gunicorn==21.2.0
+google-generativeai==0.3.0
+python-dotenv==1.0.0
+Werkzeug==2.3.7
