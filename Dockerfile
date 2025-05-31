@@ -1,40 +1,11 @@
-# Dockerfile for Render.com with MuseScore support
-FROM python:3.10-slim
+#!/bin/bash
+# start.sh - Render.com용 시작 스크립트 (최종)
 
-# 시스템 의존성 설치 (MuseScore 포함)
-RUN apt-get update && apt-get install -y \
-    musescore3 \
-    xvfb \
-    fonts-liberation \
-    fonts-dejavu \
-    fonts-noto \
-    libqt5gui5 \
-    libqt5widgets5 \
-    libqt5printsupport5 \
-    libqt5svg5 \
-    && rm -rf /var/lib/apt/lists/*
+# xvfb-run을 사용하여 Flask 앱을 가상 디스플레이 환경에서 실행합니다.
+# `exec` 명령어는 현재 쉘 프로세스를 Gunicorn 프로세스로 대체하여,
+# Render.com이 Gunicorn 프로세스에 직접 종료 신호를 보낼 수 있도록 합니다.
+exec xvfb-run --auto-display gunicorn --bind 0.0.0.0:$PORT app:app
 
-# 작업 디렉토리 설정
-WORKDIR /app
-
-# Python 의존성 복사 및 설치
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# 애플리케이션 코드 복사
-COPY . .
-
-# MuseScore 환경변수 설정
-ENV MUSESCORE_PATH=/usr/bin/musescore3
-ENV QT_QPA_PLATFORM=offscreen
-ENV DISPLAY=:99
-
-# Xvfb 가상 디스플레이 시작 스크립트
-COPY start.sh /start.sh
-RUN chmod +x /start.sh
-
-# 포트 설정
-EXPOSE 5000
-
-# 애플리케이션 시작
-CMD ["/start.sh"]
+# 참고: 만약 Gunicorn 없이 `python app.py`로 앱을 실행한다면,
+# 다음처럼 변경하세요:
+# exec xvfb-run --auto-display python app.py
