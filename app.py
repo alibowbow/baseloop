@@ -9,7 +9,7 @@ import traceback
 import logging
 import tempfile
 import shutil
-import base64 # Base64 인코딩/디코딩용 추가
+import base64 
 
 # Music21 라이브러리 (악보 생성)
 try:
@@ -25,7 +25,6 @@ _M21_CONFIGURED = False
 def setup_music21_environment() -> bool:
     """
     MuseScore 경로와 Qt 헤드리스 환경 변수를 Music21에 등록합니다.
-    이 함수는 앱 런타임에 Music21이 MuseScore를 찾도록 설정합니다.
     """
     global _M21_CONFIGURED
 
@@ -49,8 +48,9 @@ def setup_music21_environment() -> bool:
 
         # Music21 디버그 로깅 활성화 (MuseScore 오류 상세 정보 확인용)
         us['debug'] = True 
-        # Music21의 GUI를 억제 (headless 모드에서 필수)
-        us['graphicsBackend'] = 'None' 
+        # --- 이 줄을 삭제합니다 ---
+        # us['graphicsBackend'] = 'None' 
+        # -----------------------------
 
         logger.info(f"[Music21 설정] MuseScore 경로 등록 완료: {musescore_path}")
         _M21_CONFIGURED = True
@@ -105,21 +105,15 @@ def get_note_frequency(note_name_chromatic, octave):
         'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11
     }
     
-    # 표준 크로매틱 음이름으로 변환 (Db -> C#, Eb -> D#, etc.)
-    # Music21의 pitch.Pitch는 Eb를 Eb로 유지하지만, 주파수 계산은 내부적으로 D#과 동일하게 처리.
-    # 여기서는 Music21의 표준 음이름(nameWith");'을 따르는 것이 아니라, 단순 주파수 계산이므로
-    # 모든 플랫을 샵으로 변환하여 ['C', 'C#', 'D', 'D#', ...] 형태에 맞춥니다.
     note_name_std = note_name_chromatic.replace('Db', 'C#').replace('Eb', 'D#') \
                                        .replace('Gb', 'F#').replace('Ab', 'G#') \
                                        .replace('Bb', 'A#').replace('Cb', 'B') \
-                                       .replace('B#', 'C') # B#은 C와 같음
+                                       .replace('B#', 'C') 
     
     if note_name_std not in chromatic_notes_midi_offset:
         raise ValueError(f"유효하지 않은 크로매틱 음표 이름: {note_name_chromatic} (변환 후: {note_name_std})")
 
-    # A4 (440Hz)는 MIDI 노트 69
-    # MIDI 노트 번호 = (옥타브 + 1) * 12 + 음이름 인덱스 (C0이 0번 인덱스)
-    midi_note_number = (octave + 1) * 12 + chromatic_notes_midi_offset[note_name_std]
+    midi_note_number = (octave * 12) + chromatic_notes_midi_offset[note_name_std]
     
     A4_MIDI = 69
     A4_FREQ = 440.0
@@ -171,11 +165,6 @@ def parse_note_sequence_string(notes_sequence_str):
         if not note_entry:
             continue
         
-        # 음표 파싱 (예: C#2 1.0, Eb3 0.5)
-        # Group 1: Base note name (A-G)
-        # Group 2: Accidental (# or b, optional)
-        # Group 3: Octave (digits)
-        # Group 4: Duration (number with optional decimal)
         match_note = re.match(r"([A-Ga-g])(#|b)?(\d+)\s+(\d+(?:\.\d+)?)", note_entry, re.IGNORECASE)
         if match_note:
             note_name = match_note.group(1).upper()
@@ -185,20 +174,18 @@ def parse_note_sequence_string(notes_sequence_str):
             
             if not (0 <= octave <= 8):
                 raise ValueError(f"옥타브는 0-8 범위여야 합니다: {octave} (음표: {note_entry})")
-            if not (0 < duration <= 8): # duration 0보다 크고 8보다 작거나 같음
+            if not (0 < duration <= 8):
                 raise ValueError(f"음표 길이는 0보다 크고 8보다 작거나 같아야 합니다: {duration} (음표: {note_entry})")
                 
             parsed_notes.append((note_name, octave, duration, False, accidental))
             continue
 
-        # 쉼표 파싱 (예: R 1.0)
-        # Group 1: Duration (number with optional decimal)
         match_rest = re.match(r"R\s+(\d+(?:\.\d+)?)", note_entry, re.IGNORECASE)
         if match_rest:
             duration = float(match_rest.group(1))
             if not (0 < duration <= 8):
                 raise ValueError(f"쉼표 길이는 0보다 크고 8보다 작거나 같아야 합니다: {duration} (쉼표: {note_entry})")
-            parsed_notes.append(('R', 4, duration, True, '')) # 쉼표는 옥타브와 임시표 중요하지 않음, is_rest = True
+            parsed_notes.append(('R', 4, duration, True, '')) 
             continue
         
         raise ValueError(f"유효하지 않은 음표/쉼표 형식: '{note_entry}'. 'C2 1.0' 또는 'R 1.0' 형식이어야 합니다.")
@@ -231,12 +218,11 @@ def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
         note_name, octave_val, duration_units, is_rest, accidental = note_info 
         try:
             if is_rest:
-                freq = 0 # 쉼표는 무음
+                freq = 0 
             else:
-                # get_note_frequency 함수가 'C#', 'Eb' 같은 문자열을 받도록 처리
                 note_name_for_freq = note_name
                 if accidental:
-                    note_name_for_freq += accidental # Eb, C# 형태로 전달
+                    note_name_for_freq += accidental 
 
                 freq = get_note_frequency(note_name_for_freq, octave_val)
             
@@ -245,7 +231,6 @@ def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
             full_loop_waveform = np.concatenate((full_loop_waveform, note_waveform))
         except Exception as e:
             logger.error(f"오디오 음표 생성 실패 {note_name}{accidental}{octave_val} ({duration_units}박): {e}")
-            # 음표 생성 실패시 무음으로 대체
             silence_samples = int(duration_units * quarter_note_duration * SAMPLE_RATE)
             silence = np.zeros(silence_samples)
             full_loop_waveform = np.concatenate((full_loop_waveform, silence))
@@ -287,6 +272,7 @@ def generate_music21_score_with_fallback(
 
     temp_dir = None
     try:
+        logger.info("Music21 악보 객체 생성 시작.")
         score = stream.Score()
         score.append(tempo.MetronomeMark(number=bpm))
         score.append(meter.TimeSignature("4/4"))
@@ -300,8 +286,6 @@ def generate_music21_score_with_fallback(
                 part.append(note.Rest(quarterLength=dur))
             else:
                 try:
-                    # Music21 pitch 객체에 임시표 포함 (예: "C#", "Eb")
-                    # Music21은 'b'를 플랫 심볼로, '#'를 샵 심볼로 해석합니다.
                     p = pitch.Pitch(f"{n_name}{accidental}") 
                     n = note.Note(p)
                     n.octave = octv
@@ -312,28 +296,28 @@ def generate_music21_score_with_fallback(
                     part.append(note.Rest(quarterLength=dur))
 
         score.append(part)
+        logger.info("Music21 악보 객체 생성 완료. MuseScore PNG 생성을 시도합니다.")
 
         temp_dir = tempfile.mkdtemp()
         png_path = os.path.join(temp_dir, "score.png")
 
         try:
-            # score.write("musicxml.png")는 Music21이 MuseScore를 호출하여 PNG를 만듭니다.
-            # Music21이 MuseScore의 Stderr를 catch하여 Python 에러로 변환하지 않는 경우가 많으므로
-            # Music21의 debug=True 설정을 통해 MuseScore의 실제 에러를 잡아내는 것이 중요합니다.
+            # Music21이 MuseScore를 호출하여 PNG를 생성합니다.
             score.write("musicxml.png", fp=png_path) 
             
             if os.path.exists(png_path) and os.path.getsize(png_path) > 0:
+                logger.info(f"MuseScore PNG 파일 생성 성공: {png_path}, 크기: {os.path.getsize(png_path)} 바이트")
                 with open(png_path, "rb") as f:
                     png_data = f.read()
-                return base64.b64encode(png_data).decode('utf-8'), None # Base64 인코딩하여 반환
+                return base64.b64encode(png_data).decode('utf-8'), None 
             
+            # 파일이 없거나 비어있는 경우
             raise RuntimeError("MuseScore로 PNG 생성 실패: 파일이 없거나 비어 있습니다.")
         except Exception as e:
             logger.warning(f"MuseScore PNG 생성 실패: {e}")
-            logger.warning("MuseScore PNG 실패: PNG 생성 실패 (MuseScore 설치 및 환경 변수 MUSESCORE_PATH 설정 권장, 또는 xvfb 필요)")
-            # MuseScore가 출력한 상세 에러 메시지는 Music21 debug=True 로그에서 확인 가능
+            logger.warning("MuseScore PNG 실패: PNG 생성에 실패했습니다. (MuseScore 설치 및 환경 변수 MUSESCORE_PATH 설정, 또는 xvfb 필요)")
             text_score = generate_text_score(notes_sequence, bpm)
-            return None, text_score # PNG 실패 시 텍스트 악보 반환
+            return None, text_score 
     except Exception as e:
         logger.error(f"악보 생성 중 예상치 못한 오류 발생: {e}")
         logger.error(traceback.format_exc())
@@ -341,7 +325,7 @@ def generate_music21_score_with_fallback(
         return None, text_score
     finally:
         if temp_dir and os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir) # 임시 디렉토리 삭제
+            shutil.rmtree(temp_dir) 
 
 def generate_text_score(notes_sequence, bpm):
     """텍스트 기반 악보 표현 (Music21 실패시 대안)"""
@@ -352,12 +336,10 @@ def generate_text_score(notes_sequence, bpm):
     
     current_measure = 1
     current_beats = 0
-    measure_notes_str_list = [] # 마디 내 음표 문자열 리스트
+    measure_notes_str_list = [] 
 
     for note_name, octave, duration_val, is_rest, accidental in notes_sequence:
-        # 현재 음표를 추가할 때 마디 박자를 초과하는지 확인
-        if current_beats + duration_val > 4.001 and current_beats > 0: # 4.001로 작은 오차 허용
-            # 현재 마디 완료
+        if current_beats + duration_val > 4.001 and current_beats > 0: 
             if measure_notes_str_list:
                 text_lines.append(f"마디 {current_measure}: {' | '.join(measure_notes_str_list)}")
             current_measure += 1
@@ -373,7 +355,6 @@ def generate_text_score(notes_sequence, bpm):
         measure_notes_str_list.append(note_str)
         current_beats += duration_val
     
-    # 마지막 마디 처리
     if measure_notes_str_list:
         text_lines.append(f"마디 {current_measure}: {' | '.join(measure_notes_str_list)}")
     
@@ -382,13 +363,10 @@ def generate_text_score(notes_sequence, bpm):
 # --- MIDI 생성 함수 ---
 def note_name_to_midi(note_name, octave, accidental=''):
     """음표 이름을 MIDI 노트 번호로 변환 (accidental 포함)"""
-    # Music21과 유사하게, C, D, E, F, G, A, B에 대한 기본 반음 인덱스
     notes = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
     
-    # C0 (MIDI 12번)을 기준으로 계산
     midi_base = (octave * 12) + notes[note_name.upper()]
     
-    # 임시표 적용
     if accidental == '#':
         midi_base += 1
     elif accidental == 'b':
@@ -399,7 +377,7 @@ def note_name_to_midi(note_name, octave, accidental=''):
 def generate_midi_file(notes_sequence, bpm):
     """MIDI 파일 생성"""
     if not MIDI_AVAILABLE:
-        raise ValueError("Mido 라이브러리가 설치되지 않았습니다.")
+        raise ValueError("Mido 라이브러리가 설치되지 않습니다.")
     
     try:
         mid = MidiFile()
@@ -417,7 +395,7 @@ def generate_midi_file(notes_sequence, bpm):
             if not is_rest:
                 try:
                     midi_note = note_name_to_midi(note_name, octave, accidental)
-                    velocity = 80 # 음량 (0-127)
+                    velocity = 80 
                     duration_ticks = int(duration * ticks_per_beat)
                     
                     track.append(Message('note_on', channel=0, note=midi_note, 
@@ -427,11 +405,11 @@ def generate_midi_file(notes_sequence, bpm):
                 except Exception as e:
                     logger.warning(f"MIDI 음표 생성 실패 {note_name}{accidental}{octave}: {e}")
                     duration_ticks = int(duration * ticks_per_beat)
-                    track.append(Message('note_on', channel=0, note=60, # 가상의 노트, velocity=0
+                    track.append(Message('note_on', channel=0, note=60, 
                                        velocity=0, time=duration_ticks))
             else:
                 duration_ticks = int(duration * ticks_per_beat)
-                track.append(Message('note_on', channel=0, note=60, # 가상의 노트, velocity=0
+                track.append(Message('note_on', channel=0, note=60, 
                                    velocity=0, time=duration_ticks))
         
         return mid
@@ -451,49 +429,45 @@ def convert_to_lilypond_notes(notes_sequence):
         if is_rest:
             ly_note_str += 'r'
         else:
-            ly_note_str += note_name.lower() # LilyPond는 소문자 음이름 사용
+            ly_note_str += note_name.lower() 
             if accidental == '#':
                 ly_note_str += 'is'
             elif accidental == 'b':
                 ly_note_str += 'es'
             
-            # LilyPond 옥타브 조정 (중앙 C는 c')
-            # LilyPond의 기본 옥타브는 c' (C4)입니다. 
-            # 베이스 클레프의 낮은 음역을 고려하여 옥타브를 LilyPond 표기법에 맞게 조정
-            if octave == 3: # C3, D3, E3... (MIDI 48-59) -> c, d, e...
+            if octave == 3: 
                 ly_note_str += ','
-            elif octave == 2: # C2, D2... (MIDI 36-47) -> c,, d,, e,,...
+            elif octave == 2: 
                 ly_note_str += ',,'
-            elif octave == 1: # C1, D1... (MIDI 24-35) -> c,,, d,,, e,,,...
+            elif octave == 1: 
                 ly_note_str += ',,,'
-            elif octave == 0: # C0, D0... (MIDI 12-23) -> c,,,, d,,,, e,,,,...
+            elif octave == 0: 
                 ly_note_str += ',,,,'
-            elif octave == 4: # C4, D4... (MIDI 60-71) -> c', d', e'...
-                pass # LilyPond 기본 c' 표기 (c, d, e...)
-            elif octave == 5: # C5, D5... (MIDI 72-83) -> c'', d'', e''...
+            elif octave == 4: 
+                pass 
+            elif octave == 5: 
                 ly_note_str += "'"
-            elif octave == 6: # C6, D6... (MIDI 84-95) -> c''' d''' e'''...
+            elif octave == 6: 
                 ly_note_str += "''"
             else:
                 logger.warning(f"LilyPond: 지원하지 않는 옥타브 {octave}. 기본 LilyPond 옥타브 표기법을 따릅니다.")
 
-        # 음표 길이 변환 (LilyPond Duration)
         if duration == 4.0:
-            ly_note_str += '1' # 온음표
+            ly_note_str += '1' 
         elif duration == 3.0: 
-            ly_note_str += '2.' # 점2분음표
+            ly_note_str += '2.' 
         elif duration == 2.0:
-            ly_note_str += '2' # 2분음표
+            ly_note_str += '2' 
         elif duration == 1.5: 
-            ly_note_str += '4.' # 점4분음표
+            ly_note_str += '4.' 
         elif duration == 1.0:
-            ly_note_str += '4' # 4분음표
+            ly_note_str += '4' 
         elif duration == 0.75:
-            ly_note_str += '8.' # 점8분음표
+            ly_note_str += '8.' 
         elif duration == 0.5:
-            ly_note_str += '8' # 8분음표
+            ly_note_str += '8' 
         elif duration == 0.25:
-            ly_note_str += '16' # 16분음표
+            ly_note_str += '16' 
         else:
             logger.warning(f"LilyPond: 인식할 수 없는 박자 단위 {duration}. 4분음표로 대체합니다.")
             ly_note_str += '4' 
@@ -577,7 +551,7 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
     }
     
     selected_style = styles.get(style, styles["random"]) 
-    base_scale_notes_raw = selected_style["scale"] # 예를 들어 'Eb'가 포함될 수 있음
+    base_scale_notes_raw = selected_style["scale"] 
     base_rhythms = selected_style["rhythms"]
     
     chromatic_notes_std = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
@@ -587,7 +561,7 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
     except ValueError:
         raise ValueError(f"유효하지 않은 루트 음: {key_root_note}")
 
-    notes_sequence_output = [] # List of (note_name, octave, duration, is_rest, accidental)
+    notes_sequence_output = [] 
     total_beats_per_loop = length_measures * 4 
     current_beats = 0
 
@@ -599,21 +573,23 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
             break
             
         rhythm_weights = [1.0/r for r in available_rhythms]
-        rhythm_weights = [w / sum(rhythm_weights) for w in rhythm_weights]
+        if sum(rhythm_weights) == 0: # 모든 가중치가 0인 경우 방지
+            rhythm_weights = [1.0] * len(available_rhythms)
+        rhythm_weights = [w / sum(rhythm_weights) for w in rhythm_weights] # 정규화
         
         duration_unit = np.random.choice(available_rhythms, p=rhythm_weights) 
         
-        selected_base_note_name = '' # C, D, E
+        selected_base_note_name = '' 
         selected_octave = 0
-        accidental = '' # # 또는 b
+        accidental = '' 
         
         is_strong_beat = (current_beats % 1.0 == 0) and (duration_unit >= 0.5) 
 
         if is_strong_beat and np.random.rand() < 0.6: 
             chosen_interval_semitones = np.random.choice(selected_style["intervals"]) 
             
-            root_midi_note_base_val = 12 * (octave + 1) + chromatic_notes_std.index(key_root_note.upper())
-            target_midi_number = root_midi_note_base_val + chosen_interval_semitones
+            midi_root_for_transpose = 12 * (octave + 1) + chromatic_notes_std.index(key_root_note.upper())
+            target_midi_number = midi_root_for_transpose + chosen_interval_semitones
             
             target_octave_raw = target_midi_number // 12 - 1 
             target_note_idx_chromatic = target_midi_number % 12
@@ -621,37 +597,43 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
             selected_octave = min(octave + 1, max(octave, target_octave_raw))
             if selected_octave < 0: selected_octave = 0 
 
-            # Music21에 전달할 수 있는 형태로 음이름과 임시표 분리
             target_note_name_chromatic = chromatic_notes_std[target_note_idx_chromatic]
             
-            # 베이스 스케일 노트에 해당하는 음이름이 있으면 그대로 사용
-            selected_base_note_name = target_note_name_chromatic
-            if len(selected_base_note_name) > 1: # C# 같은 경우
-                accidental = selected_base_note_name[1] 
-                selected_base_note_name = selected_base_note_name[0] # 기본 음이름 (예: "C#") -> "C"
+            # 스케일에 속하는 음표인지 확인하고, 임시표를 분리 저장
+            found_in_scale = False
+            for scale_note_raw in base_scale_notes_raw:
+                if len(scale_note_raw) > 1: # Eb, C# 같은 경우
+                    base = scale_note_raw[0]
+                    acc = scale_note_raw[1]
+                else: # C, D 같은 경우
+                    base = scale_note_raw
+                    acc = ''
+                
+                if (base == target_note_name_chromatic[0] and acc == target_note_name_chromatic[1:]) or \
+                   (base == target_note_name_chromatic and acc == ''):
+                    # 정확히 일치하거나, 임시표 없는 음이름이 일치하는 경우
+                    selected_base_note_name = base
+                    accidental = acc
+                    found_in_scale = True
+                    break
+                # Db/C#, Eb/D# 등 이명동음 처리 (간단화)
+                # Music21의 pitch.Pitch 자동 처리 (우선은)
+                # 이명동음 처리는 get_note_frequency 함수가 맡음.
             
-            # 스케일에 포함되지 않는 경우 (특히 랜덤 선택 시)
-            if selected_base_note_name + accidental not in base_scale_notes_raw and \
-               selected_base_note_name + ('#' if accidental == 'b' else '') not in base_scale_notes_raw:
-                # 스케일 음으로 다시 선택
-                if base_scale_notes_raw:
-                    rand_base_note = np.random.choice(base_scale_notes_raw)
-                    selected_base_note_name = rand_base_note[0] if len(rand_base_note) > 1 else rand_base_note
-                    accidental = rand_base_note[1] if len(rand_base_note) > 1 else ''
-                else: # 비상 fallback
-                    selected_base_note_name = key_root_note
-                    selected_octave = octave
-                    accidental = ''
+            if not found_in_scale:
+                # 스케일에 없으면 루트 음으로 폴백 (임시표 없음)
+                selected_base_note_name = key_root_note
+                selected_octave = octave
+                accidental = ''
 
-        # 위 조건에 맞지 않거나, 옥타브가 유효하지 않은 경우
+        # 위 조건에 해당하지 않는 경우 (약박 또는 랜덤 선택)
         if not selected_base_note_name: 
-            # 풀 스케일 리스트를 생성 (Music21에 맞는 형태: (음이름, 옥타브, 임시표))
             full_scale_parsed = []
             for current_chromatic_octave in range(max(0, octave), min(5, octave + 2)): 
                 for scale_note_raw in base_scale_notes_raw:
-                    if len(scale_note_raw) == 1: # C, D, E
+                    if len(scale_note_raw) == 1: 
                         full_scale_parsed.append((scale_note_raw, current_chromatic_octave, ''))
-                    else: # C#, Eb
+                    else: 
                         full_scale_parsed.append((scale_note_raw[0], current_chromatic_octave, scale_note_raw[1]))
 
             if style != "random" and full_scale_parsed:
@@ -659,16 +641,13 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
                 selected_base_note_name = chosen_note_info[0]
                 selected_octave = chosen_note_info[1]
                 accidental = chosen_note_info[2]
-            elif chromatic_notes_std: # 마지막 비상 fallback (아무 음이나)
-                rand_note_idx = np.random.randint(len(chromatic_notes_std))
+            elif chromatic_notes_std: 
+                rand_note_raw = np.random.choice(chromatic_notes_std)
                 rand_octave_offset = np.random.randint(2) 
-                selected_base_note_name = chromatic_notes_std[rand_note_idx]
+                selected_base_note_name = rand_note_raw[0]
                 selected_octave = max(0, octave + rand_octave_offset)
-                accidental = '' 
-                if len(selected_base_note_name) > 1: # C# 같은 경우
-                    accidental = selected_base_note_name[1]
-                    selected_base_note_name = selected_base_note_name[0]
-            else: # 정말 아무것도 생성 못할 때의 비상
+                accidental = rand_note_raw[1] if len(rand_note_raw) > 1 else ''
+            else: 
                 selected_base_note_name = 'C'
                 selected_octave = max(1, octave)
                 accidental = ''
@@ -680,8 +659,7 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
         logger.warning("랜덤 생성기가 음표를 생성하지 못했습니다. 기본 시퀀스를 사용합니다.")
         notes_sequence_output = [('C', max(1, octave), 1.0, False, ''), ('G', max(1, octave), 1.0, False, '')]
         
-    # 프론트엔드 형식으로 변환 (예: C#2 1.0)
-    formatted_sequence = ", ".join([f"{n[0]}{n[4]}{n[1]} {float(n[2])}" for n in notes_sequence_output]) # n[4]는 accidental
+    formatted_sequence = ", ".join([f"{n[0]}{n[4]}{n[1]} {float(n[2])}" for n in notes_sequence_output])
     logger.info(f"생성된 시퀀스: {formatted_sequence}")
     return formatted_sequence
 
@@ -778,8 +756,6 @@ def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
 @app.route('/')
 def index_page(): 
     """메인 페이지 렌더링"""
-    # 프론트엔드 HTML 파일은 `templates` 폴더 안에 있어야 합니다.
-    # 예: `templates/index.html`
     return render_template('index.html')
 
 @app.route('/generate_notes', methods=['POST'])
