@@ -13,6 +13,7 @@
             --primary-color: #3b82f6;
             --primary-hover-color: #2563eb;
             --accent-color: #10b981;
+            --secondary-color: #8b5cf6;
             --background-color: #f8fafc;
             --card-background: #ffffff;
             --text-color: #334155;
@@ -20,6 +21,7 @@
             --border-color: #e2e8f0;
             --error-color: #ef4444;
             --success-color: #22c55e;
+            --warning-color: #f59e0b;
         }
 
         body {
@@ -55,6 +57,32 @@
             font-weight: 700;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.05);
         }
+        
+        /* 기능 상태 표시 */
+        .features-status {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .feature-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px 4px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        .feature-available {
+            background-color: var(--success-color);
+            color: white;
+        }
+        .feature-unavailable {
+            background-color: var(--error-color);
+            color: white;
+        }
+        
         form {
             display: flex;
             flex-direction: column;
@@ -119,6 +147,39 @@
             cursor: not-allowed;
             opacity: 0.8;
         }
+        
+        /* 다양한 버튼 스타일 */
+        .btn-secondary {
+            background-color: var(--accent-color);
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #059669;
+        }
+        
+        .btn-purple {
+            background-color: var(--secondary-color);
+        }
+        .btn-purple:hover:not(:disabled) {
+            background-color: #7c3aed;
+        }
+        
+        .btn-warning {
+            background-color: var(--warning-color);
+        }
+        .btn-warning:hover:not(:disabled) {
+            background-color: #d97706;
+        }
+        
+        /* 버튼 그룹 */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .button-group button {
+            flex: 1;
+        }
+        
         .info-text {
             font-size: 0.85em;
             color: var(--light-text-color);
@@ -146,6 +207,11 @@
             background-color: rgba(239, 68, 68, 0.1); 
             color: var(--error-color);
             border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .message-area.warning {
+            background-color: rgba(245, 158, 11, 0.1); 
+            color: var(--warning-color);
+            border: 1px solid rgba(245, 158, 11, 0.3);
         }
         /* 로딩 스피너 */
         .loading-spinner {
@@ -201,6 +267,13 @@
             display: block;
             margin: 0 auto;
         }
+        
+        #professionalScore {
+            max-width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
 
         /* 모바일 반응형 조정 */
         @media (max-width: 680px) {
@@ -218,7 +291,10 @@
                 padding: 10px 20px;
                 font-size: 1em;
             }
-            #sheetMusicCanvas {
+            .button-group {
+                flex-direction: column;
+            }
+            #sheetMusicCanvas, #professionalScore {
                 width: 100%;
             }
         }
@@ -227,6 +303,21 @@
 <body>
     <div class="container">
         <h1>🎵 베이스 루프 자동 생성기 🎸</h1>
+
+        <!-- 기능 상태 표시 -->
+        <div class="features-status">
+            <h4 style="margin: 0 0 10px 0; color: var(--text-color);">🔧 사용 가능한 기능</h4>
+            <span class="feature-badge {% if music21_available %}feature-available{% else %}feature-unavailable{% endif %}">
+                🎼 Music21 전문 악보
+            </span>
+            <span class="feature-badge {% if midi_available %}feature-available{% else %}feature-unavailable{% endif %}">
+                🎹 MIDI 파일
+            </span>
+            <span class="feature-badge {% if gemini_available %}feature-available{% else %}feature-unavailable{% endif %}">
+                🤖 Gemini AI
+            </span>
+            <span class="feature-badge feature-available">📝 LilyPond 악보</span>
+        </div>
 
         <div id="messageArea" class="message-area" style="display:none;"></div>
 
@@ -281,7 +372,7 @@
                 <option value="jazz">재즈</option>
                 <option value="blues">블루스</option>
                 <option value="reggae">레게</option>
-                <option value="hiphop">힙hop</option>
+                <option value="hiphop">힙합</option>
                 <option value="random">완전 랜덤 (정확도 낮음)</option>
             </select>
 
@@ -293,7 +384,6 @@
             <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0</textarea>
             <p class="info-text">
                 형식: `음표이름+옥타브 박자단위`를 쉼표로 구분. 예: `C2 1.0, G2 0.5, A2 0.5, F2 1.0`
-                쉼표는 `R 박자단위`로 표기합니다. 예: `R 1.0`
             </p>
 
             <label for="num_loops_input">오디오 루프 반복 횟수</label>
@@ -303,12 +393,34 @@
             <button type="button" id="playAudioBtn" onclick="playGeneratedAudio()">▶️ 베이스 루프 오디오 생성 & 재생</button>
             <div id="loadingSpinnerAudio" class="loading-spinner">오디오 생성 중...</div>
 
-            <!-- 오디오 플레이어 추가 -->
+            <!-- 새로운 다운로드 버튼들 -->
+            <div class="button-group">
+                <button type="button" onclick="downloadMidi()" class="btn-secondary">
+                    💾 MIDI 다운로드
+                </button>
+                <button type="button" onclick="downloadLilypond()" class="btn-purple">
+                    📝 LilyPond 악보
+                </button>
+                <button type="button" onclick="loadProfessionalScore()" class="btn-warning">
+                    🎼 전문 악보 보기
+                </button>
+            </div>
+
+            <!-- 오디오 플레이어 -->
             <audio controls id="audioPlayer"></audio>
 
-            <!-- 악보 시각화 영역 추가 -->
+            <!-- 전문 악보 표시 영역 (Music21) -->
+            <div id="professional-score-area" style="display:none; margin-top: 20px; padding: 20px; border-top: 1px solid var(--border-color); text-align: center;">
+                <h3 style="color: var(--secondary-color);">🎼 Music21 전문 악보</h3>
+                <div id="professionalScoreContainer">
+                    <img id="professionalScore" alt="전문 악보" style="display:none;">
+                    <pre id="textScore" style="text-align: left; background: #f8fafc; padding: 15px; border-radius: 8px; overflow-x: auto; display:none;"></pre>
+                </div>
+            </div>
+
+            <!-- 기존 Canvas 악보 시각화 영역 -->
             <div id="notation-area">
-                <h3 style="color: var(--primary-color);">생성된 악보</h3>
+                <h3 style="color: var(--primary-color);">생성된 악보 (Canvas 렌더링)</h3>
                 <canvas id="sheetMusicCanvas"></canvas>
             </div>
         </form>
@@ -316,19 +428,9 @@
 
     <!-- JavaScript 로직 -->
     <script>
-        // 전역 변수: CSS 변수 값 저장 (DOMContentLoaded에서 초기화)
-        let primaryColor, lightTextColor, textColor, errorColor;
-
         document.addEventListener('DOMContentLoaded', (event) => {
-            console.log('✅ 페이지 로드 완료 - 베이스 클레프 악보 렌더러 시작');
+            console.log('✅ 페이지 로드 완료 - 업그레이드된 베이스 생성기 시작');
             
-            // CSS 변수 값 가져와서 전역 변수에 저장
-            const style = getComputedStyle(document.documentElement);
-            primaryColor = style.getPropertyValue('--primary-color').trim();
-            lightTextColor = style.getPropertyValue('--light-text-color').trim();
-            textColor = style.getPropertyValue('--text-color').trim();
-            errorColor = style.getPropertyValue('--error-color').trim();
-
             // 페이지 로드 시 선택된 기본 모드에 따라 UI 조정
             toggleModeOptions();
             // 메시지 영역 숨기기
@@ -336,12 +438,33 @@
             
             // 기본 악보 렌더링
             setTimeout(() => {
-                // VexFlow 없이 직접 렌더링을 시도합니다.
                 renderSheetMusic(document.getElementById('notes_sequence_input').value, 
                                parseInt(document.getElementById('length_input').value), 
                                parseInt(document.getElementById('bpm_input').value));
             }, 100);
+
+            // 기능 상태 확인
+            checkFeaturesStatus();
         });
+
+        async function checkFeaturesStatus() {
+            try {
+                const response = await fetch('/get_features_status');
+                const status = await response.json();
+                
+                console.log('기능 상태:', status);
+                
+                // 사용 불가능한 기능에 대한 안내
+                if (!status.music21) {
+                    console.warn('Music21이 설치되지 않았습니다. 전문 악보 기능을 사용할 수 없습니다.');
+                }
+                if (!status.midi) {
+                    console.warn('Mido가 설치되지 않았습니다. MIDI 다운로드 기능을 사용할 수 없습니다.');
+                }
+            } catch (error) {
+                console.error('기능 상태 확인 실패:', error);
+            }
+        }
 
         function showMessage(message, type = 'info') {
             const messageArea = document.getElementById('messageArea');
@@ -351,6 +474,8 @@
                 messageArea.classList.add('success');
             } else if (type === 'error') {
                 messageArea.classList.add('error');
+            } else if (type === 'warning') {
+                messageArea.classList.add('warning');
             }
             messageArea.style.display = 'block';
         }
@@ -424,8 +549,6 @@
                     formData.append('gemini_api_key_input', apiKey);
                 }
 
-                // NOTE: 이 부분은 백엔드 서버(예: Flask)가 필요합니다.
-                // 백엔드가 없으면 fetch 요청이 실패하며, 아래 catch 블록으로 이동합니다.
                 const response = await fetch('/generate_notes', {
                     method: 'POST',
                     body: formData,
@@ -435,7 +558,7 @@
 
                 if (response.ok && data.status === 'success') {
                     notesSequenceInput.value = data.notes;
-                    showMessage("🎉 악보가 성공적으로 생성되었습니다! 오디오를 재생해보세요.", 'success');
+                    showMessage("🎉 악보가 성공적으로 생성되었습니다! 다양한 형식으로 다운로드하거나 재생해보세요.", 'success');
                     renderSheetMusic(data.notes, parseInt(length), parseInt(bpm)); 
                 } else {
                     const errorMessage = data.message || '알 수 없는 오류가 발생했습니다.';
@@ -443,7 +566,7 @@
                     console.error('Server response error:', response.status, errorMessage);
                 }
             } catch (error) {
-                showMessage('⚠️ 네트워크 오류 또는 서버 문제가 발생했습니다. (백엔드 서버가 실행 중인지 확인하세요)', 'error');
+                showMessage('⚠️ 네트워크 오류 또는 서버 문제가 발생했습니다.', 'error');
                 console.error('Error fetching notes:', error);
             } finally {
                 setLoadingState('loadingSpinnerNotes', false); 
@@ -469,7 +592,6 @@
             audioPlayer.load(); 
 
             try {
-                // NOTE: 이 부분도 백엔드 서버가 필요합니다.
                 const formData = new FormData();
                 formData.append('notes_sequence_input', notesSequence);
                 formData.append('bpm_input', bpm);
@@ -500,173 +622,265 @@
                 }
 
             } catch (error) {
-                showMessage('⚠️ 오디오 재생 중 네트워크 오류 또는 서버 문제가 발생했습니다. (백엔드 서버가 실행 중인지 확인하세요)', 'error');
+                showMessage('⚠️ 오디오 재생 중 네트워크 오류 또는 서버 문제가 발생했습니다.', 'error');
                 console.error('Error playing audio:', error);
             } finally {
                 setLoadingState('loadingSpinnerAudio', false); 
             }
         }
 
-        // --- 순수 Canvas 기반 악보 시각화 함수 ---
+        // === 새로운 기능: MIDI 다운로드 ===
+        async function downloadMidi() {
+            const notesSequence = document.getElementById('notes_sequence_input').value;
+            const bpm = document.getElementById('bpm_input').value;
 
-        // 악보 렌더링 상수
+            if (!notesSequence.trim()) {
+                showMessage("❗ 먼저 악보 시퀀스를 생성해주세요!", 'error');
+                return;
+            }
+
+            showMessage("💾 MIDI 파일 생성 중...", 'info');
+
+            try {
+                const formData = new FormData();
+                formData.append('notes_sequence_input', notesSequence);
+                formData.append('bpm_input', bpm);
+
+                const response = await fetch('/generate_midi', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `bassloop_${bpm}bpm.mid`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    showMessage('🎹 MIDI 파일이 다운로드되었습니다! DAW에서 활용해보세요.', 'success');
+                } else {
+                    const errorMessage = await response.text();
+                    showMessage(`🚨 MIDI 생성 실패: ${errorMessage}`, 'error');
+                }
+            } catch (error) {
+                showMessage('⚠️ MIDI 다운로드 중 오류가 발생했습니다.', 'error');
+                console.error('MIDI download error:', error);
+            }
+        }
+
+        // === 새로운 기능: LilyPond 다운로드 ===
+        async function downloadLilypond() {
+            const notesSequence = document.getElementById('notes_sequence_input').value;
+            const bpm = document.getElementById('bpm_input').value;
+
+            if (!notesSequence.trim()) {
+                showMessage("❗ 먼저 악보 시퀀스를 생성해주세요!", 'error');
+                return;
+            }
+
+            showMessage("📝 LilyPond 악보 생성 중...", 'info');
+
+            try {
+                const formData = new FormData();
+                formData.append('notes_sequence_input', notesSequence);
+                formData.append('bpm_input', bpm);
+
+                const response = await fetch('/generate_lilypond', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `bassloop_${bpm}bpm.ly`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    showMessage('📝 LilyPond 악보 파일이 다운로드되었습니다! LilyPond로 컴파일하세요.', 'success');
+                } else {
+                    const errorMessage = await response.text();
+                    showMessage(`🚨 LilyPond 생성 실패: ${errorMessage}`, 'error');
+                }
+            } catch (error) {
+                showMessage('⚠️ LilyPond 다운로드 중 오류가 발생했습니다.', 'error');
+                console.error('LilyPond download error:', error);
+            }
+        }
+
+        // === 새로운 기능: 전문 악보 보기 (Music21) ===
+        async function loadProfessionalScore() {
+            const notesSequence = document.getElementById('notes_sequence_input').value;
+            const bpm = document.getElementById('bpm_input').value;
+            const keyNote = document.getElementById('key_note_input').value;
+
+            if (!notesSequence.trim()) {
+                showMessage("❗ 먼저 악보 시퀀스를 생성해주세요!", 'error');
+                return;
+            }
+
+            showMessage("🎼 Music21 전문 악보 생성 중...", 'info');
+
+            const professionalScoreArea = document.getElementById('professional-score-area');
+            const professionalScore = document.getElementById('professionalScore');
+            const textScore = document.getElementById('textScore');
+
+            try {
+                const params = new URLSearchParams({
+                    notes: notesSequence,
+                    bpm: bpm,
+                    key: keyNote
+                });
+
+                const response = await fetch(`/generate_score_image?${params}`, {
+                    method: 'GET'
+                });
+                
+                if (response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    
+                    if (contentType && contentType.includes('image')) {
+                        // 이미지인 경우
+                        const blob = await response.blob();
+                        const imageUrl = window.URL.createObjectURL(blob);
+                        
+                        professionalScore.src = imageUrl;
+                        professionalScore.style.display = 'block';
+                        textScore.style.display = 'none';
+                        
+                        professionalScore.onload = () => {
+                            window.URL.revokeObjectURL(imageUrl);
+                        };
+                        
+                        showMessage('🎼 Music21 전문 악보가 생성되었습니다!', 'success');
+                    } else {
+                        // 텍스트인 경우 (MuseScore 없을 때)
+                        const textContent = await response.text();
+                        textScore.textContent = textContent;
+                        textScore.style.display = 'block';
+                        professionalScore.style.display = 'none';
+                        
+                        showMessage('📝 텍스트 형식 악보가 생성되었습니다. (MuseScore 설치 권장)', 'warning');
+                    }
+                    
+                    professionalScoreArea.style.display = 'block';
+                    professionalScoreArea.scrollIntoView({ behavior: 'smooth' });
+                    
+                } else {
+                    const errorMessage = await response.text();
+                    showMessage(`🚨 전문 악보 생성 실패: ${errorMessage}`, 'error');
+                }
+            } catch (error) {
+                showMessage('⚠️ 전문 악보 생성 중 오류가 발생했습니다.', 'error');
+                console.error('Professional score error:', error);
+            }
+        }
+
+        // === 기존 Canvas 악보 렌더링 함수들 (유지) ===
+
+        // 악보 렌더링 상수 (음표 크기 축소)
         const CANVAS_CONFIG = {
-            STAFF_LINE_SPACING: 10,     // 오선 간격 (기본 10px)
-            STAFF_HEIGHT: 40,           // 오선 전체 높이 (4 * 10px)
-            STAFF_WIDTH: 850,           // 악보 한 줄(시스템)의 총 너비
+            STAFF_LINE_SPACING: 10,     // 오선 간격 축소
+            STAFF_HEIGHT: 40,           // 오선 높이 축소
+            STAFF_WIDTH: 850,           // 오선 너비
             STAFF_MARGIN_X: 30,         // 좌우 여백
-            STAFF_MARGIN_Y: 50,         // 악보 시작 상단 여백
-            MEASURE_WIDTH: 200,         // 각 마디의 너비 (조정 가능)
+            STAFF_MARGIN_Y: 50,         // 상하 여백 축소
+            MEASURE_WIDTH: 170,         // 마디 너비
             MEASURES_PER_LINE: 4,       // 한 줄당 마디 수
-            LINE_SPACING: 110,          // 악보 줄(시스템) 간 세로 간격
-            NOTE_HEAD_RADIUS_X: 5,      // 음표 머리 가로 반지름
-            NOTE_HEAD_RADIUS_Y: 4,      // 음표 머리 세로 반지름
-            STEM_LENGTH: 25,            // 줄기 길이
-            ACCIDENTAL_OFFSET_X: -15,   // 임시표 X 오프셋 (음표 머리 왼쪽)
-            DOT_OFFSET_X: 8,            // 점음표 X 오프셋 (음표 머리 오른쪽)
-            CLEF_WIDTH: 45,             // 클레프 표시 공간
-            TIME_SIG_WIDTH: 25,         // 박자표 표시 공간
-            NOTE_SPACING_IN_MEASURE: 35 // 마디 내 음표 간격 (고정 간격)
+            LINE_SPACING: 110,          // 줄 간격 축소
+            NOTE_SIZE: 5,               // 음표 크기 대폭 축소
+            CLEF_WIDTH: 45,             // 클레프 너비
         };
 
-        // 베이스 클레프 음표 위치 매핑 (Y 스텝 인덱스, 5px당 1스텝)
-        // Y-인덱스 0은 오선의 가장 윗선 (A3)에 해당
+        // 정확한 베이스 클레프 음표 위치 매핑 (수정됨)
         const BASS_NOTE_POSITIONS = {
-            // 높은 덧줄 위
-            'C5': -5, 'C#5': -5, 'D5': -6, 'D#5': -6, 'E5': -7, 'E#5': -7, 'F5': -8, 'F#5': -8,
-            // 높은 덧줄
-            'A4': -3, 'A#4': -3, 'B4': -4, 'B#4': -4,
-            // 오선 위 공간/덧줄
-            'F4': -1, 'F#4': -1, 'G4': -2, 'G#4': -2,
-            'E4': 0, 'E#4': 0, // E4는 Y인덱스 0으로 가정 (여기서부터 아래로 +)
-            'D4': 1, 'D#4': 1, // D4는 Y인덱스 1
+            // 옥타브 1
+            'A1': 17,  'A#1': 17, 'B1': 16,  'B#1': 16,
             
-            // 오선 내부 (A3부터 G2까지)
-            'A3': 0, 'A#3': 0, // A3 (오선 최상단 라인) - Y인덱스 0
-            'G3': 1, 'G#3': 1, // G3 (A3 아래 공간) - Y인덱스 1
-            'F3': 2, 'F#3': 2, // F3 (G3 아래 라인, F 클레프 기준선) - Y인덱스 2
-            'E3': 3, 'E#3': 3, // E3 (F3 아래 공간) - Y인덱스 3
-            'D3': 4, 'D#3': 4, // D3 (E3 아래 라인) - Y인덱스 4
-            'C3': 5, 'C#3': 5, // C3 (D3 아래 공간) - Y인덱스 5
-            'B2': 6, 'B#2': 6, // B2 (C3 아래 라인) - Y인덱스 6
-            'A2': 7, 'A#2': 7, // A2 (B2 아래 공간) - Y인덱스 7
-            'G2': 8, 'G#2': 8, // G2 (A2 아래 라인, 오선 최하단 라인) - Y인덱스 8
+            // 옥타브 2 (베이스 클레프의 주요 음역)
+            'C2': 15,  'C#2': 15, 'D2': 14,  'D#2': 14,
+            'E2': 13,  'E#2': 13, 'F2': 12,  'F#2': 12,  // F2 = 12 (3선, 중앙)
+            'G2': 11,  'G#2': 11, 'A2': 10,  'A#2': 10,
+            'B2': 9,   'B#2': 9,
             
-            // 낮은 덧줄
-            'F2': 9, 'F#2': 9, // F2 (G2 아래 공간) - Y인덱스 9
-            'E2': 10, 'E#2': 10, // E2 (F2 아래 라인) - Y인덱스 10
-            'D2': 11, 'D#2': 11, // D2 (E2 아래 공간) - Y인덱스 11
-            'C2': 12, 'C#2': 12, // C2 (D2 아래 라인) - Y인덱스 12
-            'B1': 13, 'B#1': 13, // B1 (C2 아래 공간) - Y인덱스 13
-            'A1': 14, 'A#1': 14, // A1 (B1 아래 라인) - Y인덱스 14
+            // 옥타브 3 (수정된 위치)
+            'C3': 8,   'C#3': 8,  'D3': 7,   'D#3': 7,   // 1선 위 
+            'E3': 6,   'E#3': 6,  'F3': 5,   'F#3': 5,   // 1선 아래 (보조선)
+            'G3': 4,   'G#3': 4,  'A3': 3,   'A#3': 3,
+            'B3': 2,   'B#3': 2,
+            
+            // 옥타브 4
+            'C4': 1,   'C#4': 1,  'D4': 0,   'D#4': 0,
+            'E4': -1,  'E#4': -1, 'F4': -2,  'F#4': -2,
         };
-        // 각 Y-인덱스는 5px 간격 (CANVAS_CONFIG.STAFF_LINE_SPACING / 2)에 해당합니다.
 
         function clearSheetMusic() {
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        // 음표 데이터를 파싱하여 {name, octave, duration, isRest, accidental} 형태로 반환
         function parseNotes(notesSequenceStr) {
             return notesSequenceStr.split(',').map(noteEntry => {
-                const trimmedEntry = noteEntry.trim();
-                let match;
-
-                // 음표 파싱 (예: C2 1.0, D#3 0.5, Eb2 1.0)
-                // 그룹 1: 기본 음이름 (A-G)
-                // 그룹 2: # 또는 b (선택적)
-                // 그룹 3: 옥타브 숫자
-                // 그룹 4: 박자 단위 (숫자)
-                match = trimmedEntry.match(/^([A-Ga-g])(#|b)?(\d+)\s+(\d+(\.\d+)?)$/i);
-                if (match) {
-                    const baseNote = match[1].toUpperCase();
-                    const accidental = match[2] || null; // # or b, 없으면 null
-                    const octave = parseInt(match[3]);
-                    const duration = parseFloat(match[4]);
-                    return {
-                        name: baseNote,
-                        accidental: accidental, 
-                        octave: octave,
-                        duration: duration,
-                        isRest: false
-                    };
-                }
-
-                // 쉼표 파싱 (예: R 1.0, r 0.5)
-                match = trimmedEntry.match(/^(R)\s+(\d+(\.\d+)?)$/i);
-                if (match) {
-                    return {
-                        name: 'R',
-                        accidental: null,
-                        octave: 4, // 쉼표는 옥타브가 중요하지 않지만 일관성을 위해 설정
-                        duration: parseFloat(match[2]),
-                        isRest: true
-                    };
-                }
-                
-                console.warn(`[parseNotes] 유효하지 않은 음표/쉼표 형식: '${trimmedEntry}' - 이 항목은 건너뜁니다.`);
-                return null;
-            }).filter(n => n !== null); // 파싱 실패한 항목은 필터링
+                const match = noteEntry.trim().match(/([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)/);
+                return match ? {
+                    name: match[1].toUpperCase(),
+                    octave: parseInt(match[2]),
+                    duration: parseFloat(match[3])
+                } : null;
+            }).filter(n => n !== null);
         }
 
-        // 박자 단위(beats)를 VexFlow에서 사용하는 duration string 방식을 차용
-        function getDurationString(beats) {
-            const durationMap = {
-                '0.25': '16',   // 16분음표
-                '0.5': '8',     // 8분음표
-                '1.0': 'q',     // 4분음표
-                '1.5': 'qd',    // 점 4분음표
-                '2.0': 'h',     // 2분음표
-                '3.0': 'hd',    // 점 2분음표
-                '4.0': 'w',     // 온음표
-            };
-            const duration = durationMap[beats.toString()];
-            if (!duration) {
-                console.warn(`[getDurationString] 인식할 수 없는 박자 단위: ${beats}. 4분음표(q)로 대체합니다.`);
-            }
-            return duration || 'q'; 
-        }
-
-        // 음표들을 마디별로 그룹화하고 필요시 쉼표로 채워 마디를 완성
         function groupIntoMeasures(notes) {
             const measures = [];
             let currentMeasure = [];
             let currentBeats = 0;
-            const BEATS_PER_MEASURE = 4; // 4/4 박자
 
             for (const note of notes) {
-                // 현재 음표를 추가했을 때 마디 박자를 초과하는 경우
-                // (약간의 부동 소수점 오차 허용)
-                if (currentBeats + note.duration > BEATS_PER_MEASURE + 0.001 && currentBeats > 0) {
-                    // 남은 박자를 쉼표로 채워 현재 마디를 완료
-                    const remainingBeats = BEATS_PER_MEASURE - currentBeats;
-                    if (remainingBeats > 0.001) { 
-                        currentMeasure.push({ name: 'R', accidental: null, octave: 4, duration: remainingBeats, isRest: true });
+                if (currentBeats + note.duration > 4) {
+                    if (currentMeasure.length > 0) {
+                        const remainingBeats = 4 - currentBeats;
+                        if (remainingBeats > 0) {
+                            currentMeasure.push({
+                                name: 'R',
+                                octave: 4,
+                                duration: remainingBeats,
+                                isRest: true
+                            });
+                        }
+                        measures.push(currentMeasure);
                     }
-                    measures.push(currentMeasure);
-                    currentMeasure = [note]; // 새 마디에 현재 음표 추가
+                    currentMeasure = [note];
                     currentBeats = note.duration;
                 } else {
                     currentMeasure.push(note);
                     currentBeats += note.duration;
                 }
 
-                // 마디가 정확히 채워진 경우 (또는 약간의 오차 범위 내)
-                if (Math.abs(currentBeats - BEATS_PER_MEASURE) < 0.001) {
+                if (currentBeats === 4) {
                     measures.push(currentMeasure);
                     currentMeasure = [];
                     currentBeats = 0;
                 }
             }
 
-            // 마지막 마디 처리 (남은 음표가 있거나 마지막 마디가 채워지지 않은 경우)
             if (currentMeasure.length > 0) {
-                const remainingBeats = BEATS_PER_MEASURE - currentBeats;
-                if (remainingBeats > 0.001) {
-                    currentMeasure.push({ name: 'R', accidental: null, octave: 4, duration: remainingBeats, isRest: true });
+                const remainingBeats = 4 - currentBeats;
+                if (remainingBeats > 0) {
+                    currentMeasure.push({
+                        name: 'R',
+                        octave: 4,
+                        duration: remainingBeats,
+                        isRest: true
+                    });
                 }
                 measures.push(currentMeasure);
             }
@@ -674,12 +888,11 @@
             return measures;
         }
 
-        // 오선 그리기
         function drawStaffLines(ctx, x, y, width) {
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1;
             
-            for (let i = 0; i < 5; i++) { // 5줄 그리기
+            for (let i = 0; i < 5; i++) {
                 const lineY = y + (i * CANVAS_CONFIG.STAFF_LINE_SPACING);
                 ctx.beginPath();
                 ctx.moveTo(x, lineY);
@@ -688,279 +901,256 @@
             }
         }
 
-        // 베이스 클레프 (F 클레프) 그리기
         function drawBassClef(ctx, x, y) {
+            // 더 정확한 베이스 클레프 그리기
             ctx.fillStyle = '#000000';
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1.5;
             
-            const clefX = x + 18; // 클레프 대략적인 X 위치
-            // 베이스 클레프의 F선 (A3 라인에서 2칸 아래, 즉 Y인덱스 2에 해당)
-            const F_line_Y = y + (2 * CANVAS_CONFIG.STAFF_LINE_SPACING / 2) + CANVAS_CONFIG.STAFF_LINE_SPACING; // y(A3 line) + (F3 index 2)*5 + 10px (for better alignment)
+            const centerX = x + 18;
+            const centerY = y + 20; // F선(3선) 중앙
             
-            // C자 모양 (F 클레프)
+            // 메인 곡선 (C자 모양)
             ctx.beginPath();
-            // 기준점: F_line_Y
-            ctx.arc(clefX - 5, F_line_Y - 5, 8, Math.PI * 0.7, Math.PI * 1.3, false);
-            ctx.lineTo(clefX + 5, F_line_Y + 15); // 아래로 꼬리
+            ctx.arc(centerX - 2, centerY, 6, Math.PI * 0.7, Math.PI * 1.3);
             ctx.stroke();
             
-            // 두 개의 점 (F선 양옆)
+            // 세로선 (F선을 관통)
             ctx.beginPath();
-            ctx.arc(clefX + 8, F_line_Y - 5, 1.5, 0, Math.PI * 2);
+            ctx.moveTo(centerX + 4, centerY - 12);
+            ctx.lineTo(centerX + 4, centerY + 12);
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            
+            // 두 개의 점 (F선 위아래)
+            ctx.beginPath();
+            ctx.arc(centerX + 10, centerY - 5, 1.5, 0, Math.PI * 2);
             ctx.fill();
             
             ctx.beginPath();
-            ctx.arc(clefX + 8, F_line_Y + 5, 1.5, 0, Math.PI * 2);
+            ctx.arc(centerX + 10, centerY + 5, 1.5, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // 박자표 (4/4) 그리기
         function drawTimeSignature(ctx, x, y) {
             ctx.fillStyle = '#000000';
-            ctx.font = 'bold 16px Arial'; // 박자표는 조금 더 크게
+            ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            // 박자표 Y 위치는 오선에 맞게 조정 (STAFF_LINE_SPACING * 1 & * 3 에 4분음표 4/4 박자)
-            ctx.fillText('4', x, y + CANVAS_CONFIG.STAFF_LINE_SPACING);     
-            ctx.fillText('4', x, y + CANVAS_CONFIG.STAFF_LINE_SPACING * 3); 
-            ctx.textAlign = 'left'; // 리셋
-            ctx.textBaseline = 'alphabetic'; // 리셋
+            // 4/4 박자표
+            ctx.fillText('4', x, y + CANVAS_CONFIG.STAFF_LINE_SPACING);
+            ctx.fillText('4', x, y + CANVAS_CONFIG.STAFF_LINE_SPACING * 3);
         }
 
-        // 음표의 Y좌표와 추가 정보 계산 함수
-        function getNoteDrawingInfo(noteData, staffY_top_line) {
-            const noteKey = `${noteData.name}${noteData.octave}`;
-            const positionIndex = BASS_NOTE_POSITIONS[noteKey]; // Y-인덱스 0 (A3 라인)에서 시작하여 아래로 증가
-            const stepPx = CANVAS_CONFIG.STAFF_LINE_SPACING / 2; // 5px per half-step
-
-            if (positionIndex === undefined) {
-                console.warn(`[getNoteDrawingInfo] 알 수 없는 음표 위치: ${noteKey}. C3 (Y-인덱스 5)으로 대체합니다.`);
-                // 기본값으로 C3 (Y-인덱스 5) 위치 사용
-                return {
-                    y: staffY_top_line + (5 * stepPx), // C3의 계산된 Y좌표
-                    stemDirection: 'up', // 기본값: 줄기 위로
-                    ledgerLines: [], // 덧줄 없음
-                    isDefined: false // 정의되지 않은 음표 플래그
-                };
+        function getNoteY(noteName, octave, staffY) {
+            const noteKey = `${noteName}${octave}`;
+            const position = BASS_NOTE_POSITIONS[noteKey];
+            
+            if (position === undefined) {
+                console.warn(`Unknown note position: ${noteKey}, using F2 as default`);
+                return staffY + CANVAS_CONFIG.STAFF_HEIGHT - (12 * 2.5);
             }
-
-            const noteY = staffY_top_line + (positionIndex * stepPx); // 음표 머리 중앙 Y좌표
-
-            // 줄기 방향 결정 (D3는 Y-인덱스 4)
-            // 통상적으로 D3(Y-인덱스 4) 이하 음표는 줄기 위로, 그 이상(높은) 음표는 줄기 아래로
-            let stemDirection = (positionIndex >= BASS_NOTE_POSITIONS['D3']) ? 'up' : 'down';
-
-            // 덧줄 계산
-            const ledgerLines = [];
-            // 오선의 최상단/최하단 라인 Y-인덱스
-            const topStaffLineIndex = BASS_NOTE_POSITIONS['A3']; // 0
-            const bottomStaffLineIndex = BASS_NOTE_POSITIONS['G2']; // 8
-
-            if (positionIndex < topStaffLineIndex) { // 오선 위 음표 (Y-인덱스 0보다 작으면)
-                // 오선 위로 덧줄을 그립니다.
-                // 덧줄은 라인 위치(짝수 Y-인덱스)에만 그려집니다.
-                for (let i = topStaffLineIndex -1; i >= positionIndex - 1; i--) { // A3 라인 위부터 음표까지
-                    if (i % 2 === 0) { // 짝수 인덱스(라인)에서만 덧줄
-                         ledgerLines.push(staffY_top_line + (i * stepPx));
-                    }
-                }
-            } else if (positionIndex > bottomStaffLineIndex) { // 오선 아래 음표 (Y-인덱스 8보다 크면)
-                // 오선 아래로 덧줄을 그립니다.
-                for (let i = bottomStaffLineIndex + 1; i <= positionIndex + 1; i++) { // G2 라인 아래부터 음표까지
-                    if (i % 2 === 0) { // 짝수 인덱스(라인)에서만 덧줄
-                        ledgerLines.push(staffY_top_line + (i * stepPx));
-                    }
-                }
-            }
-            // 덧줄은 음표 머리를 기준으로 그리기 위해 `drawNote`에서 다시 계산하여 그림
-
-            return {
-                y: noteY,
-                stemDirection: stemDirection,
-                ledgerLines: ledgerLines, // 덧줄 Y 좌표 목록
-                isDefined: true 
-            };
+            return staffY + CANVAS_CONFIG.STAFF_HEIGHT - (position * 2.5);
         }
 
-        // 쉼표 그리기 함수
-        function drawRest(ctx, x, staffY_top_line, duration) {
-            ctx.fillStyle = '#000000';
+        function getStemDirection(noteName, octave) {
+            const noteKey = `${noteName}${octave}`;
+            const position = BASS_NOTE_POSITIONS[noteKey];
+            
+            // 베이스 클레프에서 3선(F2, position 12) 기준으로 위/아래 결정
+            return position >= 12 ? 'down' : 'up';
+        }
+
+        function drawLedgerLines(ctx, x, y, noteName, octave, staffY) {
+            const noteKey = `${noteName}${octave}`;
+            const position = BASS_NOTE_POSITIONS[noteKey];
+            
+            if (position === undefined) return;
+            
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1;
             
-            const staffHeight = CANVAS_CONFIG.STAFF_HEIGHT;
-            // 쉼표는 오선 중앙 근처에 배치
-            const midStaffY = staffY_top_line + staffHeight / 2; 
-
-            ctx.font = '22px Arial'; // 쉼표 심볼 폰트
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-
-            if (duration === 4.0) { // 온쉼표 (4박) - 2선 아래 모자
-                ctx.fillRect(x - 5, staffY_top_line + (CANVAS_CONFIG.STAFF_LINE_SPACING * 1.5), 10, 3);
-            } else if (duration === 2.0) { // 2분쉼표 (2박) - 3선 위 모자
-                ctx.fillRect(x - 5, staffY_top_line + (CANVAS_CONFIG.STAFF_LINE_SPACING * 2.5), 10, 3);
-            } else if (duration === 1.0 || duration === 1.5) { // 4분쉼표 (1박) 또는 점4분쉼표 (1.5박)
-                ctx.fillText('𝄽', x, midStaffY + 5); // Unicode 4분쉼표 (Z 모양)
-            } else if (duration === 0.5 || duration === 0.75) { // 8분쉼표 (0.5박) 또는 점8분쉼표 (0.75박)
-                ctx.fillText('𝄾', x, midStaffY + 5); // Unicode 8분쉼표
-            } else if (duration === 0.25 || duration === 0.375) { // 16분쉼표 (0.25박)
-                ctx.fillText('𝄿', x, midStaffY + 5); // Unicode 16분쉼표
+            // 5선 위 보조선이 필요한 경우 (position > 16)
+            if (position > 16) {
+                for (let i = 18; i <= position; i += 2) {
+                    const lineY = staffY + CANVAS_CONFIG.STAFF_HEIGHT - (i * 2.5);
+                    ctx.beginPath();
+                    ctx.moveTo(x - 12, lineY);
+                    ctx.lineTo(x + 12, lineY);
+                    ctx.stroke();
+                }
             }
             
-            // 점 쉼표 (dotted rest)
-            if (duration % 1 !== 0) { // duration이 정수가 아니면 점음표
+            // 1선 아래 보조선이 필요한 경우 (position < 8)
+            if (position < 8) {
+                for (let i = 6; i >= position; i -= 2) {
+                    const lineY = staffY + CANVAS_CONFIG.STAFF_HEIGHT - (i * 2.5);
+                    ctx.beginPath();
+                    ctx.moveTo(x - 12, lineY);
+                    ctx.lineTo(x + 12, lineY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function drawNote(ctx, x, y, duration, noteName, octave, isRest = false) {
+            if (isRest) {
+                drawRest(ctx, x, y, duration);
+                return;
+            }
+
+            // 보조선 먼저 그리기
+            drawLedgerLines(ctx, x, y, noteName, octave, y - CANVAS_CONFIG.STAFF_HEIGHT);
+
+            ctx.fillStyle = '#000000';
+            const stemDirection = getStemDirection(noteName, octave);
+            
+            // 음표 머리 그리기 (크기 축소)
+            if (duration >= 2.0) {
+                // 2분음표 이상 - 속이 빈 타원
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.arc(x + 10, midStaffY + 5, 2, 0, Math.PI * 2); // 쉼표 옆에 점 그리기
-                ctx.fill();
-            }
-
-            ctx.textAlign = 'left'; // 리셋
-            ctx.textBaseline = 'alphabetic'; // 리셋
-        }
-
-        // 음표 그리기 함수
-        function drawNote(ctx, x, noteInfo, noteData) {
-            ctx.fillStyle = '#000000';
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 1;
-
-            const noteY = noteInfo.y; // 음표 머리 중앙 Y좌표
-            const stemDirection = noteInfo.stemDirection;
-            const isDotted = noteData.duration % 1 !== 0; // duration이 정수가 아니면 점음표
-
-            // 덧줄 그리기 (음표 머리 중앙 Y를 기준으로 좌우로 그려집니다)
-            // 덧줄은 각 라인 위치(Y인덱스 짝수)에만 그려집니다.
-            const stepPx = CANVAS_CONFIG.STAFF_LINE_SPACING / 2; // 5px
-            const noteHeadWidth = CANVAS_CONFIG.NOTE_HEAD_RADIUS_X * 2; // 10px
-
-            const notePosIdx = BASS_NOTE_POSITIONS[`${noteData.name}${noteData.octave}`];
-
-            if (notePosIdx !== undefined) {
-                const staffTopY = noteInfo.staffY_top_line; // getNoteDrawingInfo에서 사용된 staffY_top_line
-                
-                // 오선 위 덧줄
-                if (notePosIdx < BASS_NOTE_POSITIONS['A3']) { // A3보다 높은 음
-                    for (let i = BASS_NOTE_POSITIONS['A3'] - 1; i >= notePosIdx; i--) {
-                        if (i % 2 === 0) { // 라인 위치일 때만 그립니다 (Y인덱스 0, 2, 4...)
-                            const lineY = staffTopY + (i * stepPx);
-                            ctx.beginPath();
-                            ctx.moveTo(x - CANVAS_CONFIG.NOTE_HEAD_RADIUS_X - 5, lineY);
-                            ctx.lineTo(x + CANVAS_CONFIG.NOTE_HEAD_RADIUS_X + 5, lineY);
-                            ctx.stroke();
-                        }
-                    }
-                }
-                // 오선 아래 덧줄
-                else if (notePosIdx > BASS_NOTE_POSITIONS['G2']) { // G2보다 낮은 음
-                    for (let i = BASS_NOTE_POSITIONS['G2'] + 1; i <= notePosIdx; i++) {
-                        if (i % 2 === 0) { // 라인 위치일 때만 그립니다
-                            const lineY = staffTopY + (i * stepPx);
-                            ctx.beginPath();
-                            ctx.moveTo(x - CANVAS_CONFIG.NOTE_HEAD_RADIUS_X - 5, lineY);
-                            ctx.lineTo(x + CANVAS_CONFIG.NOTE_HEAD_RADIUS_X + 5, lineY);
-                            ctx.stroke();
-                        }
-                    }
-                }
-            }
-
-
-            // 음표 머리 그리기
-            ctx.beginPath();
-            ctx.ellipse(x, noteY, 
-                        CANVAS_CONFIG.NOTE_HEAD_RADIUS_X, CANVAS_CONFIG.NOTE_HEAD_RADIUS_Y, 
-                        -Math.PI / 8, 0, Math.PI * 2); // 약간 기울인 타원
-
-            if (noteData.duration === 4.0) { // 온음표 (Whole note) - 속 빈 타원, 줄기 없음
-                ctx.lineWidth = 1.5; // 온음표는 조금 더 굵게
-                ctx.stroke(); 
-                ctx.lineWidth = 1; // 리셋
-            } else if (noteData.duration === 2.0 || noteData.duration === 3.0) { // 2분음표 (Half note) - 속 빈 타원, 줄기 있음
+                ctx.ellipse(x, y, CANVAS_CONFIG.NOTE_SIZE, CANVAS_CONFIG.NOTE_SIZE * 0.7, -0.2, 0, 2 * Math.PI);
                 ctx.stroke();
-            } else { // 4분음표, 8분음표, 16분음표 등 - 속 찬 타원
+            } else {
+                // 4분음표 이하 - 속이 찬 타원
+                ctx.beginPath();
+                ctx.ellipse(x, y, CANVAS_CONFIG.NOTE_SIZE, CANVAS_CONFIG.NOTE_SIZE * 0.7, -0.2, 0, 2 * Math.PI);
                 ctx.fill();
             }
 
-            // 음표 줄기 그리기 (온음표가 아닌 경우)
-            if (noteData.duration !== 4.0) {
-                let stemStartX, stemEndX, stemStartY, stemEndY;
-                const stemLength = CANVAS_CONFIG.STEM_LENGTH;
-
+            // 음표 기둥 그리기 (온음표가 아닌 경우)
+            if (duration < 4.0) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                
                 if (stemDirection === 'up') {
-                    stemStartX = x + CANVAS_CONFIG.NOTE_HEAD_RADIUS_X;
-                    stemStartY = noteY;
-                    stemEndX = stemStartX;
-                    stemEndY = noteY - stemLength;
-                } else { // 'down'
-                    stemStartX = x - CANVAS_CONFIG.NOTE_HEAD_RADIUS_X;
-                    stemStartY = noteY;
-                    stemEndX = stemStartX;
-                    stemEndY = noteY + stemLength;
+                    // 기둥 위로 (오른쪽에서)
+                    ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE - 1, y);
+                    ctx.lineTo(x + CANVAS_CONFIG.NOTE_SIZE - 1, y - 25);
+                    
+                    var flagX = x + CANVAS_CONFIG.NOTE_SIZE - 1;
+                    var flagY = y - 25;
+                } else {
+                    // 기둥 아래로 (왼쪽에서)
+                    ctx.moveTo(x - CANVAS_CONFIG.NOTE_SIZE + 1, y);
+                    ctx.lineTo(x - CANVAS_CONFIG.NOTE_SIZE + 1, y + 25);
+                    
+                    var flagX = x - CANVAS_CONFIG.NOTE_SIZE + 1;
+                    var flagY = y + 25;
                 }
-                
-                ctx.beginPath();
-                ctx.moveTo(stemStartX, stemStartY);
-                ctx.lineTo(stemEndX, stemEndY);
                 ctx.stroke();
+            }
 
-                // 깃발 (8분음표, 16분음표)
-                if (noteData.duration === 0.5 || noteData.duration === 0.75) { // 8분음표 또는 점8분음표
-                    ctx.beginPath();
-                    if (stemDirection === 'up') {
-                        ctx.moveTo(stemEndX, stemEndY);
-                        ctx.bezierCurveTo(stemEndX + 10, stemEndY + 3, stemEndX + 8, stemEndY + 12);
-                    } else { // 'down'
-                        ctx.moveTo(stemEndX, stemEndY);
-                        ctx.bezierCurveTo(stemEndX - 10, stemEndY - 3, stemEndX - 8, stemEndY - 12);
-                    }
-                    ctx.stroke();
-                } else if (noteData.duration === 0.25 || noteData.duration === 0.375) { // 16분음표
-                    // 첫 번째 깃발
-                    ctx.beginPath();
-                    if (stemDirection === 'up') {
-                        ctx.moveTo(stemEndX, stemEndY);
-                        ctx.bezierCurveTo(stemEndX + 10, stemEndY + 3, stemEndX + 8, stemEndY + 12);
-                    } else {
-                        ctx.moveTo(stemEndX, stemEndY);
-                        ctx.bezierCurveTo(stemEndX - 10, stemEndY - 3, stemEndX - 8, stemEndY - 12);
-                    }
-                    ctx.stroke();
-                    // 두 번째 깃발 (오프셋)
-                    ctx.beginPath();
-                    if (stemDirection === 'up') {
-                        ctx.moveTo(stemEndX, stemEndY + 5);
-                        ctx.bezierCurveTo(stemEndX + 10, stemEndY + 8, stemEndX + 8, stemEndY + 17);
-                    } else {
-                        ctx.moveTo(stemEndX, stemEndY - 5);
-                        ctx.bezierCurveTo(stemEndX - 10, stemEndY - 8, stemEndX - 8, stemEndY - 17);
-                    }
-                    ctx.stroke();
+            // 8분음표 깃발 (크기 축소)
+            if (duration === 0.5) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                
+                if (stemDirection === 'up') {
+                    ctx.moveTo(flagX, flagY);
+                    ctx.quadraticCurveTo(flagX + 10, flagY + 3, flagX + 8, flagY + 12);
+                } else {
+                    ctx.moveTo(flagX, flagY);
+                    ctx.quadraticCurveTo(flagX - 10, flagY - 3, flagX - 8, flagY - 12);
                 }
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            }
+
+            // 16분음표 깃발 (크기 축소)
+            if (duration === 0.25) {
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                
+                if (stemDirection === 'up') {
+                    // 첫 번째 깃발
+                    ctx.moveTo(flagX, flagY);
+                    ctx.quadraticCurveTo(flagX + 10, flagY + 3, flagX + 8, flagY + 12);
+                    // 두 번째 깃발
+                    ctx.moveTo(flagX, flagY + 6);
+                    ctx.quadraticCurveTo(flagX + 10, flagY + 9, flagX + 8, flagY + 18);
+                } else {
+                    // 첫 번째 깃발
+                    ctx.moveTo(flagX, flagY);
+                    ctx.quadraticCurveTo(flagX - 10, flagY - 3, flagX - 8, flagY - 12);
+                    // 두 번째 깃발
+                    ctx.moveTo(flagX, flagY - 6);
+                    ctx.quadraticCurveTo(flagX - 10, flagY - 9, flagX - 8, flagY - 18);
+                }
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            }
+
+            // 임시표 그리기 (크기 축소)
+            if (noteName.includes('#')) {
+                ctx.fillStyle = '#000000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('♯', x - 15, y);
+            } else if (noteName.includes('b')) {
+                ctx.fillStyle = '#000000';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('♭', x - 15, y);
             }
             
-            // 점 (dotted notes)
-            if (isDotted) {
-                ctx.beginPath();
-                ctx.arc(x + CANVAS_CONFIG.NOTE_HEAD_RADIUS_X + CANVAS_CONFIG.DOT_OFFSET_X, noteY, 2, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            ctx.fillStyle = '#000000'; // 색상 리셋
+        }
 
-            // 임시표 (Accidentals)
-            if (noteData.accidental) {
-                ctx.font = '16px Arial';
-                ctx.textAlign = 'right';
-                ctx.textBaseline = 'middle';
-                const accidentalChar = noteData.accidental === '#' ? '♯' : '♭';
-                ctx.fillText(accidentalChar, x - CANVAS_CONFIG.NOTE_HEAD_RADIUS_X - 5, noteY);
-                ctx.textAlign = 'left'; // 리셋
-                ctx.textBaseline = 'alphabetic'; // 리셋
+        function drawRest(ctx, x, y, duration) {
+            ctx.fillStyle = '#000000';
+            ctx.strokeStyle = '#000000';
+            
+            if (duration === 4.0) {
+                // 온쉼표 - 2선 아래 검은 사각형 (크기 축소)
+                ctx.fillRect(x - 4, y - 4, 8, 4);
+            } else if (duration === 2.0) {
+                // 2분쉼표 - 3선 위 검은 사각형 (크기 축소)
+                ctx.fillRect(x - 4, y, 8, 4);
+            } else if (duration === 1.0) {
+                // 4분쉼표 - 지그재그 모양 (크기 축소)
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(x - 2, y - 10);
+                ctx.lineTo(x + 2, y - 3);
+                ctx.lineTo(x - 2, y + 3);
+                ctx.lineTo(x + 2, y + 10);
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            } else if (duration === 0.5) {
+                // 8분쉼표 - 작은 깃발 모양 (크기 축소)
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x, y - 6);
+                ctx.lineTo(x, y + 6);
+                ctx.moveTo(x, y - 3);
+                ctx.quadraticCurveTo(x + 6, y - 1, x + 4, y + 3);
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            } else if (duration === 0.25) {
+                // 16분쉼표 - 이중 깃발 모양 (크기 축소)
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x, y - 8);
+                ctx.lineTo(x, y + 8);
+                ctx.moveTo(x, y - 5);
+                ctx.quadraticCurveTo(x + 6, y - 3, x + 4, y + 1);
+                ctx.moveTo(x, y - 1);
+                ctx.quadraticCurveTo(x + 6, y + 1, x + 4, y + 5);
+                ctx.stroke();
+                ctx.lineWidth = 1;
             }
         }
 
-        // 마디선 그리기
         function drawBarline(ctx, x, y, height, isDouble = false) {
             ctx.strokeStyle = '#000000';
             
@@ -972,12 +1162,12 @@
                 ctx.lineTo(x - 3, y + height);
                 ctx.stroke();
                 
-                ctx.lineWidth = 3; // 더 두꺼운 선
+                ctx.lineWidth = 3;
                 ctx.beginPath();
                 ctx.moveTo(x, y);
                 ctx.lineTo(x, y + height);
                 ctx.stroke();
-                ctx.lineWidth = 1; // 리셋
+                ctx.lineWidth = 1;
             } else {
                 // 일반 마디선
                 ctx.lineWidth = 1;
@@ -988,227 +1178,249 @@
             }
         }
 
-        // 마디 번호 그리기
         function drawMeasureNumber(ctx, x, y, measureNum) {
-            ctx.fillStyle = '#666666'; // 회색
+            ctx.fillStyle = '#666666';
             ctx.font = '11px Arial';
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom'; // 마디선 위쪽으로
+            ctx.textBaseline = 'bottom';
             ctx.fillText(measureNum.toString(), x, y - 3);
         }
 
-        // 마디 내 음표 위치 계산 (간단한 등간격 배치)
         function calculateNotePositions(measureNotes, measureWidth) {
+            // 박자에 비례한 음표 위치 계산
+            const totalBeats = measureNotes.reduce((sum, note) => sum + note.duration, 0);
             const positions = [];
-            const availableWidth = measureWidth - (CANVAS_CONFIG.NOTE_HEAD_RADIUS_X * 2); // 마디 폭에서 음표 머리 폭 제외
-            const spacing = availableWidth / (measureNotes.length + 1);
+            let currentPosition = 15; // 마디 시작 여백
             
-            for (let i = 0; i < measureNotes.length; i++) {
-                positions.push(spacing * (i + 1));
-            }
+            measureNotes.forEach((note, index) => {
+                positions.push(currentPosition);
+                const noteWidth = (note.duration / totalBeats) * (measureWidth - 30); // 양쪽 여백 제외
+                currentPosition += Math.max(noteWidth, 20); // 최소 간격 보장
+            });
+            
             return positions;
         }
 
-        // 악보를 캔버스에 렌더링하는 핵심 함수
         function renderSheetMusic(notesSequenceStr, lengthMeasures, bpm) {
-            console.log('🎵 Custom Bass Clef Notation Renderer: Starting...');
+            console.log('🎵 Canvas 베이스 클레프 악보 렌더링 시작');
             
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) {
-                console.error("Error: Canvas element 'sheetMusicCanvas' not found!");
-                showMessage("악보 캔버스 요소를 찾을 수 없습니다. HTML 구조를 확인해주세요.", 'error');
+                console.error("Canvas element not found!");
+                showMessage("악보 캔버스 요소를 찾을 수 없습니다.", 'error');
                 return;
             }
 
             try {
-                // 1. 음표 데이터 파싱
+                // 음표 파싱
                 const notes = parseNotes(notesSequenceStr);
                 if (notes.length === 0) {
-                    console.warn('No valid notes parsed. Displaying fallback text notation.');
-                    showMessage('유효한 음표가 없습니다. 악보 입력 형식을 확인해주세요. (예: C2 1.0, R 0.5)', 'error');
-                    fallbackTextDisplay(notesSequenceStr);
+                    console.warn('파싱된 음표가 없습니다.');
+                    showMessage('유효한 음표가 없습니다. 악보를 확인해주세요.', 'error');
                     return;
                 }
-                console.log('Parsed notes:', notes);
 
-                // 2. 음표들을 마디별로 그룹화
+                console.log('파싱된 음표:', notes);
+
+                // 마디별로 그룹화
                 const measures = groupIntoMeasures(notes);
-                console.log('Grouped into measures:', measures);
+                console.log('마디별 그룹:', measures);
 
-                // 3. 캔버스 크기 동적 계산
-                const numberOfLines = Math.max(1, Math.ceil(measures.length / CANVAS_CONFIG.MEASURES_PER_LINE));
-                canvas.width = CANVAS_CONFIG.STAFF_MARGIN_X * 2 + (CANVAS_CONFIG.MEASURE_WIDTH * CANVAS_CONFIG.MEASURES_PER_LINE);
-                canvas.height = CANVAS_CONFIG.STAFF_MARGIN_Y * 2 + (numberOfLines * CANVAS_CONFIG.LINE_SPACING);
+                // 캔버스 크기 계산 (줄별 마디 수 최적화)
+                let linesNeeded;
+                let measuresPerLineArray = [];
+                
+                if (measures.length <= 4) {
+                    linesNeeded = 1;
+                    measuresPerLineArray = [measures.length];
+                } else if (measures.length === 5) {
+                    linesNeeded = 2;
+                    measuresPerLineArray = [3, 2]; // 첫 줄 3마디, 둘째 줄 2마디
+                } else {
+                    linesNeeded = Math.ceil(measures.length / CANVAS_CONFIG.MEASURES_PER_LINE);
+                    for (let i = 0; i < linesNeeded; i++) {
+                        const remaining = measures.length - (i * CANVAS_CONFIG.MEASURES_PER_LINE);
+                        measuresPerLineArray.push(Math.min(CANVAS_CONFIG.MEASURES_PER_LINE, remaining));
+                    }
+                }
+
+                canvas.width = CANVAS_CONFIG.STAFF_WIDTH + (CANVAS_CONFIG.STAFF_MARGIN_X * 2);
+                canvas.height = (linesNeeded * CANVAS_CONFIG.LINE_SPACING) + (CANVAS_CONFIG.STAFF_MARGIN_Y * 2);
 
                 const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // 기존 악보 지우기
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 // 배경
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 // 제목
-                ctx.fillStyle = primaryColor; 
-                ctx.font = 'bold 20px Rubik, sans-serif';
+                ctx.fillStyle = '#3b82f6';
+                ctx.font = 'bold 20px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText('베이스 라인 악보', canvas.width / 2, CANVAS_CONFIG.STAFF_MARGIN_Y / 2);
+                ctx.fillText('베이스 라인 악보 (Canvas)', canvas.width / 2, 30);
 
-                let currentMeasureIndex = 0; // 전체 마디 인덱스
-                for (let line = 0; line < numberOfLines; line++) {
-                    const lineY = CANVAS_CONFIG.STAFF_MARGIN_Y + (line * CANVAS_CONFIG.LINE_SPACING); // 현재 줄의 Y 시작점
-                    const lineXStart = CANVAS_CONFIG.STAFF_MARGIN_X; // 현재 줄의 X 시작점
-                    
-                    // 현재 줄에 그릴 마디 수
-                    const measuresInThisLine = (line === numberOfLines - 1) ? 
-                                               (measures.length % CANVAS_CONFIG.MEASURES_PER_LINE || CANVAS_CONFIG.MEASURES_PER_LINE) :
-                                               CANVAS_CONFIG.MEASURES_PER_LINE;
+                // 각 줄 그리기
+                let measureIndex = 0;
+                for (let line = 0; line < linesNeeded; line++) {
+                    const lineY = CANVAS_CONFIG.STAFF_MARGIN_Y + (line * CANVAS_CONFIG.LINE_SPACING);
+                    const lineX = CANVAS_CONFIG.STAFF_MARGIN_X;
+                    const measuresInThisLine = measuresPerLineArray[line];
 
-                    // 오선 그리기 (전체 줄의 너비에 맞춰)
-                    drawStaffLines(ctx, lineXStart, lineY, CANVAS_CONFIG.STAFF_WIDTH);
+                    // 오선 그리기
+                    drawStaffLines(ctx, lineX, lineY, CANVAS_CONFIG.STAFF_WIDTH);
 
-                    let currentXOffset = lineXStart;
-                    // 첫 마디에만 클레프와 박자표
+                    // 첫 번째 줄에만 클레프와 박자표
                     if (line === 0) {
-                        drawBassClef(ctx, currentXOffset, lineY);
-                        drawTimeSignature(ctx, currentXOffset + CANVAS_CONFIG.CLEF_WIDTH + 10, lineY);
-                        currentXOffset += CANVAS_CONFIG.CLEF_WIDTH + CANVAS_CONFIG.TIME_SIG_WIDTH; // 클레프/박자표 공간만큼 X 이동
-                    } else {
-                        currentXOffset += 10; // 첫 마디가 아니면 작은 여백
+                        drawBassClef(ctx, lineX, lineY);
+                        drawTimeSignature(ctx, lineX + CANVAS_CONFIG.CLEF_WIDTH + 20, lineY);
                     }
 
-
+                    // 이 줄의 마디들 그리기
                     for (let m = 0; m < measuresInThisLine; m++) {
-                        const measureNotes = measures[currentMeasureIndex];
-                        const measureWidthActual = CANVAS_CONFIG.MEASURE_WIDTH; 
-
+                        const measureX = lineX + CANVAS_CONFIG.CLEF_WIDTH + 40 + (m * CANVAS_CONFIG.MEASURE_WIDTH);
+                        
                         // 마디 번호
-                        drawMeasureNumber(ctx, currentXOffset + measureWidthActual / 2, lineY, currentMeasureIndex + 1);
+                        drawMeasureNumber(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH / 2, lineY, measureIndex + 1);
 
-                        // 마디 내 음표 위치 계산
-                        const notePositions = calculateNotePositions(measureNotes, measureWidthActual);
+                        // 마디 내 음표들
+                        const measureNotes = measures[measureIndex];
+                        const notePositions = calculateNotePositions(measureNotes, CANVAS_CONFIG.MEASURE_WIDTH);
 
-                        // 각 음표 그리기
-                        measureNotes.forEach((noteData, noteIdx) => {
-                            const noteX = currentXOffset + notePositions[noteIdx];
+                        measureNotes.forEach((note, noteIndex) => {
+                            const noteX = measureX + notePositions[noteIndex];
+                            const noteY = getNoteY(note.name, note.octave, lineY);
                             
-                            if (noteData.isRest) {
-                                drawRest(ctx, noteX, lineY, noteData.duration);
-                            } else {
-                                // 음표 정보 계산 및 그리기
-                                const noteInfo = getNoteDrawingInfo(noteData, lineY);
-                                if (noteInfo.isDefined) {
-                                     drawNote(ctx, noteX, noteInfo, noteData);
-                                } else {
-                                    console.warn(`Skipping drawing for undefined note data:`, noteData);
+                            drawNote(ctx, noteX, noteY, note.duration, note.name, note.octave, note.isRest);
+                            
+                            // 음표 이름 표시 (겹치지 않게 위치 조정)
+                            if (!note.isRest) {
+                                ctx.fillStyle = '#999999';
+                                ctx.font = '8px Arial';
+                                ctx.textAlign = 'center';
+                                
+                                // 보조선과 겹치지 않도록 위치 조정
+                                const notePosition = BASS_NOTE_POSITIONS[`${note.name}${note.octave}`];
+                                let textY = noteY + 22;
+                                if (notePosition < 8) { // 1선 아래 음표들
+                                    textY = noteY + 28; // 더 아래로
                                 }
+                                
+                                ctx.fillText(`${note.name}${note.octave}`, noteX, textY);
+                                ctx.fillStyle = '#000000'; // 색상 리셋
                             }
                         });
 
-                        // 마디선 (각 마디의 끝)
-                        const isLastMeasureOfSong = currentMeasureIndex === measures.length - 1;
+                        // 마디선
+                        const isLastMeasure = measureIndex === measures.length - 1;
                         const isEndOfLine = m === measuresInThisLine - 1;
-
-                        if (isEndOfLine || isLastMeasureOfSong) {
-                            drawBarline(ctx, currentXOffset + measureWidthActual, lineY, CANVAS_CONFIG.STAFF_HEIGHT, isLastMeasureOfSong);
-                        }
                         
-                        currentXOffset += measureWidthActual; // 다음 마디 시작 X 위치
-                        currentMeasureIndex++;
+                        if (isEndOfLine || isLastMeasure) {
+                            drawBarline(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH, lineY, CANVAS_CONFIG.STAFF_HEIGHT, isLastMeasure);
+                        }
+
+                        measureIndex++;
                     }
                 }
 
-                // 하단 정보 (BPM 및 마디 수)
-                ctx.fillStyle = lightTextColor;
-                ctx.font = '12px Rubik, sans-serif';
+                // 하단 정보
+                ctx.fillStyle = '#64748b';
+                ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(`BPM: ${bpm} | ${measures.length} 마디`, canvas.width / 2, canvas.height - 10);
+                ctx.fillText(`BPM: ${bpm} | ${measures.length}마디 | Canvas 렌더링`, canvas.width / 2, canvas.height - 10);
 
-                console.log('✅ Custom Bass Clef Notation Renderer: Completed successfully.');
-                showMessage('🎵 악보가 성공적으로 렌더링되었습니다!', 'success');
+                console.log('✅ Canvas 베이스 클레프 악보 렌더링 완료');
 
             } catch (error) {
-                console.error('Fatal Canvas notation rendering error:', error);
-                showMessage(`🚨 악보 렌더링 오류가 발생했습니다: ${error.message}. 콘솔을 확인해주세요.`, 'error');
+                console.error('Canvas 악보 렌더링 오류:', error);
+                showMessage(`🚨 악보 렌더링 오류: ${error.message}`, 'error');
                 
                 // 폴백: 간단한 텍스트 표시
                 fallbackTextDisplay(notesSequenceStr);
             }
         }
 
-        // Canvas 악보 렌더링 실패 시 간단한 텍스트 기반 악보 표시
+        // 폴백: 간단한 텍스트 악보 표시
         function fallbackTextDisplay(notesSequenceStr) {
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) return;
 
-            canvas.width = 850; // 고정 너비 사용
+            canvas.width = 850;
             canvas.height = 250;
 
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            ctx.fillStyle = '#f8fafc'; // Fallback 배경색
+            // 배경
+            ctx.fillStyle = '#f8fafc';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            ctx.fillStyle = primaryColor; 
-            ctx.font = 'bold 18px Rubik, sans-serif';
+            // 제목
+            ctx.fillStyle = '#3b82f6';
+            ctx.font = 'bold 18px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('베이스 라인 (텍스트 모드)', canvas.width / 2, 35);
             
-            ctx.fillStyle = lightTextColor; 
-            ctx.font = '12px Rubik, sans-serif';
+            // 설명
+            ctx.fillStyle = '#64748b';
+            ctx.font = '12px Arial';
             ctx.fillText('악보 렌더링에 실패하여 텍스트로 표시합니다.', canvas.width / 2, 60);
             
+            // 음표들 나열
             const notes = notesSequenceStr.split(',').map(n => n.trim());
             let y = 90;
             let x = 40;
             
-            ctx.fillStyle = textColor; 
+            ctx.fillStyle = '#334155';
             ctx.font = '14px monospace';
             ctx.textAlign = 'left';
             
             let currentMeasure = 1;
             let currentBeats = 0;
-            const BEATS_PER_MEASURE = 4;
             
-            ctx.fillStyle = lightTextColor; 
-            ctx.font = '12px Rubik, sans-serif';
+            // 마디 표시
+            ctx.fillStyle = '#64748b';
+            ctx.font = '12px Arial';
             ctx.fillText(`마디 ${currentMeasure}:`, x, y - 8);
             
             notes.forEach((note, index) => {
-                const noteValueMatch = note.match(/(\d+(\.\d+)?)$/);
-                const noteBeats = noteValueMatch ? parseFloat(noteValueMatch[1]) : 0;
-
-                if (x + ctx.measureText(note).width + 20 > canvas.width - 40) { // 캔버스 너비 초과 시 줄바꿈
+                if (x > canvas.width - 100) {
                     x = 40;
                     y += 35;
-                    if (y > canvas.height - 50) { // 캔버스 영역을 너무 벗어나면 중단
-                        return;
+                    
+                    if (y < canvas.height - 50) {
+                        currentMeasure++;
+                        ctx.fillStyle = '#64748b';
+                        ctx.font = '12px Arial';
+                        ctx.fillText(`마디 ${currentMeasure}:`, x, y - 8);
                     }
-                    currentMeasure++;
-                    ctx.fillStyle = lightTextColor; 
-                    ctx.font = '12px Rubik, sans-serif';
-                    ctx.fillText(`마디 ${currentMeasure}:`, x, y - 8);
                 }
                 
-                ctx.fillStyle = textColor; 
+                ctx.fillStyle = '#334155';
                 ctx.font = '14px monospace';
                 ctx.fillText(note, x, y);
                 
-                currentBeats += noteBeats;
-                // 마디 구분선
-                if (currentBeats >= BEATS_PER_MEASURE - 0.001) { // 부동 소수점 오차 고려
-                    ctx.fillStyle = '#e2e8f0'; // 마디선 색상
-                    ctx.fillRect(x + ctx.measureText(note).width + 8, y - 12, 1, 20);
-                    currentBeats = 0;
+                // 박자 계산 (마디 구분선)
+                const match = note.match(/(\d+(\.\d+)?)$/);
+                if (match) {
+                    const beats = parseFloat(match[1]);
+                    currentBeats += beats;
+                    
+                    if (currentBeats >= 4) {
+                        ctx.fillStyle = '#e2e8f0';
+                        ctx.fillRect(x + ctx.measureText(note).width + 8, y - 12, 1, 20);
+                        currentBeats = 0;
+                    }
                 }
                 
                 x += ctx.measureText(note).width + 20;
             });
             
-            ctx.fillStyle = errorColor; 
-            ctx.font = '11px Rubik, sans-serif';
+            // 하단 메시지
+            ctx.fillStyle = '#ef4444';
+            ctx.font = '11px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('악보 렌더링에 실패하여 텍스트 모드로 표시됩니다. (콘솔 오류 확인 요망)', canvas.width / 2, canvas.height - 15);
+            ctx.fillText('정확한 악보를 보려면 페이지를 새로고침해주세요.', canvas.width / 2, canvas.height - 15);
         }
     </script> 
 </body>
