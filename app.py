@@ -229,31 +229,72 @@ def get_note_frequency(note_name_chromatic, octave):
 
 
 def generate_note_waveform(frequency, duration_seconds, sample_rate, amplitude):
-    """단일 음표의 파형을 생성합니다."""
+    """진짜 베이스 기타 사운드를 모방한 파형을 생성합니다."""
     num_samples = int(duration_seconds * sample_rate)
     if num_samples <= 0:
         return np.array([])
         
     t = np.linspace(0, duration_seconds, num_samples, endpoint=False)
-    waveform = amplitude * np.sin(2 * np.pi * frequency * t)
     
-    # ADSR 엔벨로프 적용 (간단한 Attack-Release)
-    attack_percent = 0.01
-    release_percent = 0.2
+    # 베이스 기타의 하모닉 구조 (기본음 + 배음들)
+    fundamental = np.sin(2 * np.pi * frequency * t)
+    harmonic_2 = 0.6 * np.sin(2 * np.pi * frequency * 2 * t)  # 2배음
+    harmonic_3 = 0.3 * np.sin(2 * np.pi * frequency * 3 * t)  # 3배음
+    harmonic_4 = 0.2 * np.sin(2 * np.pi * frequency * 4 * t)  # 4배음
+    harmonic_5 = 0.1 * np.sin(2 * np.pi * frequency * 5 * t)  # 5배음
+    
+    # 베이스 특유의 저주파 강화를 위한 서브 하모닉
+    sub_harmonic = 0.3 * np.sin(2 * np.pi * frequency * 0.5 * t)
+    
+    # 베이스 기타의 특징적인 톤을 위한 약간의 포화(saturation) 효과
+    saturation = 0.05 * np.sin(2 * np.pi * frequency * 7 * t) * np.exp(-t * 2)
+    
+    # 모든 하모닉 합성
+    waveform = fundamental + harmonic_2 + harmonic_3 + harmonic_4 + harmonic_5 + sub_harmonic + saturation
+    
+    # 베이스 기타의 특징적인 ADSR 엔벨로프 (빠른 어택, 긴 서스테인, 자연스러운 릴리스)
+    attack_percent = 0.005  # 매우 빠른 어택
+    decay_percent = 0.05    # 짧은 디케이
+    sustain_level = 0.7     # 서스테인 레벨
+    release_percent = 0.4   # 긴 릴리스
 
     attack_samples = int(num_samples * attack_percent)
+    decay_samples = int(num_samples * decay_percent)
+    sustain_samples = int(num_samples * (1 - attack_percent - decay_percent - release_percent))
     release_samples = int(num_samples * release_percent)
     
     envelope = np.ones(num_samples)
 
+    # Attack
     if attack_samples > 0:
         envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
     
-    if release_samples > 0 and (num_samples - release_samples) >= attack_samples:
-        start_release_idx = max(attack_samples, num_samples - release_samples)
-        envelope[start_release_idx:] *= np.linspace(1, 0, num_samples - start_release_idx)
+    # Decay
+    if decay_samples > 0:
+        start_decay = attack_samples
+        end_decay = start_decay + decay_samples
+        envelope[start_decay:end_decay] = np.linspace(1, sustain_level, decay_samples)
     
+    # Sustain
+    if sustain_samples > 0:
+        start_sustain = attack_samples + decay_samples
+        end_sustain = start_sustain + sustain_samples
+        envelope[start_sustain:end_sustain] = sustain_level
+    
+    # Release
+    if release_samples > 0:
+        start_release = num_samples - release_samples
+        envelope[start_release:] = np.linspace(sustain_level, 0, release_samples)
+    
+    # 파형에 엔벨로프 적용
     waveform *= envelope
+    
+    # 최종 볼륨 조정
+    waveform *= amplitude
+    
+    # 베이스 주파수 강화를 위한 저역 필터 효과 (간단한 로우패스)
+    if frequency < 200:  # 베이스 주파수 영역
+        waveform *= 1.2  # 저음역 부스트
     
     return waveform
 
@@ -393,7 +434,7 @@ def generate_music21_score_with_fallback(
                 logger.info(f"하드코딩된 MusicXML 파일 저장: {hardcoded_xml_path}")
 
                 musescore_path_env = os.environ.get("MUSESCORE_PATH", "/usr/bin/musescore3")
-                cmd_hardcoded = [musescore_path_env, "-o", hardcoded_png_path, hardcoded_xml_path]
+                cmd_hardcoded = [musescore_path_env, "-o", hardcoded_svg_path, hardcoded_xml_path]
 
                 logger.info(f"하드코딩된 XML로 MuseScore 직접 실행 명령: {' '.join(cmd_hardcoded)}")
 
@@ -405,18 +446,18 @@ def generate_music21_score_with_fallback(
                 if result_hardcoded.stderr:
                     logger.warning(f"하드코딩된 XML MuseScore 실행 STDERR: {result_hardcoded.stderr.strip()}")
 
-                if result_hardcoded.returncode == 0 and os.path.exists(hardcoded_png_path) and os.path.getsize(hardcoded_png_path) > 0:
-                    logger.info(f"하드코딩된 XML로부터 PNG 파일 생성 성공: {hardcoded_png_path}, 크기: {os.path.getsize(hardcoded_png_path)} 바이트")
-                    with open(hardcoded_png_path, "rb") as f_png:
-                        png_data = f_png.read()
+                if result_hardcoded.returncode == 0 and os.path.exists(hardcoded_svg_path) and os.path.getsize(hardcoded_svg_path) > 0:
+                    logger.info(f"하드코딩된 XML로부터 SVG 파일 생성 성공: {hardcoded_svg_path}, 크기: {os.path.getsize(hardcoded_svg_path)} 바이트")
+                    with open(hardcoded_svg_path, "rb") as f_svg:
+                        svg_data = f_svg.read()
                     if temp_dir and os.path.exists(temp_dir): # Cleanup before early return
                         shutil.rmtree(temp_dir)
-                    return base64.b64encode(png_data).decode('utf-8'), None
+                    return base64.b64encode(svg_data).decode('utf-8'), None
                 else:
-                    logger.error(f"하드코딩된 XML로부터 PNG 생성 실패. Return Code: {result_hardcoded.returncode}, stderr: {result_hardcoded.stderr.strip()}")
+                    logger.error(f"하드코딩된 XML로부터 SVG 생성 실패. Return Code: {result_hardcoded.returncode}, stderr: {result_hardcoded.stderr.strip()}")
                     if temp_dir and os.path.exists(temp_dir): # Cleanup before early return
                         shutil.rmtree(temp_dir)
-                    return None, "하드코딩된 XML 테스트 PNG 생성 실패." # Special error message
+                    return None, "하드코딩된 XML 테스트 SVG 생성 실패." # Special error message
 
             except Exception as e_hardcoded:
                 logger.error(f"하드코딩된 XML 테스트 중 예외 발생: {e_hardcoded}")
@@ -465,55 +506,40 @@ def generate_music21_score_with_fallback(
         svg_path = os.path.join(temp_dir, "score.svg") # Changed to SVG
 
         try:
-            # Attempt 1: Direct SVG generation via score.write (relies on music21's MuseScore integration for SVG)
-            logger.info(f"SVG 생성 시도 1: score.write('musicxml.svg', fp={svg_path})")
-            score.write('musicxml.svg', fp=svg_path) # Try to write directly as SVG
-            
-            if os.path.exists(svg_path) and os.path.getsize(svg_path) > 0:
-                logger.info(f"score.write('musicxml.svg') 성공: {svg_path}, 크기: {os.path.getsize(svg_path)} 바이트")
-                # If successful, this SVG will be picked up by the check later.
-            else:
-                logger.warning(f"score.write('musicxml.svg') 후 SVG 파일이 없거나 비어있음: {svg_path}")
-                # This will effectively make it fall through to Attempt 2 if the file isn't valid
-                raise RuntimeError(f"score.write('musicxml.svg') failed to produce a valid file at {svg_path}")
-
-        except Exception as e_direct_svg:
-            logger.warning(f"SVG 생성 시도 1 (score.write) 실패: {e_direct_svg}")
-            logger.info("SVG 생성 시도 2: MusicXML로 저장 후 MuseScore 직접 호출")
-
-            # Attempt 2: Explicit MuseScore call using an intermediate MusicXML file
+            # MuseScore로 SVG 직접 생성 (개선된 방법)
             xml_path_for_svg = os.path.join(temp_dir, "score_temp.xml")
-            try:
-                score.write("musicxml", fp=xml_path_for_svg)
-                logger.info(f"중간 MusicXML 파일 생성 (SVG 생성용): {xml_path_for_svg}")
-                if os.path.exists(xml_path_for_svg) and os.path.getsize(xml_path_for_svg) > 0:
-                    logger.info(f"중간 MusicXML 파일 크기: {os.path.getsize(xml_path_for_svg)} 바이트")
-                    # Log first 1000 chars of the MusicXML
-                    with open(xml_path_for_svg, "r", encoding="utf-8") as f_xml_check:
-                        logger.info(f"중간 MusicXML 내용 (처음 1000자): {f_xml_check.read(1000)}...")
-                else:
-                    logger.error(f"중간 MusicXML 파일 생성 실패 또는 비어있음: {xml_path_for_svg}")
-                    raise RuntimeError(f"Failed to create valid intermediate MusicXML at {xml_path_for_svg}")
-
-                musescore_exec_path = os.environ.get("MUSESCORE_PATH", "/usr/bin/musescore3")
-                cmd_explicit_svg = [musescore_exec_path, "-o", svg_path, xml_path_for_svg]
-                
-                logger.info(f"MuseScore SVG 직접 실행 명령: {' '.join(cmd_explicit_svg)}")
-                result_svg = subprocess.run(cmd_explicit_svg, capture_output=True, text=True, timeout=30)
-
-                logger.info(f"MuseScore SVG 직접 실행 Return Code: {result_svg.returncode}")
-                if result_svg.stdout:
-                    logger.info(f"MuseScore SVG 직접 실행 STDOUT: {result_svg.stdout.strip()}")
-                if result_svg.stderr:
-                    logger.warning(f"MuseScore SVG 직접 실행 STDERR: {result_svg.stderr.strip()}")
-
-                if result_svg.returncode != 0:
-                    raise RuntimeError(f"MuseScore SVG 직접 실행 실패 (Return Code: {result_svg.returncode})")
+            logger.info(f"SVG 생성을 위한 MusicXML 저장: {xml_path_for_svg}")
+            score.write("musicxml", fp=xml_path_for_svg)
             
-            except Exception as e_explicit_musescore_svg:
-                logger.error(f"SVG 생성 시도 2 (MuseScore 직접 호출) 실패: {e_explicit_musescore_svg}")
-                # This error will be caught by the outer try-except block, leading to text score generation
-                raise RuntimeError(f"All SVG generation attempts failed. Last error: {e_explicit_musescore_svg}")
+            if not os.path.exists(xml_path_for_svg) or os.path.getsize(xml_path_for_svg) == 0:
+                logger.error(f"MusicXML 파일 생성 실패: {xml_path_for_svg}")
+                raise RuntimeError(f"Failed to create MusicXML file at {xml_path_for_svg}")
+            
+            # MuseScore로 SVG 직접 생성
+            musescore_exec_path = os.environ.get("MUSESCORE_PATH", "/usr/bin/musescore3")
+            cmd_svg = [musescore_exec_path, "-o", svg_path, xml_path_for_svg]
+            
+            logger.info(f"MuseScore SVG 생성 명령: {' '.join(cmd_svg)}")
+            result_svg = subprocess.run(cmd_svg, capture_output=True, text=True, timeout=30)
+            
+            logger.info(f"MuseScore SVG 생성 Return Code: {result_svg.returncode}")
+            if result_svg.stdout:
+                logger.info(f"MuseScore SVG STDOUT: {result_svg.stdout.strip()}")
+            if result_svg.stderr:
+                logger.warning(f"MuseScore SVG STDERR: {result_svg.stderr.strip()}")
+            
+            if result_svg.returncode != 0:
+                raise RuntimeError(f"MuseScore SVG 생성 실패 (Return Code: {result_svg.returncode})")
+            
+            if not os.path.exists(svg_path) or os.path.getsize(svg_path) == 0:
+                raise RuntimeError(f"SVG 파일이 생성되지 않았거나 비어있음: {svg_path}")
+            
+            logger.info(f"SVG 생성 성공: {svg_path}, 크기: {os.path.getsize(svg_path)} 바이트")
+
+        except Exception as e_svg:
+            logger.error(f"SVG 생성 실패: {e_svg}")
+            # 오류 시 텍스트 악보로 폴백
+            raise RuntimeError(f"SVG 생성 실패: {e_svg}")
 
 
         # Check if SVG file was successfully created by any method

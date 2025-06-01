@@ -257,15 +257,39 @@
             background-color: var(--card-background);
             border-radius: 12px;
             overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) var(--background-color);
+        }
+        
+        #notation-area::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        #notation-area::-webkit-scrollbar-track {
+            background: var(--background-color);
+            border-radius: 4px;
+        }
+        
+        #notation-area::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+        
+        #notation-area::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-hover-color);
         }
         #sheetMusicCanvas {
             border: 1px solid var(--border-color);
             background-color: white;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             max-width: 100%;
+            height: auto;
             border-radius: 8px;
             display: block;
             margin: 0 auto;
+            object-fit: contain;
         }
         
         #professionalScore {
@@ -276,26 +300,78 @@
         }
 
         /* 모바일 반응형 조정 */
-        @media (max-width: 680px) {
+        @media (max-width: 768px) {
             .container {
-                padding: 20px;
-                margin-top: 15px;
+                padding: 15px;
+                margin-top: 10px;
                 border-radius: 10px;
-                max-width: 95%;
+                max-width: 98%;
             }
             h1 {
-                font-size: 1.6em;
-                margin-bottom: 25px;
+                font-size: 1.5em;
+                margin-bottom: 20px;
             }
             button {
-                padding: 10px 20px;
-                font-size: 1em;
+                padding: 12px 16px;
+                font-size: 0.95em;
             }
             .button-group {
                 flex-direction: column;
+                gap: 8px;
             }
             #sheetMusicCanvas, #professionalScore {
                 width: 100%;
+                max-width: 100%;
+                height: auto;
+            }
+            #notation-area {
+                padding: 15px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .features-status {
+                padding: 10px;
+                margin-bottom: 15px;
+            }
+            .feature-badge {
+                font-size: 0.75em;
+                padding: 3px 6px;
+                margin: 1px 2px;
+            }
+            textarea {
+                min-height: 100px;
+                font-size: 0.9em;
+            }
+            input[type="number"],
+            input[type="text"],
+            input[type="password"],
+            select {
+                padding: 12px 14px;
+                font-size: 0.95em;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+                margin-top: 5px;
+            }
+            h1 {
+                font-size: 1.3em;
+                margin-bottom: 15px;
+            }
+            button {
+                padding: 10px 14px;
+                font-size: 0.9em;
+            }
+            #sheetMusicCanvas {
+                transform: scale(0.8);
+                transform-origin: center top;
+            }
+            .feature-badge {
+                display: block;
+                margin: 2px 0;
+                text-align: center;
             }
         }
     </style>
@@ -744,7 +820,7 @@
                 });
                 
                 if (response.ok) {
-                    const contentType = response.headers.get('content-type');
+                    const data = await response.json();
                     
                     if (contentType && contentType.includes('image')) {
                         // 이미지인 경우
@@ -774,8 +850,8 @@
                     professionalScoreArea.scrollIntoView({ behavior: 'smooth' });
                     
                 } else {
-                    const errorMessage = await response.text();
-                    showMessage(`🚨 전문 악보 생성 실패: ${errorMessage}`, 'error');
+                    const errorData = await response.json().catch(() => ({ message: '서버 오류' }));
+                    showMessage(`🚨 전문 악보 생성 실패: ${errorData.message || '알 수 없는 오류'}`, 'error');
                 }
             } catch (error) {
                 showMessage('⚠️ 전문 악보 생성 중 오류가 발생했습니다.', 'error');
@@ -785,18 +861,19 @@
 
         // === 기존 Canvas 악보 렌더링 함수들 (유지) ===
 
-        // 악보 렌더링 상수 (음표 크기 축소)
+        // 악보 렌더링 상수 (음표 크기 및 간격 최적화)
         const CANVAS_CONFIG = {
-            STAFF_LINE_SPACING: 10,     // 오선 간격 축소
-            STAFF_HEIGHT: 40,           // 오선 높이 축소
-            STAFF_WIDTH: 850,           // 오선 너비
-            STAFF_MARGIN_X: 30,         // 좌우 여백
-            STAFF_MARGIN_Y: 50,         // 상하 여백 축소
-            MEASURE_WIDTH: 170,         // 마디 너비
+            STAFF_LINE_SPACING: 12,     // 오선 간격 증가
+            STAFF_HEIGHT: 48,           // 오선 높이 증가
+            STAFF_WIDTH: 950,           // 오선 너비 증가
+            STAFF_MARGIN_X: 40,         // 좌우 여백 증가
+            STAFF_MARGIN_Y: 60,         // 상하 여백 증가
+            MEASURE_WIDTH: 200,         // 마디 너비 증가
             MEASURES_PER_LINE: 4,       // 한 줄당 마디 수
-            LINE_SPACING: 110,          // 줄 간격 축소
-            NOTE_SIZE: 5,               // 음표 크기 대폭 축소
-            CLEF_WIDTH: 45,             // 클레프 너비
+            LINE_SPACING: 140,          // 줄 간격 증가
+            NOTE_SIZE: 7,               // 음표 크기 조정
+            CLEF_WIDTH: 50,             // 클레프 너비 증가
+            MIN_NOTE_SPACING: 35,       // 최소 음표 간격 추가
         };
 
         // 정확한 베이스 클레프 음표 위치 매핑 (수정됨)
@@ -1151,18 +1228,26 @@
             }
         }
 
-        function drawBarline(ctx, x, y, height, isDouble = false) {
+        function drawBarline(ctx, x, y, height, isDouble = false, isBeginning = false) {
             ctx.strokeStyle = '#000000';
             
             if (isDouble) {
                 // 끝마디선 (이중선)
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(x - 3, y);
-                ctx.lineTo(x - 3, y + height);
+                ctx.moveTo(x - 4, y);
+                ctx.lineTo(x - 4, y + height);
                 ctx.stroke();
                 
                 ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y + height);
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            } else if (isBeginning) {
+                // 시작 마디선 (두꺼운 선)
+                ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(x, y);
                 ctx.lineTo(x, y + height);
@@ -1187,15 +1272,35 @@
         }
 
         function calculateNotePositions(measureNotes, measureWidth) {
-            // 박자에 비례한 음표 위치 계산
+            // 박자에 비례한 음표 위치 계산 (간격 개선)
             const totalBeats = measureNotes.reduce((sum, note) => sum + note.duration, 0);
             const positions = [];
-            let currentPosition = 15; // 마디 시작 여백
+            let currentPosition = 25; // 마디 시작 여백 증가
+            
+            const availableWidth = measureWidth - 50; // 양쪽 여백 증가
             
             measureNotes.forEach((note, index) => {
                 positions.push(currentPosition);
-                const noteWidth = (note.duration / totalBeats) * (measureWidth - 30); // 양쪽 여백 제외
-                currentPosition += Math.max(noteWidth, 20); // 최소 간격 보장
+                
+                // 음표 지속시간에 따른 가변 간격
+                let spacing;
+                if (note.duration >= 2.0) {
+                    spacing = availableWidth * 0.35; // 긴 음표는 더 넓은 간격
+                } else if (note.duration >= 1.0) {
+                    spacing = availableWidth * 0.25; // 4분음표
+                } else if (note.duration >= 0.5) {
+                    spacing = availableWidth * 0.2;  // 8분음표
+                } else {
+                    spacing = availableWidth * 0.15; // 16분음표 이하
+                }
+                
+                // 최소 간격 보장
+                spacing = Math.max(spacing, CANVAS_CONFIG.MIN_NOTE_SPACING);
+                
+                // 마지막 음표가 아닌 경우에만 간격 추가
+                if (index < measureNotes.length - 1) {
+                    currentPosition += spacing;
+                }
             });
             
             return positions;
@@ -1244,8 +1349,12 @@
                     }
                 }
 
-                canvas.width = CANVAS_CONFIG.STAFF_WIDTH + (CANVAS_CONFIG.STAFF_MARGIN_X * 2);
-                canvas.height = (linesNeeded * CANVAS_CONFIG.LINE_SPACING) + (CANVAS_CONFIG.STAFF_MARGIN_Y * 2);
+                // 동적 캔버스 크기 계산
+                const maxMeasuresInLine = Math.max(...measuresPerLineArray);
+                const dynamicWidth = CANVAS_CONFIG.CLEF_WIDTH + 100 + (maxMeasuresInLine * CANVAS_CONFIG.MEASURE_WIDTH) + (CANVAS_CONFIG.STAFF_MARGIN_X * 2);
+                
+                canvas.width = Math.min(dynamicWidth, 1200); // 최대 너비 제한
+                canvas.height = (linesNeeded * CANVAS_CONFIG.LINE_SPACING) + (CANVAS_CONFIG.STAFF_MARGIN_Y * 2) + 20;
 
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1267,13 +1376,20 @@
                     const lineX = CANVAS_CONFIG.STAFF_MARGIN_X;
                     const measuresInThisLine = measuresPerLineArray[line];
 
-                    // 오선 그리기
-                    drawStaffLines(ctx, lineX, lineY, CANVAS_CONFIG.STAFF_WIDTH);
+                    // 오선 그리기 (전체 너비를 마디 수에 따라 조정)
+                    const actualStaffWidth = CANVAS_CONFIG.CLEF_WIDTH + 50 + (measuresInThisLine * CANVAS_CONFIG.MEASURE_WIDTH);
+                    drawStaffLines(ctx, lineX, lineY, actualStaffWidth);
 
                     // 첫 번째 줄에만 클레프와 박자표
                     if (line === 0) {
                         drawBassClef(ctx, lineX, lineY);
                         drawTimeSignature(ctx, lineX + CANVAS_CONFIG.CLEF_WIDTH + 20, lineY);
+                    }
+
+                    // 첫 번째 마디 시작 마디선 그리기
+                    if (line === 0) {
+                        const firstMeasureX = lineX + CANVAS_CONFIG.CLEF_WIDTH + 40;
+                        drawBarline(ctx, firstMeasureX, lineY, CANVAS_CONFIG.STAFF_HEIGHT, false, true);
                     }
 
                     // 이 줄의 마디들 그리기
@@ -1296,14 +1412,14 @@
                             // 음표 이름 표시 (겹치지 않게 위치 조정)
                             if (!note.isRest) {
                                 ctx.fillStyle = '#999999';
-                                ctx.font = '8px Arial';
+                                ctx.font = '9px Arial';
                                 ctx.textAlign = 'center';
                                 
                                 // 보조선과 겹치지 않도록 위치 조정
                                 const notePosition = BASS_NOTE_POSITIONS[`${note.name}${note.octave}`];
-                                let textY = noteY + 22;
+                                let textY = noteY + 25;
                                 if (notePosition < 8) { // 1선 아래 음표들
-                                    textY = noteY + 28; // 더 아래로
+                                    textY = noteY + 32; // 더 아래로
                                 }
                                 
                                 ctx.fillText(`${note.name}${note.octave}`, noteX, textY);
@@ -1311,13 +1427,12 @@
                             }
                         });
 
-                        // 마디선
+                        // 마디선 (모든 마디 끝에 그리기)
                         const isLastMeasure = measureIndex === measures.length - 1;
                         const isEndOfLine = m === measuresInThisLine - 1;
                         
-                        if (isEndOfLine || isLastMeasure) {
-                            drawBarline(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH, lineY, CANVAS_CONFIG.STAFF_HEIGHT, isLastMeasure);
-                        }
+                        // 마디 끝에 세로선 그리기
+                        drawBarline(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH, lineY, CANVAS_CONFIG.STAFF_HEIGHT, isLastMeasure);
 
                         measureIndex++;
                     }
