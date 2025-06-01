@@ -10,6 +10,7 @@ import logging
 import tempfile
 import shutil
 import base64 
+import subprocess
 
 # Music21 라이브러리 (악보 생성)
 try:
