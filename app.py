@@ -240,34 +240,30 @@ def get_note_frequency(note_name_chromatic, octave):
 
 
 def generate_note_waveform(frequency, duration_seconds, sample_rate, amplitude):
-    """진짜 베이스 기타 사운드를 모방한 파형을 생성합니다."""
+    """부드럽고 자연스러운 베이스 기타 사운드를 생성합니다."""
     num_samples = int(duration_seconds * sample_rate)
     if num_samples <= 0:
         return np.array([])
         
     t = np.linspace(0, duration_seconds, num_samples, endpoint=False)
     
-    # 베이스 기타의 하모닉 구조 (기본음 + 배음들)
+    # 더 부드러운 베이스 기타 하모닉 구조
     fundamental = np.sin(2 * np.pi * frequency * t)
-    harmonic_2 = 0.6 * np.sin(2 * np.pi * frequency * 2 * t)  # 2배음
-    harmonic_3 = 0.3 * np.sin(2 * np.pi * frequency * 3 * t)  # 3배음
-    harmonic_4 = 0.2 * np.sin(2 * np.pi * frequency * 4 * t)  # 4배음
-    harmonic_5 = 0.1 * np.sin(2 * np.pi * frequency * 5 * t)  # 5배음
+    harmonic_2 = 0.4 * np.sin(2 * np.pi * frequency * 2 * t)  # 2배음 감소
+    harmonic_3 = 0.2 * np.sin(2 * np.pi * frequency * 3 * t)  # 3배음 감소
+    harmonic_4 = 0.1 * np.sin(2 * np.pi * frequency * 4 * t)  # 4배음 감소
     
-    # 베이스 특유의 저주파 강화를 위한 서브 하모닉
-    sub_harmonic = 0.3 * np.sin(2 * np.pi * frequency * 0.5 * t)
+    # 서브 하모닉은 더 부드럽게
+    sub_harmonic = 0.15 * np.sin(2 * np.pi * frequency * 0.5 * t) * np.exp(-t * 0.5)
     
-    # 베이스 기타의 특징적인 톤을 위한 약간의 포화(saturation) 효과
-    saturation = 0.05 * np.sin(2 * np.pi * frequency * 7 * t) * np.exp(-t * 2)
+    # 모든 하모닉 합성 (포화 효과 제거)
+    waveform = fundamental + harmonic_2 + harmonic_3 + harmonic_4 + sub_harmonic
     
-    # 모든 하모닉 합성
-    waveform = fundamental + harmonic_2 + harmonic_3 + harmonic_4 + harmonic_5 + sub_harmonic + saturation
-    
-    # 베이스 기타의 특징적인 ADSR 엔벨로프 (빠른 어택, 긴 서스테인, 자연스러운 릴리스)
-    attack_percent = 0.005  # 매우 빠른 어택
-    decay_percent = 0.05    # 짧은 디케이
-    sustain_level = 0.7     # 서스테인 레벨
-    release_percent = 0.4   # 긴 릴리스
+    # 부드러운 ADSR 엔벨로프
+    attack_percent = 0.01   # 조금 더 부드러운 어택
+    decay_percent = 0.08    # 더 부드러운 디케이
+    sustain_level = 0.8     # 더 높은 서스테인
+    release_percent = 0.3   # 더 부드러운 릴리스
 
     attack_samples = int(num_samples * attack_percent)
     decay_samples = int(num_samples * decay_percent)
@@ -276,15 +272,21 @@ def generate_note_waveform(frequency, duration_seconds, sample_rate, amplitude):
     
     envelope = np.ones(num_samples)
 
-    # Attack
+    # 부드러운 Attack (S-커브 사용)
     if attack_samples > 0:
-        envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
+        attack_curve = np.linspace(0, 1, attack_samples)
+        # S-커브로 더 부드러운 어택
+        attack_curve = attack_curve * attack_curve * (3 - 2 * attack_curve)
+        envelope[:attack_samples] = attack_curve
     
-    # Decay
+    # 부드러운 Decay
     if decay_samples > 0:
         start_decay = attack_samples
         end_decay = start_decay + decay_samples
-        envelope[start_decay:end_decay] = np.linspace(1, sustain_level, decay_samples)
+        decay_curve = np.linspace(1, sustain_level, decay_samples)
+        # 지수적 감소로 더 자연스럽게
+        decay_curve = sustain_level + (1 - sustain_level) * np.exp(-3 * np.linspace(0, 1, decay_samples))
+        envelope[start_decay:end_decay] = decay_curve
     
     # Sustain
     if sustain_samples > 0:
@@ -292,20 +294,28 @@ def generate_note_waveform(frequency, duration_seconds, sample_rate, amplitude):
         end_sustain = start_sustain + sustain_samples
         envelope[start_sustain:end_sustain] = sustain_level
     
-    # Release
+    # 부드러운 Release (지수적 감소)
     if release_samples > 0:
         start_release = num_samples - release_samples
-        envelope[start_release:] = np.linspace(sustain_level, 0, release_samples)
+        release_curve = np.linspace(0, 1, release_samples)
+        # 지수적 감소로 자연스러운 릴리스
+        release_curve = sustain_level * np.exp(-3 * release_curve)
+        envelope[start_release:] = release_curve
     
     # 파형에 엔벨로프 적용
     waveform *= envelope
     
-    # 최종 볼륨 조정
-    waveform *= amplitude
+    # 클리핑 방지를 위한 소프트 제한
+    max_val = np.max(np.abs(waveform))
+    if max_val > 0:
+        # 소프트 클리핑 (tanh 함수 사용)
+        waveform = np.tanh(waveform * 0.8) * amplitude * 0.9
+    else:
+        waveform *= amplitude * 0.9
     
-    # 베이스 주파수 강화를 위한 저역 필터 효과 (간단한 로우패스)
-    if frequency < 200:  # 베이스 주파수 영역
-        waveform *= 1.2  # 저음역 부스트
+    # 베이스 주파수 강화 (더 부드럽게)
+    if frequency < 150:  # 베이스 주파수 영역
+        waveform *= 1.1  # 저음역 부스트 감소
     
     return waveform
 
@@ -399,9 +409,15 @@ def create_bass_loop_from_parsed_sequence(notes_sequence, bpm, num_loops):
     
     final_waveform = np.tile(full_loop_waveform, num_loops)
     
-    max_val = np.max(np.abs(final_waveform))
-    if max_val > 0:
-        final_waveform = final_waveform / max_val * MAX_AMPLITUDE 
+    # 부드러운 정규화 (RMS 기반)
+    rms = np.sqrt(np.mean(final_waveform**2))
+    if rms > 0:
+        # RMS 정규화로 더 일관된 볼륨
+        target_rms = MAX_AMPLITUDE * 0.3  # 더 보수적인 볼륨
+        final_waveform = final_waveform * (target_rms / rms)
+    
+    # 하드 클리핑 방지
+    final_waveform = np.clip(final_waveform, -MAX_AMPLITUDE * 0.95, MAX_AMPLITUDE * 0.95)
     
     audio_data_int16 = final_waveform.astype(np.int16)
 
