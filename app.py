@@ -485,6 +485,13 @@ def generate_music21_score_with_fallback(
 
         part = stream.Part()
         part.append(clef.BassClef())
+        
+        # 베이스 기타 악기 설정
+        from music21 import instrument
+        bass_instrument = instrument.ElectricBass()
+        bass_instrument.instrumentName = 'Bass Guitar'
+        bass_instrument.midiProgram = 32  # Acoustic Bass
+        part.insert(0, bass_instrument)
 
         for n_name, octv, dur, is_rest, accidental in notes_sequence:
             if is_rest:
@@ -529,10 +536,23 @@ def generate_music21_score_with_fallback(
                 logger.warning(f"MuseScore SVG STDERR: {result_svg.stderr.strip()}")
             
             if result_svg.returncode != 0:
-                raise RuntimeError(f"MuseScore SVG 생성 실패 (Return Code: {result_svg.returncode})")
+                logger.warning(f"MuseScore SVG 생성 경고 (Return Code: {result_svg.returncode}), 하지만 파일 확인 중...")
             
-            if not os.path.exists(svg_path) or os.path.getsize(svg_path) == 0:
-                raise RuntimeError(f"SVG 파일이 생성되지 않았거나 비어있음: {svg_path}")
+            # 파일 생성 확인 (약간의 대기 시간 추가)
+            import time
+            time.sleep(0.5)
+            
+            if not os.path.exists(svg_path):
+                raise RuntimeError(f"SVG 파일이 생성되지 않음: {svg_path}")
+            
+            if os.path.getsize(svg_path) == 0:
+                raise RuntimeError(f"SVG 파일이 비어있음: {svg_path}")
+            
+            # SVG 파일 내용 검증
+            with open(svg_path, 'r', encoding='utf-8') as f:
+                svg_content = f.read(200)  # 처음 200자만 확인
+                if not svg_content.strip().startswith('<?xml') and not svg_content.strip().startswith('<svg'):
+                    raise RuntimeError(f"유효하지 않은 SVG 파일: {svg_path}")
             
             logger.info(f"SVG 생성 성공: {svg_path}, 크기: {os.path.getsize(svg_path)} 바이트")
 
@@ -619,7 +639,7 @@ def generate_midi_file(notes_sequence, bpm):
         track = MidiTrack()
         mid.tracks.append(track)
         
-        track.append(Message('program_change', channel=0, program=32, time=0))  # Acoustic Bass (MIDI General MIDI #33)
+        track.append(Message('program_change', channel=0, program=33, time=0))  # Electric Bass (finger) - MIDI General MIDI #34
         
         tempo_microseconds = mido.bpm2tempo(bpm)
         track.append(mido.MetaMessage('set_tempo', tempo=tempo_microseconds))
