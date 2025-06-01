@@ -148,7 +148,18 @@ except ImportError:
     print("Warning: python-dotenv 라이브러리가 설치되지 않았습니다.")
 
 # 로깅 설정
-logging.basicConfig(level=logging.INFO)
+is_production = os.environ.get('RENDER') == 'true' or os.environ.get('ENVIRONMENT') == 'production'
+
+if is_production:
+    # 프로덕션 환경: WARNING 이상만 로깅
+    logging.basicConfig(level=logging.WARNING)
+    # Gunicorn DEBUG 로그 완전히 비활성화
+    logging.getLogger('gunicorn.error').setLevel(logging.ERROR)
+    logging.getLogger('gunicorn.access').setLevel(logging.ERROR)
+else:
+    # 개발 환경: INFO 이상 로깅
+    logging.basicConfig(level=logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 # --- Hardcoded MusicXML Test (글로벌 플래그) ---
@@ -1012,6 +1023,11 @@ def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
 def index_page(): 
     """메인 페이지 렌더링"""
     return render_template('index.html')
+
+@app.route('/health')
+def health_check():
+    """헬스체크 엔드포인트 (로깅 최소화)"""
+    return {'status': 'ok'}, 200
 
 @app.route('/generate_notes', methods=['POST'])
 def generate_notes_route(): 
