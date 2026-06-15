@@ -1,15 +1,16 @@
 import numpy as np
 from scipy.io.wavfile import write as write_wav
 from flask import Flask, render_template, request, send_file, Response, jsonify
-import io 
+import io
 import re
 import os
 import ast # For safe parsing of LLM output
+import glob
 import traceback
 import logging
 import tempfile
 import shutil
-import base64 
+import base64
 import subprocess
 
 # Music21 라이브러리 (악보 생성)
@@ -568,7 +569,14 @@ def generate_music21_score_with_fallback(
             # 파일 생성 확인 (약간의 대기 시간 추가)
             import time
             time.sleep(0.5)
-            
+
+            # MuseScore는 페이지 번호 접미사(예: score-1.svg)로 저장할 수 있으므로 보정한다.
+            if not os.path.exists(svg_path):
+                svg_candidates = sorted(glob.glob(os.path.join(temp_dir, "*.svg")))
+                if svg_candidates:
+                    logger.info(f"기대한 SVG 경로({svg_path})가 없어 대체 파일 사용: {svg_candidates[0]}")
+                    svg_path = svg_candidates[0]
+
             if not os.path.exists(svg_path):
                 raise RuntimeError(f"SVG 파일이 생성되지 않음: {svg_path}")
             
@@ -1036,9 +1044,14 @@ def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
 # --- Flask 웹 라우트 ---
 
 @app.route('/')
-def index_page(): 
+def index_page():
     """메인 페이지 렌더링"""
-    return render_template('index.html')
+    return render_template(
+        'index.html',
+        music21_available=MUSIC21_AVAILABLE,
+        midi_available=MIDI_AVAILABLE,
+        gemini_available=GEMINI_AVAILABLE,
+    )
 
 @app.route('/health')
 def health_check():
@@ -1293,7 +1306,12 @@ def debug_musescore():
 
 @app.errorhandler(404)
 def not_found_error(error):
-    return render_template('index.html'), 404
+    return render_template(
+        'index.html',
+        music21_available=MUSIC21_AVAILABLE,
+        midi_available=MIDI_AVAILABLE,
+        gemini_available=GEMINI_AVAILABLE,
+    ), 404
 
 @app.errorhandler(500)
 def internal_error(error):

@@ -1,98 +1,289 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎵 프로 베이스 루프 생성기 🎸</title>
-    <!-- Google Fonts - Rubik 폰트 가져오기 -->
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
-    
+    <title>🎵 베이스 루프 자동 생성기 🎸</title>
+
+    <!-- 테마 선깜빡임(FOUC) 방지: 페인트 전에 테마 적용 -->
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('baseloop-theme');
+                var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var theme = saved || (prefersDark ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) { /* localStorage 비활성 환경 무시 */ }
+        })();
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
     <style>
-        /* CSS 변수: 색상 팔레트 정의 */
+        /* ============================================================
+           디자인 시스템 — 라이트/다크 듀얼 테마 (균형 잡힌 중간 톤)
+           ============================================================ */
         :root {
-            --primary-color: #3b82f6;
-            --primary-hover-color: #2563eb;
-            --accent-color: #10b981;
-            --secondary-color: #8b5cf6;
-            --background-color: #f8fafc;
-            --card-background: #ffffff;
-            --text-color: #334155;
-            --light-text-color: #64748b;
-            --border-color: #e2e8f0;
-            --error-color: #ef4444;
-            --success-color: #22c55e;
-            --warning-color: #f59e0b;
+            color-scheme: light;
+            --bg: #e9edf3;
+            --bg-glow-1: rgba(79, 110, 247, 0.10);
+            --bg-glow-2: rgba(139, 92, 246, 0.10);
+            --surface: #ffffff;
+            --surface-2: #f3f6fb;
+            --surface-3: #eaeff8;
+            --text: #28304a;
+            --text-muted: #687087;
+            --border: #d9e0ec;
+            --border-strong: #c5cfdf;
+            --primary: #4f6ef7;
+            --primary-hover: #3f5be0;
+            --primary-soft: rgba(79, 110, 247, 0.12);
+            --secondary: #8b5cf6;
+            --secondary-hover: #7c3aed;
+            --accent: #0fb07c;
+            --accent-hover: #0a9a6b;
+            --warning: #e0902b;
+            --warning-hover: #c87d1d;
+            --error: #e2554f;
+            --success: #1faa5a;
+            --shadow: 0 12px 32px rgba(40, 48, 74, 0.10);
+            --shadow-sm: 0 2px 10px rgba(40, 48, 74, 0.07);
+            --ring: rgba(79, 110, 247, 0.28);
+            /* 악보는 가독성을 위해 테마와 무관하게 밝은 '종이' 표면 사용 */
+            --paper: #ffffff;
+            --paper-border: #d5d5dd;
         }
 
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #141925;
+            --bg-glow-1: rgba(99, 133, 255, 0.16);
+            --bg-glow-2: rgba(167, 139, 250, 0.14);
+            --surface: #1d2330;
+            --surface-2: #242c3b;
+            --surface-3: #2b3445;
+            --text: #e7ebf3;
+            --text-muted: #98a2b8;
+            --border: #313b50;
+            --border-strong: #3d4863;
+            --primary: #6385ff;
+            --primary-hover: #7a96ff;
+            --primary-soft: rgba(99, 133, 255, 0.18);
+            --secondary: #a78bfa;
+            --secondary-hover: #b9a3ff;
+            --accent: #20c78d;
+            --accent-hover: #36d29c;
+            --warning: #f0a23e;
+            --warning-hover: #f6b257;
+            --error: #f06a64;
+            --success: #34c378;
+            --shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+            --shadow-sm: 0 3px 14px rgba(0, 0, 0, 0.4);
+            --ring: rgba(99, 133, 255, 0.36);
+            --paper: #fbfbfd;
+            --paper-border: #c9ccd6;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body { margin: 0; padding: 0; }
+
         body {
-            font-family: 'Rubik', sans-serif;
-            background-color: var(--background-color);
-            color: var(--text-color);
+            font-family: 'Rubik', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(900px circle at 12% -8%, var(--bg-glow-1), transparent 45%),
+                radial-gradient(900px circle at 100% 0%, var(--bg-glow-2), transparent 45%);
+            background-attachment: fixed;
+            color: var(--text);
             line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
             min-height: 100vh;
-            box-sizing: border-box;
+            padding: 24px 16px 48px;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            transition: background-color 0.35s ease, color 0.35s ease;
         }
+
         .container {
-            background-color: var(--card-background);
-            padding: 35px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-            max-width: 950px;
-            width: 100%;
-            margin-top: 30px;
-            box-sizing: border-box;
+            max-width: 920px;
+            margin: 0 auto;
         }
-        h1 {
-            color: var(--primary-color);
-            text-align: center;
-            margin-bottom: 35px;
-            font-size: 2.2em;
+
+        /* ── 상단 바 + 테마 토글 ───────────────────────── */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             font-weight: 700;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.05);
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
         }
-        
-        /* 기능 상태 표시 */
-        .features-status {
-            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-            padding: 15px;
+        .brand .logo {
+            width: 34px; height: 34px;
+            display: grid; place-items: center;
             border-radius: 10px;
-            margin-bottom: 25px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff; font-size: 1.05rem;
+            box-shadow: var(--shadow-sm);
+        }
+        .theme-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--surface);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.86rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.15s ease, border-color 0.2s ease, background 0.2s ease;
+        }
+        .theme-toggle:hover { transform: translateY(-1px); border-color: var(--primary); }
+        .theme-toggle:active { transform: translateY(0); }
+        .theme-toggle .theme-icon { font-size: 1rem; line-height: 1; }
+
+        /* ── 히어로 ───────────────────────── */
+        .hero { text-align: center; margin-bottom: 22px; }
+        h1 {
+            margin: 0 0 8px;
+            font-size: clamp(1.7rem, 4.5vw, 2.4rem);
+            font-weight: 700;
+            line-height: 1.15;
+            background: linear-gradient(120deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .hero p { margin: 0; color: var(--text-muted); font-size: 0.98rem; }
+
+        /* ── 기능 상태 칩 ───────────────────────── */
+        .features-status {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+        .features-status .label {
+            width: 100%;
             text-align: center;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 2px;
         }
         .feature-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            margin: 2px 4px;
-            border-radius: 15px;
-            font-size: 0.8em;
-            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 11px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border: 1px solid transparent;
         }
         .feature-available {
-            background-color: var(--success-color);
-            color: white;
+            background: color-mix(in srgb, var(--success) 16%, transparent);
+            color: var(--success);
+            border-color: color-mix(in srgb, var(--success) 30%, transparent);
         }
         .feature-unavailable {
-            background-color: var(--error-color);
-            color: white;
+            background: color-mix(in srgb, var(--error) 14%, transparent);
+            color: var(--error);
+            border-color: color-mix(in srgb, var(--error) 28%, transparent);
+            opacity: 0.85;
         }
-        
-        form {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        label {
-            margin-bottom: 5px;
+
+        /* ── 메시지 영역 ───────────────────────── */
+        .message-area {
+            padding: 12px 16px;
+            margin-bottom: 18px;
+            border-radius: 12px;
+            font-size: 0.94rem;
             font-weight: 500;
-            color: var(--text-color);
-            font-size: 1.05em;
+            word-wrap: break-word;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            box-shadow: var(--shadow-sm);
+        }
+        .message-area.success {
+            background: color-mix(in srgb, var(--success) 12%, var(--surface));
+            color: var(--success);
+            border-color: color-mix(in srgb, var(--success) 35%, transparent);
+        }
+        .message-area.error {
+            background: color-mix(in srgb, var(--error) 12%, var(--surface));
+            color: var(--error);
+            border-color: color-mix(in srgb, var(--error) 35%, transparent);
+        }
+        .message-area.warning {
+            background: color-mix(in srgb, var(--warning) 14%, var(--surface));
+            color: var(--warning-hover);
+            border-color: color-mix(in srgb, var(--warning) 35%, transparent);
+        }
+        .message-area.info {
+            color: var(--primary);
+            border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+        }
+
+        /* ── 카드 ───────────────────────── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 22px;
+            box-shadow: var(--shadow-sm);
+            transition: background-color 0.35s ease, border-color 0.35s ease;
+        }
+        .card + .card { margin-top: 16px; }
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin: 0 0 18px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .card-title::before {
+            content: '';
+            width: 4px; height: 18px;
+            border-radius: 3px;
+            background: linear-gradient(var(--primary), var(--secondary));
+        }
+        .card-subtitle {
+            margin: -10px 0 16px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* ── 폼 필드 ───────────────────────── */
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px 16px;
+        }
+        .field { display: flex; flex-direction: column; gap: 7px; }
+        .field.full { grid-column: 1 / -1; }
+        label {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.9rem;
         }
         input[type="number"],
         input[type="text"],
@@ -100,422 +291,392 @@
         select,
         textarea {
             width: 100%;
-            padding: 14px 16px;
-            margin-bottom: 0; 
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            box-sizing: border-box;
-            font-size: 1em;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            transition: all 0.3s ease;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            background-color: var(--surface-2);
+            color: var(--text);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23687087' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 38px;
         }
         input:focus, select:focus, textarea:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--ring);
             outline: none;
+            background-color: var(--surface);
         }
         textarea {
-            min-height: 120px;
+            min-height: 110px;
             resize: vertical;
             font-family: 'Fira Code', 'Roboto Mono', monospace;
-            line-height: 1.5;
+            line-height: 1.6;
+            font-size: 0.9rem;
         }
-        button {
-            flex-grow: 1;
-            background-color: var(--primary-color);
-            color: white;
-            padding: 14px 28px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1.1em; 
-            font-weight: 700;
-            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        .hint {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin: 8px 0 0;
         }
-        button:hover:not(:disabled) {
-            background-color: var(--primary-hover-color);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
-        }
-        button:active:not(:disabled) {
-            transform: translateY(0);
-            box-shadow: none;
-        }
-        button:disabled {
-            background-color: #9ca3af;
-            cursor: not-allowed;
-            opacity: 0.8;
-        }
-        
-        /* 다양한 버튼 스타일 */
-        .btn-secondary {
-            background-color: var(--accent-color);
-        }
-        .btn-secondary:hover:not(:disabled) {
-            background-color: #059669;
-        }
-        
-        .btn-purple {
-            background-color: var(--secondary-color);
-        }
-        .btn-purple:hover:not(:disabled) {
-            background-color: #7c3aed;
-        }
-        
-        .btn-warning {
-            background-color: var(--warning-color);
-        }
-        .btn-warning:hover:not(:disabled) {
-            background-color: #d97706;
-        }
-        
-        /* 버튼 그룹 */
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        .button-group button {
-            flex: 1;
-        }
-        
-        .info-text {
+        .hint code {
+            font-family: 'Fira Code', monospace;
+            background: var(--surface-3);
+            padding: 2px 6px;
+            border-radius: 6px;
             font-size: 0.85em;
-            color: var(--light-text-color);
-            margin-top: -10px; 
-            margin-bottom: 10px; 
+            color: var(--text);
         }
         .warning-text {
-            color: var(--error-color);
+            color: var(--warning-hover);
             font-weight: 500;
         }
-        /* 메시지 영역 */
-        .message-area {
-            padding: 10px 15px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            font-size: 0.95em;
-            word-wrap: break-word;
+
+        /* ── 버튼 ───────────────────────── */
+        button {
+            font-family: inherit;
+            border: none;
+            border-radius: 11px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
         }
-        .message-area.success {
-            background-color: rgba(34, 197, 94, 0.1); 
-            color: var(--success-color);
-            border: 1px solid rgba(34, 197, 94, 0.3);
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 13px 20px;
+            font-size: 1rem;
+            color: #fff;
+            background-color: var(--primary);
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent);
         }
-        .message-area.error {
-            background-color: rgba(239, 68, 68, 0.1); 
-            color: var(--error-color);
-            border: 1px solid rgba(239, 68, 68, 0.3);
+        .btn:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 42%, transparent);
         }
-        .message-area.warning {
-            background-color: rgba(245, 158, 11, 0.1); 
-            color: var(--warning-color);
-            border: 1px solid rgba(245, 158, 11, 0.3);
+        .btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+        .btn:disabled { background-color: var(--text-muted); cursor: not-allowed; opacity: 0.55; box-shadow: none; }
+        .btn-block { width: 100%; margin-top: 6px; }
+
+        .btn-secondary { background-color: var(--accent); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
+        .btn-secondary:hover:not(:disabled) { background-color: var(--accent-hover); box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 42%, transparent); }
+        .btn-purple { background-color: var(--secondary); box-shadow: 0 4px 14px color-mix(in srgb, var(--secondary) 35%, transparent); }
+        .btn-purple:hover:not(:disabled) { background-color: var(--secondary-hover); box-shadow: 0 8px 22px color-mix(in srgb, var(--secondary) 42%, transparent); }
+        .btn-warning { background-color: var(--warning); box-shadow: 0 4px 14px color-mix(in srgb, var(--warning) 35%, transparent); }
+        .btn-warning:hover:not(:disabled) { background-color: var(--warning-hover); box-shadow: 0 8px 22px color-mix(in srgb, var(--warning) 42%, transparent); }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 14px;
         }
-        /* 로딩 스피너 */
+        .button-group .btn { padding: 12px 14px; font-size: 0.92rem; }
+
+        /* ── 로딩 스피너 ───────────────────────── */
         .loading-spinner {
             display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
             text-align: center;
-            font-size: 1.2em;
-            color: var(--primary-color);
-            margin-top: 15px;
-            font-weight: bold;
+            font-size: 0.95rem;
+            color: var(--primary);
+            margin-top: 12px;
+            font-weight: 600;
         }
+        .loading-spinner.active { display: flex; }
         .loading-spinner::after {
             content: '';
-            display: inline-block;
-            width: 1.2em;
-            height: 1.2em;
-            margin-left: 0.5em;
-            border: 0.15em solid rgba(59, 130, 246, 0.3);
-            border-top: 0.15em solid var(--primary-color);
+            width: 1.1em; height: 1.1em;
+            border: 0.16em solid var(--primary-soft);
+            border-top-color: var(--primary);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        /* 오디오 플레이어 */
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── 오디오 플레이어 ───────────────────────── */
         audio {
             width: 100%;
-            margin-top: 25px;
-            margin-bottom: 10px;
-            background-color: var(--background-color);
-            border-radius: 8px;
-            box-shadow: inset 0 0 8px rgba(0,0,0,0.05);
-            padding: 5px;
+            margin-top: 16px;
+            border-radius: 10px;
         }
-        
-        /* 악보 시각화 영역 */
-        #notation-area {
-            margin-top: 20px;
-            padding: 20px;
-            border-top: 1px solid var(--border-color);
-            text-align: center;
-            background-color: var(--card-background);
+
+        /* ── 악보 표시 영역 ───────────────────────── */
+        .score-card { margin-top: 16px; }
+        #professional-score-area { display: none; }
+        .paper {
+            background: var(--paper);
+            border: 1px solid var(--paper-border);
             border-radius: 12px;
+            padding: 16px;
             overflow-x: auto;
             overflow-y: hidden;
             -webkit-overflow-scrolling: touch;
+            text-align: center;
             scrollbar-width: thin;
-            scrollbar-color: var(--primary-color) var(--background-color);
+            scrollbar-color: var(--primary) transparent;
         }
-        
-        #notation-area::-webkit-scrollbar {
-            height: 8px;
-        }
-        
-        #notation-area::-webkit-scrollbar-track {
-            background: var(--background-color);
-            border-radius: 4px;
-        }
-        
-        #notation-area::-webkit-scrollbar-thumb {
-            background: var(--primary-color);
-            border-radius: 4px;
-        }
-        
-        #notation-area::-webkit-scrollbar-thumb:hover {
-            background: var(--primary-hover-color);
-        }
-        #sheetMusicCanvas {
-            border: 1px solid var(--border-color);
-            background-color: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        .paper::-webkit-scrollbar { height: 9px; }
+        .paper::-webkit-scrollbar-track { background: transparent; }
+        .paper::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; }
+        .paper::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+        #professionalScore {
+            display: none;
             max-width: 100%;
             height: auto;
-            border-radius: 8px;
+            margin: 0 auto;
+            border-radius: 6px;
+        }
+        #textScore {
+            display: none;
+            text-align: left;
+            background: var(--surface-2);
+            color: var(--text);
+            padding: 16px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            margin: 0;
+            border: 1px solid var(--border);
+        }
+        #sheetMusicCanvas {
+            max-width: 100%;
+            height: auto;
             display: block;
             margin: 0 auto;
-            object-fit: contain;
-        }
-        
-        #professionalScore {
-            max-width: 100%;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-radius: 6px;
         }
 
-        /* 모바일 반응형 조정 */
-        @media (max-width: 768px) {
-            .container {
-                padding: 15px;
-                margin-top: 10px;
-                border-radius: 10px;
-                max-width: 98%;
-            }
-            h1 {
-                font-size: 1.5em;
-                margin-bottom: 20px;
-            }
-            button {
-                padding: 12px 16px;
-                font-size: 0.95em;
-            }
-            .button-group {
-                flex-direction: column;
-                gap: 8px;
-            }
-            #sheetMusicCanvas, #professionalScore {
-                width: 100%;
-                max-width: 100%;
-                height: auto;
-            }
-            #notation-area {
-                padding: 15px;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-            }
-            .features-status {
-                padding: 10px;
-                margin-bottom: 15px;
-            }
-            .feature-badge {
-                font-size: 0.75em;
-                padding: 3px 6px;
-                margin: 1px 2px;
-            }
-            textarea {
-                min-height: 100px;
-                font-size: 0.9em;
-            }
-            input[type="number"],
-            input[type="text"],
-            input[type="password"],
-            select {
-                padding: 12px 14px;
-                font-size: 0.95em;
-            }
+        .footer {
+            text-align: center;
+            margin-top: 26px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
         }
-        
-        @media (max-width: 480px) {
-            .container {
-                padding: 10px;
-                margin-top: 5px;
-            }
-            h1 {
-                font-size: 1.3em;
-                margin-bottom: 15px;
-            }
-            button {
-                padding: 10px 14px;
-                font-size: 0.9em;
-            }
-            #sheetMusicCanvas {
-                transform: scale(0.8);
-                transform-origin: center top;
-            }
-            .feature-badge {
-                display: block;
-                margin: 2px 0;
-                text-align: center;
-            }
+        .footer a { color: var(--primary); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        /* ── 반응형 ───────────────────────── */
+        @media (max-width: 600px) {
+            body { padding: 16px 12px 40px; }
+            .card { padding: 18px; border-radius: 15px; }
+            .field-grid { grid-template-columns: 1fr; }
+            .button-group { grid-template-columns: 1fr; }
+            .brand span { display: none; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎵 베이스 루프 자동 생성기 🎸</h1>
+
+        <!-- 상단 바 -->
+        <div class="topbar">
+            <div class="brand">
+                <span class="logo">🎸</span>
+                <span>BASE&nbsp;LOOP</span>
+            </div>
+            <button type="button" id="themeToggle" class="theme-toggle" onclick="toggleTheme()" aria-pressed="false" title="라이트/다크 테마 전환">
+                <span class="theme-icon">☀️</span>
+                <span class="theme-label">라이트</span>
+            </button>
+        </div>
+
+        <!-- 히어로 -->
+        <div class="hero">
+            <h1>🎵 베이스 루프 자동 생성기 🎸</h1>
+            <p>스타일·AI로 베이스 라인을 만들고, 악보·MIDI·LilyPond로 내보내세요.</p>
+        </div>
 
         <!-- 기능 상태 표시 -->
         <div class="features-status">
-            <h4 style="margin: 0 0 10px 0; color: var(--text-color);">🔧 사용 가능한 기능</h4>
-            <span class="feature-badge {% if music21_available %}feature-available{% else %}feature-unavailable{% endif %}">
-                🎼 Music21 전문 악보
-            </span>
-            <span class="feature-badge {% if midi_available %}feature-available{% else %}feature-unavailable{% endif %}">
-                🎹 MIDI 파일
-            </span>
-            <span class="feature-badge {% if gemini_available %}feature-available{% else %}feature-unavailable{% endif %}">
-                🤖 Gemini AI
-            </span>
+            <span class="label">🔧 사용 가능한 기능</span>
+            <span class="feature-badge {% if music21_available %}feature-available{% else %}feature-unavailable{% endif %}">🎼 Music21 전문 악보</span>
+            <span class="feature-badge {% if midi_available %}feature-available{% else %}feature-unavailable{% endif %}">🎹 MIDI 파일</span>
+            <span class="feature-badge {% if gemini_available %}feature-available{% else %}feature-unavailable{% endif %}">🤖 Gemini AI</span>
             <span class="feature-badge feature-available">📝 LilyPond 악보</span>
         </div>
 
         <div id="messageArea" class="message-area" style="display:none;"></div>
 
-        <form id="bassGeneratorForm"> 
-            
-            <label for="generation_mode">생성 모드 선택</label>
-            <select id="generation_mode" name="generation_mode" onchange="toggleModeOptions()">
-                <option value="random" selected>스타일 기반 랜덤 생성</option>
-                <option value="ai">AI (Gemini) 추천 악보</option>
-            </select>
+        <form id="bassGeneratorForm">
 
-            <!-- AI 모드 관련 필드 (기본은 숨김) -->
-            <div id="ai_mode_options" style="display:none;">
-                <label for="gemini_api_key_input">Gemini API 키</label>
-                <input type="password" id="gemini_api_key_input" name="gemini_api_key_input" placeholder="Google AI Studio에서 발급받은 키 입력">
-                <p class="info-text warning-text">
-                    ⚠️ 경고: 이 키는 웹 서버로 전송됩니다. 학습/테스트용으로만 사용하며 보안에 주의하세요.
-                </p>
-            </div>
+            <!-- 1) 생성 설정 -->
+            <section class="card">
+                <h2 class="card-title">생성 설정</h2>
 
-            <!-- 공통 파라미터 (모든 모드에서 사용) -->
-            <label for="bpm_input">BPM (분당 박자)</label>
-            <input type="number" id="bpm_input" name="bpm_input" value="120" min="30" max="240" required>
+                <div class="field-grid">
+                    <div class="field full">
+                        <label for="generation_mode">생성 모드</label>
+                        <select id="generation_mode" name="generation_mode" onchange="toggleModeOptions()">
+                            <option value="random" selected>스타일 기반 랜덤 생성</option>
+                            <option value="ai">AI (Gemini) 추천 악보</option>
+                        </select>
+                    </div>
 
-            <label for="length_input">루프 길이 (마디)</label>
-            <input type="number" id="length_input" name="length_input" value="4" min="1" max="16" required>
-            
-            <label for="key_note_input">루트 음 (근음)</label>
-            <select id="key_note_input" name="key_note_input">
-                <option value="C" selected>C</option>
-                <option value="C#">C#</option>
-                <option value="D">D</option>
-                <option value="D#">D#</option>
-                <option value="E">E</option>
-                <option value="F">F</option>
-                <option value="F#">F#</option>
-                <option value="G">G</option>
-                <option value="G#">G#</option>
-                <option value="A">A</option>
-                <option value="A#">A#</option>
-                <option value="B">B</option>
-            </select>
-            
-            <label for="octave_input">기본 옥타브 (C1=1, C2=2 등)</label>
-            <input type="number" id="octave_input" name="octave_input" value="2" min="0" max="4" required>
+                    <!-- AI 모드 관련 필드 (기본 숨김) -->
+                    <div class="field full" id="ai_mode_options" style="display:none;">
+                        <label for="gemini_api_key_input">Gemini API 키</label>
+                        <input type="password" id="gemini_api_key_input" name="gemini_api_key_input" placeholder="Google AI Studio에서 발급받은 키 입력">
+                        <p class="hint warning-text">⚠️ 이 키는 웹 서버로 전송됩니다. 학습/테스트용으로만 사용하고 보안에 주의하세요.</p>
+                    </div>
 
-            <label for="genre_input">장르 스타일</label>
-            <select id="genre_input" name="genre_input">
-                <option value="rock" selected>락</option>
-                <option value="funk">펑크</option>
-                <option value="pop">팝</option>
-                <option value="jazz">재즈</option>
-                <option value="blues">블루스</option>
-                <option value="reggae">레게</option>
-                <option value="hiphop">힙합</option>
-                <option value="random">완전 랜덤 (정확도 낮음)</option>
-            </select>
+                    <div class="field">
+                        <label for="bpm_input">BPM (분당 박자)</label>
+                        <input type="number" id="bpm_input" name="bpm_input" value="120" min="30" max="240" required>
+                    </div>
 
-            <!-- 악보 생성 버튼 -->
-            <button type="button" id="generateNotesBtn" onclick="generateNotes()">🎼 악보 자동 생성</button>
-            <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
-            
-            <label for="notes_sequence_input" style="margin-top: 10px;">생성/입력된 악보 시퀀스</label>
-            <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0</textarea>
-            <p class="info-text">
-                형식: `음표이름+옥타브 박자단위`를 쉼표로 구분. 예: `C2 1.0, G2 0.5, A2 0.5, F2 1.0`
-            </p>
+                    <div class="field">
+                        <label for="length_input">루프 길이 (마디)</label>
+                        <input type="number" id="length_input" name="length_input" value="4" min="1" max="16" required>
+                    </div>
 
-            <label for="num_loops_input">오디오 루프 반복 횟수</label>
-            <input type="number" id="num_loops_input" name="num_loops_input" value="2" min="1" max="100" required>
+                    <div class="field">
+                        <label for="key_note_input">루트 음 (근음)</label>
+                        <select id="key_note_input" name="key_note_input">
+                            <option value="C" selected>C</option>
+                            <option value="C#">C#</option>
+                            <option value="D">D</option>
+                            <option value="D#">D#</option>
+                            <option value="E">E</option>
+                            <option value="F">F</option>
+                            <option value="F#">F#</option>
+                            <option value="G">G</option>
+                            <option value="G#">G#</option>
+                            <option value="A">A</option>
+                            <option value="A#">A#</option>
+                            <option value="B">B</option>
+                        </select>
+                    </div>
 
-            <!-- 오디오 생성 및 재생 버튼 -->
-            <button type="button" id="playAudioBtn" onclick="playGeneratedAudio()">▶️ 베이스 루프 오디오 생성 & 재생</button>
-            <div id="loadingSpinnerAudio" class="loading-spinner">오디오 생성 중...</div>
+                    <div class="field">
+                        <label for="octave_input">기본 옥타브 (C1=1 …)</label>
+                        <input type="number" id="octave_input" name="octave_input" value="2" min="0" max="4" required>
+                    </div>
 
-            <!-- 새로운 다운로드 버튼들 -->
-            <div class="button-group">
-                <button type="button" onclick="downloadMidi()" class="btn-secondary">
-                    💾 MIDI 다운로드
-                </button>
-                <button type="button" onclick="downloadLilypond()" class="btn-purple">
-                    📝 LilyPond 악보
-                </button>
-                <button type="button" onclick="loadProfessionalScore()" class="btn-warning">
-                    🎼 전문 악보 보기
-                </button>
-            </div>
-
-            <!-- 오디오 플레이어 -->
-            <audio controls id="audioPlayer"></audio>
-
-            <!-- 전문 악보 표시 영역 (Music21) -->
-            <div id="professional-score-area" style="display:none; margin-top: 20px; padding: 20px; border-top: 1px solid var(--border-color); text-align: center;">
-                <h3 style="color: var(--secondary-color);">🎼 Music21 전문 악보</h3>
-                <div id="professionalScoreContainer">
-                    <img id="professionalScore" alt="전문 악보" style="display:none;">
-                    <pre id="textScore" style="text-align: left; background: #f8fafc; padding: 15px; border-radius: 8px; overflow-x: auto; display:none;"></pre>
+                    <div class="field full">
+                        <label for="genre_input">장르 스타일</label>
+                        <select id="genre_input" name="genre_input">
+                            <option value="rock" selected>락</option>
+                            <option value="funk">펑크</option>
+                            <option value="pop">팝</option>
+                            <option value="jazz">재즈</option>
+                            <option value="blues">블루스</option>
+                            <option value="reggae">레게</option>
+                            <option value="hiphop">힙합</option>
+                            <option value="random">완전 랜덤 (정확도 낮음)</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
 
-            <!-- 기존 Canvas 악보 시각화 영역 -->
-            <div id="notation-area">
-                <h3 style="color: var(--primary-color);">생성된 악보 (Canvas 렌더링)</h3>
-                <canvas id="sheetMusicCanvas"></canvas>
-            </div>
+                <button type="button" id="generateNotesBtn" class="btn btn-block" onclick="generateNotes()">🎼 악보 자동 생성</button>
+                <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
+            </section>
+
+            <!-- 2) 악보 시퀀스 -->
+            <section class="card">
+                <h2 class="card-title">악보 시퀀스</h2>
+                <div class="field full">
+                    <label for="notes_sequence_input">생성/입력된 악보 시퀀스</label>
+                    <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0</textarea>
+                </div>
+                <p class="hint">형식: <code>음표이름+옥타브 박자단위</code>를 쉼표로 구분. 예: <code>C2 1.0, G2 0.5, Eb2 0.5, F2 1.0</code> (샤프 <code>#</code>·플랫 <code>b</code> 지원)</p>
+            </section>
+
+            <!-- 3) 오디오 & 내보내기 -->
+            <section class="card">
+                <h2 class="card-title">오디오 &amp; 내보내기</h2>
+
+                <div class="field full">
+                    <label for="num_loops_input">오디오 루프 반복 횟수</label>
+                    <input type="number" id="num_loops_input" name="num_loops_input" value="2" min="1" max="100" required>
+                </div>
+
+                <button type="button" id="playAudioBtn" class="btn btn-block" onclick="playGeneratedAudio()">▶️ 베이스 루프 오디오 생성 &amp; 재생</button>
+                <div id="loadingSpinnerAudio" class="loading-spinner">오디오 생성 중...</div>
+
+                <audio controls id="audioPlayer"></audio>
+
+                <div class="button-group">
+                    <button type="button" id="midiBtn" onclick="downloadMidi()" class="btn btn-secondary">💾 MIDI 다운로드</button>
+                    <button type="button" id="lilypondBtn" onclick="downloadLilypond()" class="btn btn-purple">📝 LilyPond 악보</button>
+                    <button type="button" id="professionalScoreBtn" onclick="loadProfessionalScore()" class="btn btn-warning">🎼 전문 악보 보기</button>
+                </div>
+            </section>
+
+            <!-- 4) 전문 악보 (Music21 / MuseScore) -->
+            <section class="card score-card" id="professional-score-area">
+                <h2 class="card-title">🎼 Music21 전문 악보</h2>
+                <div class="paper" id="professionalScoreContainer">
+                    <img id="professionalScore" alt="전문 악보 (MuseScore SVG)">
+                    <pre id="textScore"></pre>
+                </div>
+            </section>
+
+            <!-- 5) Canvas 악보 -->
+            <section class="card score-card">
+                <h2 class="card-title">생성된 악보 <span style="font-weight:500;color:var(--text-muted);font-size:0.85rem;">(Canvas 렌더링)</span></h2>
+                <div class="paper" id="notation-area">
+                    <canvas id="sheetMusicCanvas"></canvas>
+                </div>
+            </section>
         </form>
+
+        <div class="footer">
+            🎸 Base Loop · <a href="https://baseloop.onrender.com/" target="_blank" rel="noopener">baseloop.onrender.com</a>
+        </div>
     </div>
 
     <!-- JavaScript 로직 -->
     <script>
+        // ============================================================
+        // 테마 토글
+        // ============================================================
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            try { localStorage.setItem('baseloop-theme', theme); } catch (e) {}
+            const btn = document.getElementById('themeToggle');
+            if (btn) {
+                const dark = theme === 'dark';
+                btn.setAttribute('aria-pressed', String(dark));
+                const icon = btn.querySelector('.theme-icon');
+                const label = btn.querySelector('.theme-label');
+                if (icon) icon.textContent = dark ? '🌙' : '☀️';
+                if (label) label.textContent = dark ? '다크' : '라이트';
+            }
+        }
+        function toggleTheme() {
+            const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            applyTheme(cur === 'dark' ? 'light' : 'dark');
+        }
+
         document.addEventListener('DOMContentLoaded', (event) => {
             console.log('✅ 페이지 로드 완료 - 업그레이드된 베이스 생성기 시작');
-            
+
+            // 현재 테마에 맞춰 토글 버튼 라벨 동기화
+            applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+
             // 페이지 로드 시 선택된 기본 모드에 따라 UI 조정
             toggleModeOptions();
-            // 메시지 영역 숨기기
             document.getElementById('messageArea').style.display = 'none';
-            
+
             // 기본 악보 렌더링
             setTimeout(() => {
-                renderSheetMusic(document.getElementById('notes_sequence_input').value, 
-                               parseInt(document.getElementById('length_input').value), 
+                renderSheetMusic(document.getElementById('notes_sequence_input').value,
+                               parseInt(document.getElementById('length_input').value),
                                parseInt(document.getElementById('bpm_input').value));
             }, 100);
 
@@ -527,45 +688,53 @@
             try {
                 const response = await fetch('/get_features_status');
                 const status = await response.json();
-                
                 console.log('기능 상태:', status);
-                
-                // 사용 불가능한 기능에 대한 안내
-                if (!status.music21) {
-                    console.warn('Music21이 설치되지 않았습니다. 전문 악보 기능을 사용할 수 없습니다.');
+
+                // 서버 응답 키: music21_available / midi_available / gemini_available
+                if (!status.music21_available) {
+                    console.warn('Music21이 설치되지 않았습니다. 전문 악보는 텍스트로 대체됩니다.');
+                    disableFeatureButton('professionalScoreBtn', 'Music21/MuseScore 미설치 — 텍스트 악보로 대체됩니다');
                 }
-                if (!status.midi) {
-                    console.warn('Mido가 설치되지 않았습니다. MIDI 다운로드 기능을 사용할 수 없습니다.');
+                if (!status.midi_available) {
+                    console.warn('Mido가 설치되지 않았습니다. MIDI 다운로드를 사용할 수 없습니다.');
+                    disableFeatureButton('midiBtn', 'Mido 라이브러리 미설치 — MIDI 내보내기를 사용할 수 없습니다');
                 }
             } catch (error) {
                 console.error('기능 상태 확인 실패:', error);
             }
         }
 
+        function disableFeatureButton(id, reason) {
+            const btn = document.getElementById(id);
+            if (btn) {
+                btn.disabled = true;
+                btn.title = reason;
+            }
+        }
+
         function showMessage(message, type = 'info') {
             const messageArea = document.getElementById('messageArea');
+            if (!message) { messageArea.style.display = 'none'; messageArea.textContent = ''; return; }
             messageArea.textContent = message;
-            messageArea.className = 'message-area';
-            if (type === 'success') {
-                messageArea.classList.add('success');
-            } else if (type === 'error') {
-                messageArea.classList.add('error');
-            } else if (type === 'warning') {
-                messageArea.classList.add('warning');
-            }
+            messageArea.className = 'message-area ' + type;
             messageArea.style.display = 'block';
         }
 
+        // 스피너 ID → 버튼 ID 매핑 (버튼 비활성화 정확히 동작하도록)
+        const SPINNER_TO_BUTTON = {
+            loadingSpinnerNotes: 'generateNotesBtn',
+            loadingSpinnerAudio: 'playAudioBtn'
+        };
         function setLoadingState(elementId, isLoading, message = "") {
             const spinner = document.getElementById(elementId);
-            const button = document.getElementById(elementId.replace('loadingSpinner', '') + 'Btn'); 
+            const button = document.getElementById(SPINNER_TO_BUTTON[elementId] || '');
 
             if (isLoading) {
-                spinner.textContent = message;
-                spinner.style.display = 'block';
+                if (message) spinner.textContent = message;
+                spinner.classList.add('active');
                 if (button) button.disabled = true;
             } else {
-                spinner.style.display = 'none';
+                spinner.classList.remove('active');
                 if (button) button.disabled = false;
             }
         }
@@ -574,14 +743,14 @@
             const modeSelect = document.getElementById('generation_mode');
             const aiOptionsDiv = document.getElementById('ai_mode_options');
             const geminiApiKeyInput = document.getElementById('gemini_api_key_input');
-            
+
             if (modeSelect.value === 'ai') {
-                aiOptionsDiv.style.display = 'block';
+                aiOptionsDiv.style.display = 'flex';
                 geminiApiKeyInput.setAttribute('required', 'true');
             } else {
                 aiOptionsDiv.style.display = 'none';
                 geminiApiKeyInput.removeAttribute('required');
-                geminiApiKeyInput.value = ''; 
+                geminiApiKeyInput.value = '';
             }
             showMessage("", 'info');
             clearSheetMusic();
@@ -595,16 +764,16 @@
             const length = document.getElementById('length_input').value;
             const genre = document.getElementById('genre_input').value;
             const keyNote = document.getElementById('key_note_input').value;
-            const octave = document.getElementById('octave_input').value; 
-            const apiKey = document.getElementById('gemini_api_key_input').value; 
+            const octave = document.getElementById('octave_input').value;
+            const apiKey = document.getElementById('gemini_api_key_input').value;
 
             const notesSequenceInput = document.getElementById('notes_sequence_input');
-            
-            notesSequenceInput.value = ""; 
-            showMessage("", 'info'); 
-            clearSheetMusic(); 
 
-            setLoadingState('loadingSpinnerNotes', true, 
+            notesSequenceInput.value = "";
+            showMessage("", 'info');
+            clearSheetMusic();
+
+            setLoadingState('loadingSpinnerNotes', true,
                             `${currentMode === 'ai' ? 'AI가' : '랜덤 생성기가'} 악보를 생성 중입니다...`);
 
             try {
@@ -619,8 +788,8 @@
                 if (currentMode === 'ai') {
                     if (!apiKey.trim()) {
                         showMessage("⚠️ Gemini API 키를 입력해주세요!", 'error');
-                        setLoadingState('loadingSpinnerNotes', false); 
-                        return; 
+                        setLoadingState('loadingSpinnerNotes', false);
+                        return;
                     }
                     formData.append('gemini_api_key_input', apiKey);
                 }
@@ -629,13 +798,13 @@
                     method: 'POST',
                     body: formData,
                 });
-                
+
                 const data = await response.json();
 
                 if (response.ok && data.status === 'success') {
                     notesSequenceInput.value = data.notes;
                     showMessage("🎉 악보가 성공적으로 생성되었습니다! 다양한 형식으로 다운로드하거나 재생해보세요.", 'success');
-                    renderSheetMusic(data.notes, parseInt(length), parseInt(bpm)); 
+                    renderSheetMusic(data.notes, parseInt(length), parseInt(bpm));
                 } else {
                     const errorMessage = data.message || '알 수 없는 오류가 발생했습니다.';
                     showMessage(`🚨 악보 생성 실패: ${errorMessage}`, 'error');
@@ -645,7 +814,7 @@
                 showMessage('⚠️ 네트워크 오류 또는 서버 문제가 발생했습니다.', 'error');
                 console.error('Error fetching notes:', error);
             } finally {
-                setLoadingState('loadingSpinnerNotes', false); 
+                setLoadingState('loadingSpinnerNotes', false);
             }
         }
 
@@ -655,8 +824,8 @@
             const numLoops = document.getElementById('num_loops_input').value;
 
             const audioPlayer = document.getElementById('audioPlayer');
-            
-            showMessage("", 'info'); 
+
+            showMessage("", 'info');
 
             if (!notesSequence.trim()) {
                 showMessage("❗ 먼저 악보 시퀀스를 생성하거나 입력해주세요!", 'error');
@@ -664,8 +833,8 @@
             }
 
             setLoadingState('loadingSpinnerAudio', true, '오디오 생성 중...');
-            audioPlayer.src = ''; 
-            audioPlayer.load(); 
+            audioPlayer.src = '';
+            audioPlayer.load();
 
             try {
                 const formData = new FormData();
@@ -680,14 +849,14 @@
 
                 if (response.ok) {
                     const audioBlob = await response.blob();
-                    const audioUrl = URL.createObjectURL(audioBlob); 
-                    
-                    audioPlayer.src = audioUrl; 
-                    await audioPlayer.play(); 
+                    const audioUrl = URL.createObjectURL(audioBlob);
+
+                    audioPlayer.src = audioUrl;
+                    await audioPlayer.play();
                     showMessage("🎶 오디오 재생을 시작합니다!", 'success');
-                    
+
                     audioPlayer.onended = () => {
-                        URL.revokeObjectURL(audioUrl); 
+                        URL.revokeObjectURL(audioUrl);
                         audioPlayer.onended = null;
                         showMessage("재생이 완료되었습니다.", 'info');
                     };
@@ -701,11 +870,11 @@
                 showMessage('⚠️ 오디오 재생 중 네트워크 오류 또는 서버 문제가 발생했습니다.', 'error');
                 console.error('Error playing audio:', error);
             } finally {
-                setLoadingState('loadingSpinnerAudio', false); 
+                setLoadingState('loadingSpinnerAudio', false);
             }
         }
 
-        // === 새로운 기능: MIDI 다운로드 ===
+        // === MIDI 다운로드 ===
         async function downloadMidi() {
             const notesSequence = document.getElementById('notes_sequence_input').value;
             const bpm = document.getElementById('bpm_input').value;
@@ -726,7 +895,7 @@
                     method: 'POST',
                     body: formData
                 });
-                
+
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
@@ -748,7 +917,7 @@
             }
         }
 
-        // === 새로운 기능: LilyPond 다운로드 ===
+        // === LilyPond 다운로드 ===
         async function downloadLilypond() {
             const notesSequence = document.getElementById('notes_sequence_input').value;
             const bpm = document.getElementById('bpm_input').value;
@@ -769,7 +938,7 @@
                     method: 'POST',
                     body: formData
                 });
-                
+
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
@@ -791,7 +960,8 @@
             }
         }
 
-        // === 새로운 기능: 전문 악보 보기 (Music21) ===
+        // === 전문 악보 보기 (Music21 / MuseScore SVG) ===
+        // 서버 응답(JSON): { status, format: 'svg'|'text', image_data?, text_data? }
         async function loadProfessionalScore() {
             const notesSequence = document.getElementById('notes_sequence_input').value;
             const bpm = document.getElementById('bpm_input').value;
@@ -815,87 +985,78 @@
                     key: keyNote
                 });
 
-                const response = await fetch(`/generate_score_image?${params}`, {
-                    method: 'GET'
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    if (contentType && contentType.includes('image')) {
-                        // 이미지인 경우
-                        const blob = await response.blob();
-                        const imageUrl = window.URL.createObjectURL(blob);
-                        
-                        professionalScore.src = imageUrl;
-                        professionalScore.style.display = 'block';
-                        textScore.style.display = 'none';
-                        
-                        professionalScore.onload = () => {
-                            window.URL.revokeObjectURL(imageUrl);
-                        };
-                        
-                        showMessage('🎼 Music21 전문 악보가 생성되었습니다!', 'success');
-                    } else {
-                        // 텍스트인 경우 (MuseScore 없을 때)
-                        const textContent = await response.text();
-                        textScore.textContent = textContent;
-                        textScore.style.display = 'block';
-                        professionalScore.style.display = 'none';
-                        
-                        showMessage('📝 텍스트 형식 악보가 생성되었습니다. (MuseScore 설치 권장)', 'warning');
-                    }
-                    
-                    professionalScoreArea.style.display = 'block';
-                    professionalScoreArea.scrollIntoView({ behavior: 'smooth' });
-                    
-                } else {
-                    const errorData = await response.json().catch(() => ({ message: '서버 오류' }));
-                    showMessage(`🚨 전문 악보 생성 실패: ${errorData.message || '알 수 없는 오류'}`, 'error');
+                const response = await fetch(`/generate_score_image?${params}`, { method: 'GET' });
+                const data = await response.json().catch(() => null);
+
+                if (!response.ok || !data || data.status !== 'success') {
+                    const msg = (data && data.message) ? data.message : '알 수 없는 오류';
+                    showMessage(`🚨 전문 악보 생성 실패: ${msg}`, 'error');
+                    return;
                 }
+
+                if (data.format === 'svg' && data.image_data) {
+                    // Base64로 인코딩된 SVG → data URI로 렌더링
+                    professionalScore.src = 'data:image/svg+xml;base64,' + data.image_data;
+                    professionalScore.style.display = 'block';
+                    textScore.style.display = 'none';
+                    showMessage('🎼 Music21 전문 악보가 생성되었습니다!', 'success');
+                } else if (data.format === 'text' && data.text_data) {
+                    // MuseScore 미설치 등 → 텍스트 악보로 폴백
+                    textScore.textContent = data.text_data;
+                    textScore.style.display = 'block';
+                    professionalScore.style.display = 'none';
+                    showMessage('📝 텍스트 형식 악보로 표시합니다. (MuseScore 설치 시 전문 악보 제공)', 'warning');
+                } else {
+                    showMessage('🚨 전문 악보 응답 형식을 해석할 수 없습니다.', 'error');
+                    return;
+                }
+
+                professionalScoreArea.style.display = 'block';
+                professionalScoreArea.scrollIntoView({ behavior: 'smooth' });
+
             } catch (error) {
                 showMessage('⚠️ 전문 악보 생성 중 오류가 발생했습니다.', 'error');
                 console.error('Professional score error:', error);
             }
         }
 
-        // === 기존 Canvas 악보 렌더링 함수들 (유지) ===
-
-        // 악보 렌더링 상수 (음표 크기 및 간격 최적화)
+        // ============================================================
+        // Canvas 악보 렌더링
+        // ============================================================
         const CANVAS_CONFIG = {
-            STAFF_LINE_SPACING: 12,     // 오선 간격 증가
-            STAFF_HEIGHT: 48,           // 오선 높이 증가
-            STAFF_WIDTH: 950,           // 오선 너비 증가
-            STAFF_MARGIN_X: 40,         // 좌우 여백 증가
-            STAFF_MARGIN_Y: 60,         // 상하 여백 증가
-            MEASURE_WIDTH: 200,         // 마디 너비 증가
-            MEASURES_PER_LINE: 4,       // 한 줄당 마디 수
-            LINE_SPACING: 140,          // 줄 간격 증가
-            NOTE_SIZE: 7,               // 음표 크기 조정
-            CLEF_WIDTH: 50,             // 클레프 너비 증가
-            MIN_NOTE_SPACING: 35,       // 최소 음표 간격 추가
+            STAFF_LINE_SPACING: 12,
+            STAFF_HEIGHT: 48,
+            STAFF_WIDTH: 950,
+            STAFF_MARGIN_X: 40,
+            STAFF_MARGIN_Y: 60,
+            MEASURE_WIDTH: 200,
+            MEASURES_PER_LINE: 4,
+            LINE_SPACING: 140,
+            NOTE_SIZE: 7,
+            CLEF_WIDTH: 50,
+            MIN_NOTE_SPACING: 35,
         };
 
-        // 정확한 베이스 클레프 음표 위치 매핑 (수정됨)
+        // 베이스 클레프 음표 위치 매핑 (샤프=natural 위치, 플랫=natural 위치 + ♭표)
         const BASS_NOTE_POSITIONS = {
             // 옥타브 1
-            'A1': 17,  'A#1': 17, 'B1': 16,  'B#1': 16,
-            
-            // 옥타브 2 (베이스 클레프의 주요 음역)
-            'C2': 15,  'C#2': 15, 'D2': 14,  'D#2': 14,
-            'E2': 13,  'E#2': 13, 'F2': 12,  'F#2': 12,  // F2 = 12 (3선, 중앙)
-            'G2': 11,  'G#2': 11, 'A2': 10,  'A#2': 10,
-            'B2': 9,   'B#2': 9,
-            
-            // 옥타브 3 (수정된 위치)
-            'C3': 8,   'C#3': 8,  'D3': 7,   'D#3': 7,   // 1선 위 
-            'E3': 6,   'E#3': 6,  'F3': 5,   'F#3': 5,   // 1선 아래 (보조선)
-            'G3': 4,   'G#3': 4,  'A3': 3,   'A#3': 3,
-            'B3': 2,   'B#3': 2,
-            
+            'A1': 17,  'A#1': 17, 'Ab1': 17, 'B1': 16,  'B#1': 16, 'Bb1': 16,
+
+            // 옥타브 2 (베이스 클레프 주요 음역)
+            'C2': 15,  'C#2': 15, 'D2': 14,  'D#2': 14, 'Db2': 14,
+            'E2': 13,  'E#2': 13, 'Eb2': 13, 'F2': 12,  'F#2': 12,  // F2 = 12 (3선, 중앙)
+            'G2': 11,  'G#2': 11, 'Gb2': 11, 'A2': 10,  'A#2': 10, 'Ab2': 10,
+            'B2': 9,   'B#2': 9,  'Bb2': 9,
+
+            // 옥타브 3
+            'C3': 8,   'C#3': 8,  'D3': 7,   'D#3': 7,  'Db3': 7,
+            'E3': 6,   'E#3': 6,  'Eb3': 6,  'F3': 5,   'F#3': 5,
+            'G3': 4,   'G#3': 4,  'Gb3': 4,  'A3': 3,   'A#3': 3,  'Ab3': 3,
+            'B3': 2,   'B#3': 2,  'Bb3': 2,
+
             // 옥타브 4
-            'C4': 1,   'C#4': 1,  'D4': 0,   'D#4': 0,
-            'E4': -1,  'E#4': -1, 'F4': -2,  'F#4': -2,
+            'C4': 1,   'C#4': 1,  'D4': 0,   'D#4': 0,  'Db4': 0,
+            'E4': -1,  'E#4': -1, 'Eb4': -1, 'F4': -2,  'F#4': -2, 'Gb4': -2,
         };
 
         function clearSheetMusic() {
@@ -905,14 +1066,31 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
+        // 음표 시퀀스 파싱 — 샤프(#)·플랫(b)·쉼표(R) 지원
         function parseNotes(notesSequenceStr) {
             return notesSequenceStr.split(',').map(noteEntry => {
-                const match = noteEntry.trim().match(/([A-Ga-g]#?)(\d+)\s+(\d+(\.\d+)?)/);
-                return match ? {
-                    name: match[1].toUpperCase(),
-                    octave: parseInt(match[2]),
-                    duration: parseFloat(match[3])
-                } : null;
+                const entry = noteEntry.trim();
+                if (!entry) return null;
+
+                // 쉼표: "R 1.0" 또는 "r1.0"
+                const restMatch = entry.match(/^[Rr]\s*(\d+(?:\.\d+)?)$/);
+                if (restMatch) {
+                    return { name: 'R', accidental: '', octave: 4, duration: parseFloat(restMatch[1]), isRest: true };
+                }
+
+                // 음표: 음이름 + 선택적 #/b + 옥타브 + 공백 + 박자
+                const match = entry.match(/^([A-Ga-g])([#b]?)\s*(\d+)\s+(\d+(?:\.\d+)?)$/);
+                if (!match) return null;
+
+                const letter = match[1].toUpperCase();
+                const accidental = match[2]; // '#', 'b', 또는 ''
+                return {
+                    name: letter + accidental,  // 예: 'C#', 'Eb', 'F'
+                    accidental: accidental,
+                    octave: parseInt(match[3], 10),
+                    duration: parseFloat(match[4]),
+                    isRest: false
+                };
             }).filter(n => n !== null);
         }
 
@@ -926,12 +1104,7 @@
                     if (currentMeasure.length > 0) {
                         const remainingBeats = 4 - currentBeats;
                         if (remainingBeats > 0) {
-                            currentMeasure.push({
-                                name: 'R',
-                                octave: 4,
-                                duration: remainingBeats,
-                                isRest: true
-                            });
+                            currentMeasure.push({ name: 'R', octave: 4, duration: remainingBeats, isRest: true });
                         }
                         measures.push(currentMeasure);
                     }
@@ -952,12 +1125,7 @@
             if (currentMeasure.length > 0) {
                 const remainingBeats = 4 - currentBeats;
                 if (remainingBeats > 0) {
-                    currentMeasure.push({
-                        name: 'R',
-                        octave: 4,
-                        duration: remainingBeats,
-                        isRest: true
-                    });
+                    currentMeasure.push({ name: 'R', octave: 4, duration: remainingBeats, isRest: true });
                 }
                 measures.push(currentMeasure);
             }
@@ -966,9 +1134,8 @@
         }
 
         function drawStaffLines(ctx, x, y, width) {
-            ctx.strokeStyle = '#000000';
+            ctx.strokeStyle = '#1a1f2e';
             ctx.lineWidth = 1;
-            
             for (let i = 0; i < 5; i++) {
                 const lineY = y + (i * CANVAS_CONFIG.STAFF_LINE_SPACING);
                 ctx.beginPath();
@@ -979,44 +1146,37 @@
         }
 
         function drawBassClef(ctx, x, y) {
-            // 더 정확한 베이스 클레프 그리기
-            ctx.fillStyle = '#000000';
-            ctx.strokeStyle = '#000000';
+            ctx.fillStyle = '#1a1f2e';
+            ctx.strokeStyle = '#1a1f2e';
             ctx.lineWidth = 1.5;
-            
+
             const centerX = x + 18;
             const centerY = y + 20; // F선(3선) 중앙
-            
-            // 메인 곡선 (C자 모양)
+
             ctx.beginPath();
             ctx.arc(centerX - 2, centerY, 6, Math.PI * 0.7, Math.PI * 1.3);
             ctx.stroke();
-            
-            // 세로선 (F선을 관통)
+
             ctx.beginPath();
             ctx.moveTo(centerX + 4, centerY - 12);
             ctx.lineTo(centerX + 4, centerY + 12);
             ctx.lineWidth = 2;
             ctx.stroke();
             ctx.lineWidth = 1;
-            
-            // 두 개의 점 (F선 위아래)
+
             ctx.beginPath();
             ctx.arc(centerX + 10, centerY - 5, 1.5, 0, Math.PI * 2);
             ctx.fill();
-            
             ctx.beginPath();
             ctx.arc(centerX + 10, centerY + 5, 1.5, 0, Math.PI * 2);
             ctx.fill();
         }
 
         function drawTimeSignature(ctx, x, y) {
-            ctx.fillStyle = '#000000';
+            ctx.fillStyle = '#1a1f2e';
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            
-            // 4/4 박자표
             ctx.fillText('4', x, y + CANVAS_CONFIG.STAFF_LINE_SPACING);
             ctx.fillText('4', x, y + CANVAS_CONFIG.STAFF_LINE_SPACING * 3);
         }
@@ -1024,9 +1184,8 @@
         function getNoteY(noteName, octave, staffY) {
             const noteKey = `${noteName}${octave}`;
             const position = BASS_NOTE_POSITIONS[noteKey];
-            
             if (position === undefined) {
-                console.warn(`Unknown note position: ${noteKey}, using F2 as default`);
+                if (noteName !== 'R') console.warn(`Unknown note position: ${noteKey}, using F2 as default`);
                 return staffY + CANVAS_CONFIG.STAFF_HEIGHT - (12 * 2.5);
             }
             return staffY + CANVAS_CONFIG.STAFF_HEIGHT - (position * 2.5);
@@ -1035,21 +1194,17 @@
         function getStemDirection(noteName, octave) {
             const noteKey = `${noteName}${octave}`;
             const position = BASS_NOTE_POSITIONS[noteKey];
-            
-            // 베이스 클레프에서 3선(F2, position 12) 기준으로 위/아래 결정
             return position >= 12 ? 'down' : 'up';
         }
 
         function drawLedgerLines(ctx, x, y, noteName, octave, staffY) {
             const noteKey = `${noteName}${octave}`;
             const position = BASS_NOTE_POSITIONS[noteKey];
-            
             if (position === undefined) return;
-            
-            ctx.strokeStyle = '#000000';
+
+            ctx.strokeStyle = '#1a1f2e';
             ctx.lineWidth = 1;
-            
-            // 5선 위 보조선이 필요한 경우 (position > 16)
+
             if (position > 16) {
                 for (let i = 18; i <= position; i += 2) {
                     const lineY = staffY + CANVAS_CONFIG.STAFF_HEIGHT - (i * 2.5);
@@ -1059,8 +1214,6 @@
                     ctx.stroke();
                 }
             }
-            
-            // 1선 아래 보조선이 필요한 경우 (position < 8)
             if (position < 8) {
                 for (let i = 6; i >= position; i -= 2) {
                     const lineY = staffY + CANVAS_CONFIG.STAFF_HEIGHT - (i * 2.5);
@@ -1078,57 +1231,49 @@
                 return;
             }
 
-            // 보조선 먼저 그리기
             drawLedgerLines(ctx, x, y, noteName, octave, y - CANVAS_CONFIG.STAFF_HEIGHT);
 
-            ctx.fillStyle = '#000000';
+            ctx.fillStyle = '#1a1f2e';
             const stemDirection = getStemDirection(noteName, octave);
-            
-            // 음표 머리 그리기 (크기 축소)
+
+            // 음표 머리
             if (duration >= 2.0) {
-                // 2분음표 이상 - 속이 빈 타원
-                ctx.strokeStyle = '#000000';
+                ctx.strokeStyle = '#1a1f2e';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.ellipse(x, y, CANVAS_CONFIG.NOTE_SIZE, CANVAS_CONFIG.NOTE_SIZE * 0.7, -0.2, 0, 2 * Math.PI);
                 ctx.stroke();
             } else {
-                // 4분음표 이하 - 속이 찬 타원
                 ctx.beginPath();
                 ctx.ellipse(x, y, CANVAS_CONFIG.NOTE_SIZE, CANVAS_CONFIG.NOTE_SIZE * 0.7, -0.2, 0, 2 * Math.PI);
                 ctx.fill();
             }
 
-            // 음표 기둥 그리기 (온음표가 아닌 경우)
+            let flagX, flagY;
+            // 음표 기둥 (온음표 제외)
             if (duration < 4.0) {
-                ctx.strokeStyle = '#000000';
+                ctx.strokeStyle = '#1a1f2e';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                
                 if (stemDirection === 'up') {
-                    // 기둥 위로 (오른쪽에서)
                     ctx.moveTo(x + CANVAS_CONFIG.NOTE_SIZE - 1, y);
                     ctx.lineTo(x + CANVAS_CONFIG.NOTE_SIZE - 1, y - 25);
-                    
-                    var flagX = x + CANVAS_CONFIG.NOTE_SIZE - 1;
-                    var flagY = y - 25;
+                    flagX = x + CANVAS_CONFIG.NOTE_SIZE - 1;
+                    flagY = y - 25;
                 } else {
-                    // 기둥 아래로 (왼쪽에서)
                     ctx.moveTo(x - CANVAS_CONFIG.NOTE_SIZE + 1, y);
                     ctx.lineTo(x - CANVAS_CONFIG.NOTE_SIZE + 1, y + 25);
-                    
-                    var flagX = x - CANVAS_CONFIG.NOTE_SIZE + 1;
-                    var flagY = y + 25;
+                    flagX = x - CANVAS_CONFIG.NOTE_SIZE + 1;
+                    flagY = y + 25;
                 }
                 ctx.stroke();
             }
 
-            // 8분음표 깃발 (크기 축소)
+            // 8분음표 깃발
             if (duration === 0.5) {
-                ctx.strokeStyle = '#000000';
+                ctx.strokeStyle = '#1a1f2e';
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                
                 if (stemDirection === 'up') {
                     ctx.moveTo(flagX, flagY);
                     ctx.quadraticCurveTo(flagX + 10, flagY + 3, flagX + 8, flagY + 12);
@@ -1140,24 +1285,19 @@
                 ctx.lineWidth = 1;
             }
 
-            // 16분음표 깃발 (크기 축소)
+            // 16분음표 깃발
             if (duration === 0.25) {
-                ctx.strokeStyle = '#000000';
+                ctx.strokeStyle = '#1a1f2e';
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                
                 if (stemDirection === 'up') {
-                    // 첫 번째 깃발
                     ctx.moveTo(flagX, flagY);
                     ctx.quadraticCurveTo(flagX + 10, flagY + 3, flagX + 8, flagY + 12);
-                    // 두 번째 깃발
                     ctx.moveTo(flagX, flagY + 6);
                     ctx.quadraticCurveTo(flagX + 10, flagY + 9, flagX + 8, flagY + 18);
                 } else {
-                    // 첫 번째 깃발
                     ctx.moveTo(flagX, flagY);
                     ctx.quadraticCurveTo(flagX - 10, flagY - 3, flagX - 8, flagY - 12);
-                    // 두 번째 깃발
                     ctx.moveTo(flagX, flagY - 6);
                     ctx.quadraticCurveTo(flagX - 10, flagY - 9, flagX - 8, flagY - 18);
                 }
@@ -1165,36 +1305,33 @@
                 ctx.lineWidth = 1;
             }
 
-            // 임시표 그리기 (크기 축소)
+            // 임시표 (#/b)
             if (noteName.includes('#')) {
-                ctx.fillStyle = '#000000';
+                ctx.fillStyle = '#1a1f2e';
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('♯', x - 15, y);
             } else if (noteName.includes('b')) {
-                ctx.fillStyle = '#000000';
+                ctx.fillStyle = '#1a1f2e';
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('♭', x - 15, y);
             }
-            
-            ctx.fillStyle = '#000000'; // 색상 리셋
+
+            ctx.fillStyle = '#1a1f2e';
         }
 
         function drawRest(ctx, x, y, duration) {
-            ctx.fillStyle = '#000000';
-            ctx.strokeStyle = '#000000';
-            
+            ctx.fillStyle = '#1a1f2e';
+            ctx.strokeStyle = '#1a1f2e';
+
             if (duration === 4.0) {
-                // 온쉼표 - 2선 아래 검은 사각형 (크기 축소)
                 ctx.fillRect(x - 4, y - 4, 8, 4);
             } else if (duration === 2.0) {
-                // 2분쉼표 - 3선 위 검은 사각형 (크기 축소)
                 ctx.fillRect(x - 4, y, 8, 4);
             } else if (duration === 1.0) {
-                // 4분쉼표 - 지그재그 모양 (크기 축소)
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(x - 2, y - 10);
@@ -1204,7 +1341,6 @@
                 ctx.stroke();
                 ctx.lineWidth = 1;
             } else if (duration === 0.5) {
-                // 8분쉼표 - 작은 깃발 모양 (크기 축소)
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.moveTo(x, y - 6);
@@ -1214,7 +1350,6 @@
                 ctx.stroke();
                 ctx.lineWidth = 1;
             } else if (duration === 0.25) {
-                // 16분쉼표 - 이중 깃발 모양 (크기 축소)
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.moveTo(x, y - 8);
@@ -1225,20 +1360,22 @@
                 ctx.quadraticCurveTo(x + 6, y + 1, x + 4, y + 5);
                 ctx.stroke();
                 ctx.lineWidth = 1;
+            } else {
+                // 그 외 길이: 일반 사각형 쉼표로 표시
+                ctx.fillRect(x - 4, y - 2, 8, 4);
             }
         }
 
         function drawBarline(ctx, x, y, height, isDouble = false, isBeginning = false) {
-            ctx.strokeStyle = '#000000';
-            
+            ctx.strokeStyle = '#1a1f2e';
+
             if (isDouble) {
-                // 끝마디선 (이중선)
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(x - 4, y);
                 ctx.lineTo(x - 4, y + height);
                 ctx.stroke();
-                
+
                 ctx.lineWidth = 3;
                 ctx.beginPath();
                 ctx.moveTo(x, y);
@@ -1246,7 +1383,6 @@
                 ctx.stroke();
                 ctx.lineWidth = 1;
             } else if (isBeginning) {
-                // 시작 마디선 (두꺼운 선)
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.moveTo(x, y);
@@ -1254,7 +1390,6 @@
                 ctx.stroke();
                 ctx.lineWidth = 1;
             } else {
-                // 일반 마디선
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(x, y);
@@ -1264,7 +1399,7 @@
         }
 
         function drawMeasureNumber(ctx, x, y, measureNum) {
-            ctx.fillStyle = '#666666';
+            ctx.fillStyle = '#94a3b8';
             ctx.font = '11px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
@@ -1272,43 +1407,34 @@
         }
 
         function calculateNotePositions(measureNotes, measureWidth) {
-            // 박자에 비례한 음표 위치 계산 (간격 개선)
-            const totalBeats = measureNotes.reduce((sum, note) => sum + note.duration, 0);
             const positions = [];
-            let currentPosition = 25; // 마디 시작 여백 증가
-            
-            const availableWidth = measureWidth - 50; // 양쪽 여백 증가
-            
+            let currentPosition = 25;
+            const availableWidth = measureWidth - 50;
+
             measureNotes.forEach((note, index) => {
                 positions.push(currentPosition);
-                
-                // 음표 지속시간에 따른 가변 간격
                 let spacing;
                 if (note.duration >= 2.0) {
-                    spacing = availableWidth * 0.35; // 긴 음표는 더 넓은 간격
+                    spacing = availableWidth * 0.35;
                 } else if (note.duration >= 1.0) {
-                    spacing = availableWidth * 0.25; // 4분음표
+                    spacing = availableWidth * 0.25;
                 } else if (note.duration >= 0.5) {
-                    spacing = availableWidth * 0.2;  // 8분음표
+                    spacing = availableWidth * 0.2;
                 } else {
-                    spacing = availableWidth * 0.15; // 16분음표 이하
+                    spacing = availableWidth * 0.15;
                 }
-                
-                // 최소 간격 보장
                 spacing = Math.max(spacing, CANVAS_CONFIG.MIN_NOTE_SPACING);
-                
-                // 마지막 음표가 아닌 경우에만 간격 추가
                 if (index < measureNotes.length - 1) {
                     currentPosition += spacing;
                 }
             });
-            
+
             return positions;
         }
 
         function renderSheetMusic(notesSequenceStr, lengthMeasures, bpm) {
             console.log('🎵 Canvas 베이스 클레프 악보 렌더링 시작');
-            
+
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) {
                 console.error("Canvas element not found!");
@@ -1317,30 +1443,27 @@
             }
 
             try {
-                // 음표 파싱
                 const notes = parseNotes(notesSequenceStr);
                 if (notes.length === 0) {
                     console.warn('파싱된 음표가 없습니다.');
-                    showMessage('유효한 음표가 없습니다. 악보를 확인해주세요.', 'error');
+                    showMessage('유효한 음표가 없습니다. 악보 형식을 확인해주세요. (예: C2 1.0, Eb2 0.5)', 'error');
                     return;
                 }
 
                 console.log('파싱된 음표:', notes);
 
-                // 마디별로 그룹화
                 const measures = groupIntoMeasures(notes);
                 console.log('마디별 그룹:', measures);
 
-                // 캔버스 크기 계산 (줄별 마디 수 최적화)
                 let linesNeeded;
                 let measuresPerLineArray = [];
-                
+
                 if (measures.length <= 4) {
                     linesNeeded = 1;
                     measuresPerLineArray = [measures.length];
                 } else if (measures.length === 5) {
                     linesNeeded = 2;
-                    measuresPerLineArray = [3, 2]; // 첫 줄 3마디, 둘째 줄 2마디
+                    measuresPerLineArray = [3, 2];
                 } else {
                     linesNeeded = Math.ceil(measures.length / CANVAS_CONFIG.MEASURES_PER_LINE);
                     for (let i = 0; i < linesNeeded; i++) {
@@ -1349,96 +1472,79 @@
                     }
                 }
 
-                // 동적 캔버스 크기 계산
                 const maxMeasuresInLine = Math.max(...measuresPerLineArray);
                 const dynamicWidth = CANVAS_CONFIG.CLEF_WIDTH + 100 + (maxMeasuresInLine * CANVAS_CONFIG.MEASURE_WIDTH) + (CANVAS_CONFIG.STAFF_MARGIN_X * 2);
-                
-                canvas.width = Math.min(dynamicWidth, 1200); // 최대 너비 제한
+
+                canvas.width = Math.min(dynamicWidth, 1200);
                 canvas.height = (linesNeeded * CANVAS_CONFIG.LINE_SPACING) + (CANVAS_CONFIG.STAFF_MARGIN_Y * 2) + 20;
 
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // 배경
+                // 배경 (악보 종이 — 항상 흰색)
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 // 제목
-                ctx.fillStyle = '#3b82f6';
+                ctx.fillStyle = '#4f6ef7';
                 ctx.font = 'bold 20px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText('베이스 라인 악보 (Canvas)', canvas.width / 2, 30);
+                ctx.fillText('베이스 라인 악보', canvas.width / 2, 30);
 
-                // 각 줄 그리기
                 let measureIndex = 0;
                 for (let line = 0; line < linesNeeded; line++) {
                     const lineY = CANVAS_CONFIG.STAFF_MARGIN_Y + (line * CANVAS_CONFIG.LINE_SPACING);
                     const lineX = CANVAS_CONFIG.STAFF_MARGIN_X;
                     const measuresInThisLine = measuresPerLineArray[line];
 
-                    // 오선 그리기 (전체 너비를 마디 수에 따라 조정)
                     const actualStaffWidth = CANVAS_CONFIG.CLEF_WIDTH + 50 + (measuresInThisLine * CANVAS_CONFIG.MEASURE_WIDTH);
                     drawStaffLines(ctx, lineX, lineY, actualStaffWidth);
 
-                    // 첫 번째 줄에만 클레프와 박자표
                     if (line === 0) {
                         drawBassClef(ctx, lineX, lineY);
                         drawTimeSignature(ctx, lineX + CANVAS_CONFIG.CLEF_WIDTH + 20, lineY);
                     }
 
-                    // 첫 번째 마디 시작 마디선 그리기
                     if (line === 0) {
                         const firstMeasureX = lineX + CANVAS_CONFIG.CLEF_WIDTH + 40;
                         drawBarline(ctx, firstMeasureX, lineY, CANVAS_CONFIG.STAFF_HEIGHT, false, true);
                     }
 
-                    // 이 줄의 마디들 그리기
                     for (let m = 0; m < measuresInThisLine; m++) {
                         const measureX = lineX + CANVAS_CONFIG.CLEF_WIDTH + 40 + (m * CANVAS_CONFIG.MEASURE_WIDTH);
-                        
-                        // 마디 번호
+
                         drawMeasureNumber(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH / 2, lineY, measureIndex + 1);
 
-                        // 마디 내 음표들
                         const measureNotes = measures[measureIndex];
                         const notePositions = calculateNotePositions(measureNotes, CANVAS_CONFIG.MEASURE_WIDTH);
 
                         measureNotes.forEach((note, noteIndex) => {
                             const noteX = measureX + notePositions[noteIndex];
                             const noteY = getNoteY(note.name, note.octave, lineY);
-                            
+
                             drawNote(ctx, noteX, noteY, note.duration, note.name, note.octave, note.isRest);
-                            
-                            // 음표 이름 표시 (겹치지 않게 위치 조정)
+
                             if (!note.isRest) {
-                                ctx.fillStyle = '#999999';
+                                ctx.fillStyle = '#94a3b8';
                                 ctx.font = '9px Arial';
                                 ctx.textAlign = 'center';
-                                
-                                // 보조선과 겹치지 않도록 위치 조정
+
                                 const notePosition = BASS_NOTE_POSITIONS[`${note.name}${note.octave}`];
                                 let textY = noteY + 25;
-                                if (notePosition < 8) { // 1선 아래 음표들
-                                    textY = noteY + 32; // 더 아래로
-                                }
-                                
+                                if (notePosition < 8) { textY = noteY + 32; }
+
                                 ctx.fillText(`${note.name}${note.octave}`, noteX, textY);
-                                ctx.fillStyle = '#000000'; // 색상 리셋
+                                ctx.fillStyle = '#1a1f2e';
                             }
                         });
 
-                        // 마디선 (모든 마디 끝에 그리기)
                         const isLastMeasure = measureIndex === measures.length - 1;
-                        const isEndOfLine = m === measuresInThisLine - 1;
-                        
-                        // 마디 끝에 세로선 그리기
                         drawBarline(ctx, measureX + CANVAS_CONFIG.MEASURE_WIDTH, lineY, CANVAS_CONFIG.STAFF_HEIGHT, isLastMeasure);
 
                         measureIndex++;
                     }
                 }
 
-                // 하단 정보
                 ctx.fillStyle = '#64748b';
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
@@ -1449,8 +1555,6 @@
             } catch (error) {
                 console.error('Canvas 악보 렌더링 오류:', error);
                 showMessage(`🚨 악보 렌더링 오류: ${error.message}`, 'error');
-                
-                // 폴백: 간단한 텍스트 표시
                 fallbackTextDisplay(notesSequenceStr);
             }
         }
@@ -1465,44 +1569,35 @@
 
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // 배경
-            ctx.fillStyle = '#f8fafc';
+
+            ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // 제목
-            ctx.fillStyle = '#3b82f6';
+
+            ctx.fillStyle = '#4f6ef7';
             ctx.font = 'bold 18px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('베이스 라인 (텍스트 모드)', canvas.width / 2, 35);
-            
-            // 설명
+
             ctx.fillStyle = '#64748b';
             ctx.font = '12px Arial';
             ctx.fillText('악보 렌더링에 실패하여 텍스트로 표시합니다.', canvas.width / 2, 60);
-            
-            // 음표들 나열
+
             const notes = notesSequenceStr.split(',').map(n => n.trim());
             let y = 90;
             let x = 40;
-            
-            ctx.fillStyle = '#334155';
-            ctx.font = '14px monospace';
-            ctx.textAlign = 'left';
-            
+
             let currentMeasure = 1;
             let currentBeats = 0;
-            
-            // 마디 표시
+
             ctx.fillStyle = '#64748b';
             ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
             ctx.fillText(`마디 ${currentMeasure}:`, x, y - 8);
-            
+
             notes.forEach((note, index) => {
                 if (x > canvas.width - 100) {
                     x = 40;
                     y += 35;
-                    
                     if (y < canvas.height - 50) {
                         currentMeasure++;
                         ctx.fillStyle = '#64748b';
@@ -1510,33 +1605,30 @@
                         ctx.fillText(`마디 ${currentMeasure}:`, x, y - 8);
                     }
                 }
-                
+
                 ctx.fillStyle = '#334155';
                 ctx.font = '14px monospace';
                 ctx.fillText(note, x, y);
-                
-                // 박자 계산 (마디 구분선)
+
                 const match = note.match(/(\d+(\.\d+)?)$/);
                 if (match) {
                     const beats = parseFloat(match[1]);
                     currentBeats += beats;
-                    
                     if (currentBeats >= 4) {
                         ctx.fillStyle = '#e2e8f0';
                         ctx.fillRect(x + ctx.measureText(note).width + 8, y - 12, 1, 20);
                         currentBeats = 0;
                     }
                 }
-                
+
                 x += ctx.measureText(note).width + 20;
             });
-            
-            // 하단 메시지
+
             ctx.fillStyle = '#ef4444';
             ctx.font = '11px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('정확한 악보를 보려면 페이지를 새로고침해주세요.', canvas.width / 2, canvas.height - 15);
         }
-    </script> 
+    </script>
 </body>
 </html>
