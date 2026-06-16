@@ -458,6 +458,15 @@
         }
         #vexflowScore { width: 100%; }
         #vexflowScore svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+        #scoreStage { position: relative; width: 100%; }
+        #playCursor {
+            position: absolute; top: 0; left: 0; width: 2.5px; height: 0;
+            background: linear-gradient(var(--primary), var(--secondary));
+            border-radius: 2px; opacity: 0; pointer-events: none; z-index: 5;
+            box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 60%, transparent);
+            transition: opacity 0.15s ease;
+        }
+        #playCursor.active { opacity: 0.9; }
         #sheetMusicCanvas {
             max-width: 100%;
             height: auto;
@@ -635,15 +644,16 @@
             <section class="card score-card">
                 <h2 class="card-title">생성된 악보 <span style="font-weight:500;color:var(--text-muted);font-size:0.85rem;">(자동 표기)</span></h2>
                 <div class="paper" id="notation-area">
-                    <div id="vexflowScore"></div>
-                    <canvas id="sheetMusicCanvas" style="display:none;"></canvas>
+                    <div id="scoreStage">
+                        <div id="vexflowScore"></div>
+                        <canvas id="sheetMusicCanvas" style="display:none;"></canvas>
+                        <div id="playCursor" aria-hidden="true"></div>
+                    </div>
                 </div>
             </section>
         </form>
 
-        <div class="footer">
-            🎸 Base Loop · <a href="https://baseloop.onrender.com/" target="_blank" rel="noopener">baseloop.onrender.com</a>
-        </div>
+        <div class="footer">🎸 Base Loop</div>
     </div>
 
     <!-- JavaScript 로직 -->
@@ -688,6 +698,9 @@
 
             // 기능 상태 확인
             checkFeaturesStatus();
+
+            // 재생 커서 이벤트 바인딩
+            initPlaybackCursorEvents();
         });
 
         async function checkFeaturesStatus() {
@@ -857,13 +870,19 @@
                     const audioBlob = await response.blob();
                     const audioUrl = URL.createObjectURL(audioBlob);
 
+                    // 재생 전에 악보를 현재 시퀀스로 다시 그려 커서 타임라인을 동기화
+                    try {
+                        renderSheetMusic(notesSequence, parseInt(document.getElementById('length_input').value), parseInt(bpm));
+                    } catch (e) { console.warn('재생 전 악보 동기화 실패:', e); }
+
                     audioPlayer.src = audioUrl;
                     await audioPlayer.play();
-                    showMessage("🎶 오디오 재생을 시작합니다!", 'success');
+                    showMessage("🎶 오디오 재생을 시작합니다! 악보 위 재생 바를 확인하세요.", 'success');
 
                     audioPlayer.onended = () => {
                         URL.revokeObjectURL(audioUrl);
                         audioPlayer.onended = null;
+                        stopPlaybackCursor();
                         showMessage("재생이 완료되었습니다.", 'info');
                     };
                 } else {
@@ -1077,7 +1096,7 @@
                     if (currentMeasure.length > 0) {
                         const remainingBeats = 4 - currentBeats;
                         if (remainingBeats > 0) {
-                            currentMeasure.push({ name: 'R', octave: 4, duration: remainingBeats, isRest: true });
+                            currentMeasure.push({ name: 'R', octave: 4, duration: remainingBeats, isRest: true, isPad: true });
                         }
                         measures.push(currentMeasure);
                     }
@@ -1098,7 +1117,7 @@
             if (currentMeasure.length > 0) {
                 const remainingBeats = 4 - currentBeats;
                 if (remainingBeats > 0) {
-                    currentMeasure.push({ name: 'R', octave: 4, duration: remainingBeats, isRest: true });
+                    currentMeasure.push({ name: 'R', octave: 4, duration: remainingBeats, isRest: true, isPad: true });
                 }
                 measures.push(currentMeasure);
             }
@@ -1149,14 +1168,28 @@
             renderer.resize(containerW, totalH);
             const ctx = renderer.getContext();
 
+            // 재생 커서용 타임라인(오디오 박자 → 화면 좌표)
+            const timeline = { segs: [], loopBeats: 0, nativeW: containerW, bpm: bpm, lineRight: [] };
+            let runBeat = 0;
+
+            // 마디 폭: 음표 밀도에 비례(상·하한), 합이 가로폭을 넘으면 축소(부족하면 좌측 정렬)
+            const MIN_W = 110, MAX_W = 360;
+
             for (let li = 0; li < lines; li++) {
                 const lineMeasures = measures.slice(li * perLine, li * perLine + perLine);
-                const count = lineMeasures.length;
-                const staveW = Math.floor(usableW / count);
                 const yy = TOP_PAD + li * LINE_H;
 
+                const weights = lineMeasures.map(m => Math.min(16, Math.max(3, m.length)));
+                const sumW = weights.reduce((a, b) => a + b, 0) || 1;
+                let widths = weights.map(w => Math.min(MAX_W, Math.max(MIN_W, (usableW * w) / sumW)));
+                const wTotal = widths.reduce((a, b) => a + b, 0);
+                if (wTotal > usableW) widths = widths.map(w => w * usableW / wTotal);
+
+                let xCursor = PAD;
                 lineMeasures.forEach((measureNotes, mi) => {
-                    const xx = PAD + mi * staveW;
+                    const staveW = Math.floor(widths[mi]);
+                    const xx = xCursor;
+                    xCursor += staveW;
                     const stave = new VF.Stave(xx, yy, staveW);
                     const firstOfLine = (mi === 0);
                     const veryFirst = (li === 0 && mi === 0);
@@ -1198,8 +1231,26 @@
                     new VF.Formatter().joinVoices([voice]).format([voice], formatW);
                     voice.draw(ctx, stave);
                     beams.forEach(b => b.setContext(ctx).draw());
+
+                    // 타임라인: 마디 안에서 박자 비례로 음표 시작 위치 산정 (패딩 쉼표 제외)
+                    const nStart = stave.getNoteStartX();
+                    const nEnd = stave.getNoteEndX();
+                    const areaW = Math.max(10, nEnd - nStart);
+                    const top = stave.getYForLine(0) - 8;
+                    const bot = stave.getYForLine(4) + 8;
+                    timeline.lineRight[li] = Math.max(timeline.lineRight[li] || 0, nEnd);
+                    let bm = 0;
+                    measureNotes.forEach(n => {
+                        if (!n.isPad) {
+                            timeline.segs.push({ beat: runBeat, dur: n.duration, x: nStart + (bm / 4) * areaW, top: top, h: bot - top, line: li });
+                            runBeat += n.duration;
+                        }
+                        bm += n.duration;
+                    });
                 });
             }
+            timeline.loopBeats = runBeat;
+            window.__scoreTimeline = timeline;
             return true;
         }
 
@@ -1344,6 +1395,9 @@
             ctx.fillStyle = '#4f6ef7'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center';
             ctx.fillText('베이스 라인 악보', canvas.width / 2, 24);
 
+            const timeline = { segs: [], loopBeats: 0, nativeW: canvas.width, bpm: bpm, lineRight: [] };
+            let runBeat = 0;
+
             let mIndex = 0;
             for (let li = 0; li < lines; li++) {
                 const staffTopY = cfg.TOP_PAD + li * cfg.LINE_HEIGHT;
@@ -1354,16 +1408,23 @@
                 drawBassClef(ctx, baseX + 6, staffTopY);
                 if (li === 0) drawTimeSignature(ctx, baseX + 60, staffTopY);
                 drawBarline(ctx, baseX + cfg.CLEF_LEAD, staffTopY, false);
+                timeline.lineRight[li] = baseX + cfg.CLEF_LEAD + inThisLine * measureW;
 
                 for (let mi = 0; mi < inThisLine; mi++) {
                     const measureX = baseX + cfg.CLEF_LEAD + mi * measureW;
                     const contentX = measureX + cfg.SIDE_PAD;
                     const mNotes = measures[mIndex];
                     const xs = calculateNotePositions(mNotes, innerW);
+                    let bm = 0;
                     mNotes.forEach((n, ni) => {
                         const nx = contentX + xs[ni];
                         if (n.isRest) drawCanvasRest(ctx, nx, n.duration, staffTopY);
                         else drawCanvasNote(ctx, nx, n, staffTopY);
+                        if (!n.isPad) {
+                            timeline.segs.push({ beat: runBeat, dur: n.duration, x: contentX + (bm / 4) * innerW, top: staffTopY - 6, h: 52, line: li });
+                            runBeat += n.duration;
+                        }
+                        bm += n.duration;
                     });
                     const isLast = (mIndex === measures.length - 1);
                     drawBarline(ctx, measureX + measureW, staffTopY, isLast);
@@ -1374,6 +1435,9 @@
             }
             ctx.fillStyle = '#64748b'; ctx.font = '12px Arial'; ctx.textAlign = 'center';
             ctx.fillText(`BPM: ${bpm} | ${measures.length}마디`, canvas.width / 2, canvas.height - 8);
+
+            timeline.loopBeats = runBeat;
+            window.__scoreTimeline = timeline;
         }
 
         // ---- 디스패처: VexFlow 우선, 실패 시 Canvas 폴백 ----
@@ -1412,16 +1476,81 @@
             }
         }
 
-        // 창 크기 변경 시 재렌더 (반응형)
+        // 창 크기 변경 시 재렌더 (반응형) — 재생 중이면 커서도 다시 시작
         let __scoreResizeTimer = null;
         window.addEventListener('resize', () => {
             if (!window.__lastScore) return;
             clearTimeout(__scoreResizeTimer);
             __scoreResizeTimer = setTimeout(() => {
                 const sc = window.__lastScore;
-                try { renderSheetMusic(sc.seq, sc.len, sc.bpm); } catch (e) {}
+                try {
+                    renderSheetMusic(sc.seq, sc.len, sc.bpm);
+                    const a = document.getElementById('audioPlayer');
+                    if (a && !a.paused && !a.ended) startPlaybackCursor();
+                } catch (e) {}
             }, 250);
         });
+
+        // ============================================================
+        // 재생 커서 (오디오 재생 위치를 악보 위에 실시간 표시)
+        // ============================================================
+        let __cursorRAF = null;
+        function startPlaybackCursor() {
+            const tl = window.__scoreTimeline;
+            const audio = document.getElementById('audioPlayer');
+            const cursor = document.getElementById('playCursor');
+            const host = document.getElementById('vexflowScore');
+            const canvas = document.getElementById('sheetMusicCanvas');
+            if (!tl || !tl.segs || !tl.segs.length || !audio || !cursor) return;
+            const secPerBeat = 60 / (tl.bpm || 120);
+            cursor.classList.add('active');
+
+            function frame() {
+                if (!audio || audio.paused || audio.ended) { stopPlaybackCursor(); return; }
+                const segs = tl.segs;
+                let loopBeat = audio.currentTime / secPerBeat;
+                if (tl.loopBeats > 0) loopBeat = loopBeat % tl.loopBeats;
+
+                let i = 0;
+                for (let k = 0; k < segs.length; k++) { if (loopBeat >= segs[k].beat) i = k; else break; }
+                const seg = segs[i];
+                const next = segs[i + 1];
+                const frac = Math.min(1, Math.max(0, (loopBeat - seg.beat) / (seg.dur || 1)));
+                let xN;
+                if (next && next.line === seg.line) {
+                    xN = seg.x + (next.x - seg.x) * frac;
+                } else {
+                    const rightX = (tl.lineRight[seg.line] != null) ? tl.lineRight[seg.line] : seg.x;
+                    xN = seg.x + (rightX - seg.x) * frac;
+                }
+
+                const usingVex = host && host.style.display !== 'none';
+                const scoreEl = usingVex ? host.querySelector('svg') : canvas;
+                if (scoreEl) {
+                    const scale = (scoreEl.clientWidth || tl.nativeW) / (tl.nativeW || 1);
+                    cursor.style.left = (scoreEl.offsetLeft + xN * scale) + 'px';
+                    cursor.style.top = (scoreEl.offsetTop + seg.top * scale) + 'px';
+                    cursor.style.height = (seg.h * scale) + 'px';
+                }
+                __cursorRAF = requestAnimationFrame(frame);
+            }
+            if (__cursorRAF) cancelAnimationFrame(__cursorRAF);
+            __cursorRAF = requestAnimationFrame(frame);
+        }
+        function stopPlaybackCursor() {
+            if (__cursorRAF) { cancelAnimationFrame(__cursorRAF); __cursorRAF = null; }
+            const cursor = document.getElementById('playCursor');
+            if (cursor) cursor.classList.remove('active');
+        }
+        function initPlaybackCursorEvents() {
+            const audio = document.getElementById('audioPlayer');
+            if (!audio || audio.__cursorBound) return;
+            audio.__cursorBound = true;
+            audio.addEventListener('playing', startPlaybackCursor);
+            audio.addEventListener('play', startPlaybackCursor);
+            audio.addEventListener('pause', stopPlaybackCursor);
+            audio.addEventListener('ended', stopPlaybackCursor);
+        }
     </script>
 </body>
 </html>
