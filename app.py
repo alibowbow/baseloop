@@ -851,7 +851,29 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
     except ValueError:
         raise ValueError(f"유효하지 않은 루트 음: {key_root_note}")
 
-    notes_sequence_output = [] 
+    # 키(루트)에 맞춰 스케일을 전위 — C 기준으로 적힌 스케일 음을 루트만큼 올려
+    # 강박 코드음/약박 스케일음 모두 "선택한 키" 안에 들어오게 한다.
+    pc_lookup = {'C': 0, 'C#': 1, 'DB': 1, 'D': 2, 'D#': 3, 'EB': 3, 'E': 4,
+                 'F': 5, 'F#': 6, 'GB': 6, 'G': 7, 'G#': 8, 'AB': 8, 'A': 9,
+                 'A#': 10, 'BB': 10, 'B': 11}
+    transposed_scale = []   # 약박 선택용 (음이름, 임시표) 목록
+    pc_to_name = {}         # 강박 코드음 표기용: 반음 인덱스 -> (음이름, 임시표)
+    for scale_note_raw in base_scale_notes_raw:
+        src_pc = pc_lookup.get(scale_note_raw.upper())
+        if src_pc is None:
+            continue
+        pc = (src_pc + root_idx_chromatic) % 12
+        if root_idx_chromatic == 0:
+            # C 키: 원래 스케일 표기(샵/플랫) 그대로 보존
+            base = scale_note_raw[0]
+            acc = scale_note_raw[1:] if len(scale_note_raw) > 1 else ''
+        else:
+            name = chromatic_notes_std[pc]
+            base, acc = name[0], (name[1:] if len(name) > 1 else '')
+        transposed_scale.append((base, acc))
+        pc_to_name[pc] = (base, acc)
+
+    notes_sequence_output = []
     total_beats_per_loop = length_measures * 4 
     current_beats = 0
 
@@ -887,31 +909,11 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
             selected_octave = min(octave + 1, max(octave, target_octave_raw))
             if selected_octave < 0: selected_octave = 0 
 
-            target_note_name_chromatic = chromatic_notes_std[target_note_idx_chromatic]
-            
-            # 스케일에 속하는 음표인지 확인하고, 임시표를 분리 저장
-            found_in_scale = False
-            for scale_note_raw in base_scale_notes_raw:
-                if len(scale_note_raw) > 1: # Eb, C# 같은 경우
-                    base = scale_note_raw[0]
-                    acc = scale_note_raw[1]
-                else: # C, D 같은 경우
-                    base = scale_note_raw
-                    acc = ''
-                
-                if (base == target_note_name_chromatic[0] and acc == target_note_name_chromatic[1:]) or \
-                   (base == target_note_name_chromatic and acc == ''):
-                    # 정확히 일치하거나, 임시표 없는 음이름이 일치하는 경우
-                    selected_base_note_name = base
-                    accidental = acc
-                    found_in_scale = True
-                    break
-                # Db/C#, Eb/D# 등 이명동음 처리 (간단화)
-                # Music21의 pitch.Pitch 자동 처리 (우선은)
-                # 이명동음 처리는 get_note_frequency 함수가 맡음.
-            
-            if not found_in_scale:
-                # 스케일에 없으면 루트 음으로 폴백 (임시표 없음)
+            # 전위된(=선택한 키의) 스케일에 들면 그 음을 코드음으로, 아니면 루트로 폴백.
+            # 반음 인덱스로 비교하므로 Bb/A# 같은 이명동음 표기 불일치 문제도 없음.
+            if target_note_idx_chromatic in pc_to_name:
+                selected_base_note_name, accidental = pc_to_name[target_note_idx_chromatic]
+            else:
                 selected_base_note_name = key_root_note
                 selected_octave = octave
                 accidental = ''
@@ -919,12 +921,9 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
         # 위 조건에 해당하지 않는 경우 (약박 또는 랜덤 선택)
         if not selected_base_note_name: 
             full_scale_parsed = []
-            for current_chromatic_octave in range(max(0, octave), min(5, octave + 2)): 
-                for scale_note_raw in base_scale_notes_raw:
-                    if len(scale_note_raw) == 1: 
-                        full_scale_parsed.append((scale_note_raw, current_chromatic_octave, ''))
-                    else: 
-                        full_scale_parsed.append((scale_note_raw[0], current_chromatic_octave, scale_note_raw[1]))
+            for current_chromatic_octave in range(max(0, octave), min(5, octave + 2)):
+                for base_name, acc in transposed_scale:
+                    full_scale_parsed.append((base_name, current_chromatic_octave, acc))
 
             if style != "random" and full_scale_parsed:
                 chosen_note_info = full_scale_parsed[np.random.randint(len(full_scale_parsed))]
