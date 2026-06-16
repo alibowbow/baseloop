@@ -856,8 +856,11 @@
             audioPlayer.load();
 
             try {
+                // 오디오는 마디 단위로 패딩된 시퀀스로 생성 → 악보의 패딩 쉼표 구간까지 무음으로 채워
+                // 커서 타임라인(패딩 포함)과 오디오 길이가 정확히 일치하게 한다.
+                const audioSequence = padSequenceForAudio(notesSequence);
                 const formData = new FormData();
-                formData.append('notes_sequence_input', notesSequence);
+                formData.append('notes_sequence_input', audioSequence);
                 formData.append('bpm_input', bpm);
                 formData.append('num_loops_input', numLoops);
 
@@ -1125,6 +1128,20 @@
             return measures;
         }
 
+        // ---- 마디 단위로 정렬된 시퀀스 문자열 생성 (오디오 생성용) ----
+        // 화면 악보와 동일한 groupIntoMeasures 결과를 그대로 사용해 패딩 쉼표를 오디오에도 포함시킨다.
+        // → 오디오 루프 길이 = 타임라인 loopBeats가 항상 일치하므로 커서가 모든 쉼표를 통과한다.
+        function fmtDur(d) { return String(Number(d.toFixed(4))); }
+        function padSequenceForAudio(notesSequenceStr) {
+            const notes = parseNotes(notesSequenceStr);
+            if (!notes.length) return notesSequenceStr; // 파싱 실패 시 원본 그대로 (서버 검증에 맡김)
+            const parts = [];
+            groupIntoMeasures(notes).forEach(measure => measure.forEach(n => {
+                parts.push(n.isRest ? `R ${fmtDur(n.duration)}` : `${n.name}${n.octave} ${fmtDur(n.duration)}`);
+            }));
+            return parts.join(', ');
+        }
+
         // ---- 박자(quarter=1.0) → VexFlow duration 코드 ----
         function toVexDuration(dur) {
             if (dur >= 4)     return { code: 'w',  dotted: false };
@@ -1241,10 +1258,9 @@
                     timeline.lineRight[li] = Math.max(timeline.lineRight[li] || 0, nEnd);
                     let bm = 0;
                     measureNotes.forEach(n => {
-                        if (!n.isPad) {
-                            timeline.segs.push({ beat: runBeat, dur: n.duration, x: nStart + (bm / 4) * areaW, top: top, h: bot - top, line: li });
-                            runBeat += n.duration;
-                        }
+                        // 패딩 쉼표(마디 채움)도 세그먼트에 포함해 커서가 균일하게 통과하도록 함
+                        timeline.segs.push({ beat: runBeat, dur: n.duration, x: nStart + (bm / 4) * areaW, top: top, h: bot - top, line: li });
+                        runBeat += n.duration;
                         bm += n.duration;
                     });
                 });
@@ -1420,10 +1436,9 @@
                         const nx = contentX + xs[ni];
                         if (n.isRest) drawCanvasRest(ctx, nx, n.duration, staffTopY);
                         else drawCanvasNote(ctx, nx, n, staffTopY);
-                        if (!n.isPad) {
-                            timeline.segs.push({ beat: runBeat, dur: n.duration, x: contentX + (bm / 4) * innerW, top: staffTopY - 6, h: 52, line: li });
-                            runBeat += n.duration;
-                        }
+                        // 패딩 쉼표도 세그먼트에 포함 (VexFlow 경로와 동일)
+                        timeline.segs.push({ beat: runBeat, dur: n.duration, x: contentX + (bm / 4) * innerW, top: staffTopY - 6, h: 52, line: li });
+                        runBeat += n.duration;
                         bm += n.duration;
                     });
                     const isLast = (mIndex === measures.length - 1);
