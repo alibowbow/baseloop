@@ -1510,6 +1510,11 @@
         // 재생 커서 (오디오 재생 위치를 악보 위에 실시간 표시)
         // ============================================================
         let __cursorRAF = null;
+        // 오디오 출력 지연 보정(초). currentTime은 "지금 출력으로 보내는" 미디어 위치라
+        // 실제 소리는 출력 지연만큼 늦게 들린다 → 커서가 소리보다 앞서 보이는 현상.
+        // 그만큼 커서를 뒤로 당겨 귀로 듣는 소리와 싱크를 맞춘다.
+        // 기기/브라우저마다 달라서 콘솔에서 window.__cursorLatencyComp 로 미세조정 가능.
+        if (window.__cursorLatencyComp == null) window.__cursorLatencyComp = 0.12;
         function startPlaybackCursor() {
             const tl = window.__scoreTimeline;
             const audio = document.getElementById('audioPlayer');
@@ -1523,7 +1528,8 @@
             function frame() {
                 if (!audio || audio.paused || audio.ended) { stopPlaybackCursor(); return; }
                 const segs = tl.segs;
-                let loopBeat = audio.currentTime / secPerBeat;
+                const comp = window.__cursorLatencyComp || 0;
+                let loopBeat = Math.max(0, audio.currentTime - comp) / secPerBeat;
                 if (tl.loopBeats > 0) loopBeat = loopBeat % tl.loopBeats;
 
                 let i = 0;
