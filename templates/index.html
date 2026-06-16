@@ -1526,11 +1526,17 @@
 
                 const usingVex = host && host.style.display !== 'none';
                 const scoreEl = usingVex ? host.querySelector('svg') : canvas;
-                if (scoreEl) {
-                    const scale = (scoreEl.clientWidth || tl.nativeW) / (tl.nativeW || 1);
-                    cursor.style.left = (scoreEl.offsetLeft + xN * scale) + 'px';
-                    cursor.style.top = (scoreEl.offsetTop + seg.top * scale) + 'px';
-                    cursor.style.height = (seg.h * scale) + 'px';
+                const stage = document.getElementById('scoreStage');
+                if (scoreEl && stage) {
+                    // SVG 루트는 offsetLeft/offsetTop이 없어(NaN) 커서가 멈춤 → getBoundingClientRect로 보정
+                    const sRect = scoreEl.getBoundingClientRect();
+                    const stRect = stage.getBoundingClientRect();
+                    if (sRect.width > 0) {
+                        const scale = sRect.width / (tl.nativeW || 1);
+                        cursor.style.left = ((sRect.left - stRect.left) + xN * scale) + 'px';
+                        cursor.style.top = ((sRect.top - stRect.top) + seg.top * scale) + 'px';
+                        cursor.style.height = (seg.h * scale) + 'px';
+                    }
                 }
                 __cursorRAF = requestAnimationFrame(frame);
             }
