@@ -385,6 +385,14 @@
         }
         .button-group .btn { padding: 12px 14px; font-size: 0.92rem; }
 
+        /* 생성·재생 주요 액션 — 2칸 한 줄 */
+        .action-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
         /* ── 로딩 스피너 ───────────────────────── */
         .loading-spinner {
             display: none;
@@ -490,6 +498,7 @@
             .card { padding: 18px; border-radius: 15px; }
             .field-grid { grid-template-columns: 1fr; }
             .button-group { grid-template-columns: 1fr; }
+            .action-row { grid-template-columns: 1fr; }
             .brand span { display: none; }
         }
     </style>
@@ -596,8 +605,6 @@
                     </div>
                 </div>
 
-                <button type="button" id="generateNotesBtn" class="btn btn-block" onclick="generateNotes()">🎼 악보 자동 생성</button>
-                <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
             </section>
 
             <!-- 2) 악보 시퀀스 -->
@@ -619,7 +626,11 @@
                     <input type="number" id="num_loops_input" name="num_loops_input" value="2" min="1" max="100" required>
                 </div>
 
-                <button type="button" id="playAudioBtn" class="btn btn-block" onclick="playGeneratedAudio()">▶️ 베이스 루프 오디오 생성 &amp; 재생</button>
+                <div class="action-row">
+                    <button type="button" id="generateNotesBtn" class="btn" onclick="generateNotes()">🎼 악보 자동 생성</button>
+                    <button type="button" id="playAudioBtn" class="btn" onclick="playGeneratedAudio()">▶️ 베이스 루프 오디오 생성 &amp; 재생</button>
+                </div>
+                <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
                 <div id="loadingSpinnerAudio" class="loading-spinner">오디오 생성 중...</div>
 
                 <audio controls id="audioPlayer"></audio>
