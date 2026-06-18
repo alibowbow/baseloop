@@ -446,11 +446,10 @@
             <div class="bl-hero__copy">
                 <span class="bl-eyebrow">🎸 BASS LOOP GENERATOR</span>
                 <h1>베이스 루프<br>자동 생성기</h1>
-                <p class="bl-hero__sub">장르 스타일·AI로 베이스 라인을 만들고, 악보·MIDI·LilyPond로 손쉽게 내보내세요.</p>
+                <p class="bl-hero__sub">장르 스타일로 베이스 라인을 만들고, 악보·MIDI·LilyPond로 손쉽게 내보내세요.</p>
                 <div class="bl-badges">
                     <span class="feature-badge {% if music21_available %}feature-available{% else %}feature-unavailable{% endif %}">🎼 Music21 전문 악보</span>
                     <span class="feature-badge {% if midi_available %}feature-available{% else %}feature-unavailable{% endif %}">🎹 MIDI 파일</span>
-                    <span class="feature-badge {% if gemini_available %}feature-available{% else %}feature-unavailable{% endif %}">🤖 Gemini AI</span>
                     <span class="feature-badge feature-available">📝 LilyPond 악보</span>
                 </div>
             </div>
@@ -526,21 +525,6 @@
                 </summary>
                 <div class="bl-settings__body">
                     <div class="field-grid">
-                        <div class="field full">
-                            <label for="generation_mode">생성 모드</label>
-                            <select id="generation_mode" name="generation_mode" onchange="toggleModeOptions()">
-                                <option value="random" selected>스타일 기반 랜덤 생성</option>
-                                <option value="ai">AI (Gemini) 추천 악보</option>
-                            </select>
-                        </div>
-
-                        <!-- AI 모드 관련 필드 (기본 숨김) -->
-                        <div class="field full" id="ai_mode_options" style="display:none;">
-                            <label for="gemini_api_key_input">Gemini API 키</label>
-                            <input type="password" id="gemini_api_key_input" name="gemini_api_key_input" placeholder="Google AI Studio에서 발급받은 키 입력">
-                            <p class="hint warning-text">⚠️ 이 키는 웹 서버로 전송됩니다. 학습/테스트용으로만 사용하고 보안에 주의하세요.</p>
-                        </div>
-
                         <div class="field full">
                             <label for="genre_input">장르 스타일</label>
                             <select id="genre_input" name="genre_input">
@@ -638,8 +622,6 @@
             // 현재 테마에 맞춰 토글 버튼 라벨 동기화
             applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
 
-            // 페이지 로드 시 선택된 기본 모드에 따라 UI 조정
-            toggleModeOptions();
             document.getElementById('messageArea').style.display = 'none';
 
             // 기본 악보 렌더링
@@ -662,7 +644,7 @@
                 const status = await response.json();
                 console.log('기능 상태:', status);
 
-                // 서버 응답 키: music21_available / midi_available / gemini_available
+                // 서버 응답 키: music21_available / midi_available
                 if (!status.music21_available) {
                     console.warn('Music21이 설치되지 않았습니다. 전문 악보는 텍스트로 대체됩니다.');
                     disableFeatureButton('professionalScoreBtn', 'Music21/MuseScore 미설치 — 텍스트 악보로 대체됩니다');
@@ -711,33 +693,12 @@
             }
         }
 
-        function toggleModeOptions() {
-            const modeSelect = document.getElementById('generation_mode');
-            const aiOptionsDiv = document.getElementById('ai_mode_options');
-            const geminiApiKeyInput = document.getElementById('gemini_api_key_input');
-
-            if (modeSelect.value === 'ai') {
-                aiOptionsDiv.style.display = 'flex';
-                geminiApiKeyInput.setAttribute('required', 'true');
-            } else {
-                aiOptionsDiv.style.display = 'none';
-                geminiApiKeyInput.removeAttribute('required');
-                geminiApiKeyInput.value = '';
-            }
-            showMessage("", 'info');
-            clearSheetMusic();
-        }
-
         async function generateNotes() {
-            const modeSelect = document.getElementById('generation_mode');
-            const currentMode = modeSelect.value;
-
             const bpm = document.getElementById('bpm_input').value;
             const length = document.getElementById('length_input').value;
             const genre = document.getElementById('genre_input').value;
             const keyNote = document.getElementById('key_note_input').value;
             const octave = document.getElementById('octave_input').value;
-            const apiKey = document.getElementById('gemini_api_key_input').value;
 
             const notesSequenceInput = document.getElementById('notes_sequence_input');
 
@@ -745,26 +706,16 @@
             showMessage("", 'info');
             clearSheetMusic();
 
-            setLoadingState('loadingSpinnerNotes', true,
-                            `${currentMode === 'ai' ? 'AI가' : '랜덤 생성기가'} 악보를 생성 중입니다...`);
+            setLoadingState('loadingSpinnerNotes', true, '랜덤 생성기가 악보를 생성 중입니다...');
 
             try {
                 const formData = new FormData();
-                formData.append('generation_mode', currentMode);
+                formData.append('generation_mode', 'random');
                 formData.append('bpm_input', bpm);
                 formData.append('length_input', length);
                 formData.append('genre_input', genre);
                 formData.append('key_note_input', keyNote);
                 formData.append('octave_input', octave);
-
-                if (currentMode === 'ai') {
-                    if (!apiKey.trim()) {
-                        showMessage("⚠️ Gemini API 키를 입력해주세요!", 'error');
-                        setLoadingState('loadingSpinnerNotes', false);
-                        return;
-                    }
-                    formData.append('gemini_api_key_input', apiKey);
-                }
 
                 const response = await fetch('/generate_notes', {
                     method: 'POST',
@@ -1125,12 +1076,14 @@
             const containerW = Math.max(320, host.clientWidth || 800);
             const PAD = 10;
             const usableW = containerW - PAD * 2;
+            const narrow = containerW < 560;            // 모바일/좁은 화면
             const MIN_MEASURE_W = 230;
-            let perLine = Math.max(1, Math.floor(usableW / MIN_MEASURE_W));
+            // 좁은 화면에서도 한 줄에 최소 2마디가 들어가도록 보장
+            let perLine = Math.max(2, Math.floor(usableW / MIN_MEASURE_W));
             perLine = Math.min(perLine, 4);
             const lines = Math.ceil(measures.length / perLine);
 
-            const LINE_H = 132;
+            const LINE_H = narrow ? 116 : 132;          // 모바일 세로 간격 축소
             const TOP_PAD = 26;
             const totalH = TOP_PAD + lines * LINE_H + 24;
 
@@ -1350,14 +1303,16 @@
             const canvas = document.getElementById('sheetMusicCanvas');
             if (!canvas) return;
             const cfg = CANVAS_CONFIG;
-            const perLine = cfg.MEASURES_PER_LINE;
+            const narrow = (window.innerWidth || 800) < 560;     // 모바일/좁은 화면
+            const perLine = narrow ? 2 : cfg.MEASURES_PER_LINE;
+            const lineHeight = narrow ? 116 : cfg.LINE_HEIGHT;    // 모바일 세로 간격 축소
             const lines = Math.ceil(measures.length / perLine);
             const globalMax = Math.max(1, ...measures.map(m => m.length));
             const innerW = Math.max(cfg.MIN_SLOT * globalMax, cfg.MIN_SLOT * 2);
             const measureW = innerW + cfg.SIDE_PAD * 2;
 
             canvas.width = cfg.MARGIN_X * 2 + cfg.CLEF_LEAD + perLine * measureW;
-            canvas.height = cfg.TOP_PAD + lines * cfg.LINE_HEIGHT + 26;
+            canvas.height = cfg.TOP_PAD + lines * lineHeight + 26;
 
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1369,7 +1324,7 @@
 
             let mIndex = 0;
             for (let li = 0; li < lines; li++) {
-                const staffTopY = cfg.TOP_PAD + li * cfg.LINE_HEIGHT;
+                const staffTopY = cfg.TOP_PAD + li * lineHeight;
                 const baseX = cfg.MARGIN_X;
                 const inThisLine = Math.min(perLine, measures.length - li * perLine);
                 const staffW = cfg.CLEF_LEAD + inThisLine * measureW;
