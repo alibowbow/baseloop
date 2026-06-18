@@ -415,8 +415,9 @@
             .bl-hero__art { order: -1; min-height: 170px; }
         }
         @media (max-width: 600px) {
-            body { padding: 16px 12px 40px; }
-            .card { padding: 18px; }
+            body { padding: 16px 10px 40px; }
+            .card { padding: 18px 14px; }
+            .paper { padding: 10px 8px; }          /* 모바일 악보 가로폭 확보 */
             .bl-settings__body { padding: 4px 18px 18px; }
             .bl-settings__head { padding: 16px 18px; }
             .field-grid { grid-template-columns: 1fr; }
@@ -741,10 +742,23 @@
             }
         }
 
+        // 같은 악보·BPM·반복수면 서버 재생성 없이 캐시된 오디오를 재사용
+        let __audioCache = { key: null, url: null };
+
+        function playCursorReset(audioPlayer) {
+            audioPlayer.onended = () => {
+                audioPlayer.onended = null;
+                stopPlaybackCursor();
+                showMessage("재생이 완료되었습니다.", 'info');
+            };
+        }
+
         async function playGeneratedAudio() {
             const notesSequence = document.getElementById('notes_sequence_input').value;
             const bpm = document.getElementById('bpm_input').value;
             const numLoops = document.getElementById('num_loops_input').value;
+            const lengthEl = document.getElementById('length_input');
+            const lengthVal = lengthEl ? parseInt(lengthEl.value) : 4;
 
             const audioPlayer = document.getElementById('audioPlayer');
 
@@ -752,6 +766,21 @@
 
             if (!notesSequence.trim()) {
                 showMessage("❗ 먼저 악보 시퀀스를 생성하거나 입력해주세요!", 'error');
+                return;
+            }
+
+            const cacheKey = notesSequence + '|' + bpm + '|' + numLoops;
+
+            // 캐시 적중: 동일 악보 → 재생성 없이 처음 생성한 오디오를 그대로 다시 재생
+            if (__audioCache.url && __audioCache.key === cacheKey) {
+                try {
+                    renderSheetMusic(notesSequence, lengthVal, parseInt(bpm));
+                } catch (e) { console.warn('재생 전 악보 동기화 실패:', e); }
+                if (audioPlayer.src !== __audioCache.url) audioPlayer.src = __audioCache.url;
+                playCursorReset(audioPlayer);
+                try { audioPlayer.currentTime = 0; } catch (e) {}
+                await audioPlayer.play();
+                showMessage("🎶 재생을 시작합니다.", 'success');
                 return;
             }
 
@@ -777,21 +806,21 @@
                     const audioBlob = await response.blob();
                     const audioUrl = URL.createObjectURL(audioBlob);
 
+                    // 이전 캐시 URL 해제 후 새 오디오를 캐싱 (다음 재생부터 재사용)
+                    if (__audioCache.url && __audioCache.url !== audioUrl) {
+                        URL.revokeObjectURL(__audioCache.url);
+                    }
+                    __audioCache = { key: cacheKey, url: audioUrl };
+
                     // 재생 전에 악보를 현재 시퀀스로 다시 그려 커서 타임라인을 동기화
                     try {
-                        renderSheetMusic(notesSequence, parseInt(document.getElementById('length_input').value), parseInt(bpm));
+                        renderSheetMusic(notesSequence, lengthVal, parseInt(bpm));
                     } catch (e) { console.warn('재생 전 악보 동기화 실패:', e); }
 
                     audioPlayer.src = audioUrl;
+                    playCursorReset(audioPlayer);
                     await audioPlayer.play();
-                    showMessage("🎶 오디오 재생을 시작합니다! 악보 위 재생 바를 확인하세요.", 'success');
-
-                    audioPlayer.onended = () => {
-                        URL.revokeObjectURL(audioUrl);
-                        audioPlayer.onended = null;
-                        stopPlaybackCursor();
-                        showMessage("재생이 완료되었습니다.", 'info');
-                    };
+                    showMessage("🎶 오디오 재생을 시작합니다!", 'success');
                 } else {
                     const errorMessage = await response.text();
                     showMessage(`🚨 오디오 생성 실패: ${errorMessage}`, 'error');
@@ -1083,7 +1112,9 @@
             perLine = Math.min(perLine, 4);
             const lines = Math.ceil(measures.length / perLine);
 
-            const LINE_H = narrow ? 116 : 132;          // 모바일 세로 간격 축소
+            const LINE_H = narrow ? 126 : 132;          // 줄 간 세로 간격
+            // 모바일에서 음표가 작아 보이는 문제 완화 — 음표 글리프를 키움 (기본 39)
+            const GLYPH_SCALE = narrow ? 46 : 39;
             const TOP_PAD = 26;
             const totalH = TOP_PAD + lines * LINE_H + 24;
 
@@ -1132,6 +1163,7 @@
                             keys: [ n.isRest ? 'd/3' : noteToVexKey(n) ],
                             duration: d.code + (n.isRest ? 'r' : '')
                         });
+                        if (sn.render_options) sn.render_options.glyph_font_scale = GLYPH_SCALE;
                         if (d.dotted && VF.Dot && VF.Dot.buildAndAttach) {
                             try { VF.Dot.buildAndAttach([sn], { all: true }); } catch (e) {}
                         }
@@ -1305,7 +1337,7 @@
             const cfg = CANVAS_CONFIG;
             const narrow = (window.innerWidth || 800) < 560;     // 모바일/좁은 화면
             const perLine = narrow ? 2 : cfg.MEASURES_PER_LINE;
-            const lineHeight = narrow ? 116 : cfg.LINE_HEIGHT;    // 모바일 세로 간격 축소
+            const lineHeight = narrow ? 126 : cfg.LINE_HEIGHT;    // 줄 간 세로 간격
             const lines = Math.ceil(measures.length / perLine);
             const globalMax = Math.max(1, ...measures.map(m => m.length));
             const innerW = Math.max(cfg.MIN_SLOT * globalMax, cfg.MIN_SLOT * 2);
