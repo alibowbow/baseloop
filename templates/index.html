@@ -27,7 +27,7 @@
 
     <style>
         /* ============================================================
-           디자인 시스템 — 라이트/다크 듀얼 테마 (균형 잡힌 중간 톤)
+           디자인 시스템 — Base Loop (라이트/다크 듀얼 테마)
            ============================================================ */
         :root {
             color-scheme: light;
@@ -37,6 +37,7 @@
             --surface: #ffffff;
             --surface-2: #f3f6fb;
             --surface-3: #eaeff8;
+            --surface-card: #ffffff;
             --text: #28304a;
             --text-muted: #687087;
             --border: #d9e0ec;
@@ -55,9 +56,13 @@
             --shadow: 0 12px 32px rgba(40, 48, 74, 0.10);
             --shadow-sm: 0 2px 10px rgba(40, 48, 74, 0.07);
             --ring: rgba(79, 110, 247, 0.28);
-            /* 악보는 가독성을 위해 테마와 무관하게 밝은 '종이' 표면 사용 */
             --paper: #ffffff;
             --paper-border: #d5d5dd;
+            --container-max: 940px;
+            --radius-md: 12px;
+            --radius-lg: 14px;
+            --radius-xl: 16px;
+            --radius-2xl: 20px;
         }
 
         [data-theme="dark"] {
@@ -68,6 +73,7 @@
             --surface: #1d2330;
             --surface-2: #242c3b;
             --surface-3: #2b3445;
+            --surface-card: #1d2330;
             --text: #e7ebf3;
             --text-muted: #98a2b8;
             --border: #313b50;
@@ -91,9 +97,7 @@
         }
 
         * { box-sizing: border-box; }
-
         html, body { margin: 0; padding: 0; }
-
         body {
             font-family: 'Rubik', system-ui, -apple-system, sans-serif;
             background-color: var(--bg);
@@ -104,55 +108,34 @@
             color: var(--text);
             line-height: 1.6;
             min-height: 100vh;
-            padding: 24px 16px 48px;
+            padding: 22px 16px 52px;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             transition: background-color 0.35s ease, color 0.35s ease;
         }
+        .bl-wrap { max-width: var(--container-max); margin: 0 auto; }
 
-        .container {
-            max-width: 920px;
-            margin: 0 auto;
+        /* ── 상단 바 ───────────────────────── */
+        .bl-topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; margin-bottom: 22px;
         }
-
-        /* ── 상단 바 + 테마 토글 ───────────────────────── */
-        .topbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 18px;
+        .bl-logo {
+            display: inline-flex; align-items: center; gap: 10px;
+            font-weight: 700; font-size: 0.92rem; color: var(--text-muted);
+            letter-spacing: 0.06em;
         }
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 700;
-            font-size: 0.95rem;
-            color: var(--text-muted);
-            letter-spacing: 0.02em;
-        }
-        .brand .logo {
-            width: 34px; height: 34px;
-            display: grid; place-items: center;
-            border-radius: 10px;
+        .bl-logo__tile {
+            width: 34px; height: 34px; display: grid; place-items: center;
+            border-radius: var(--radius-md);
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: #fff; font-size: 1.05rem;
-            box-shadow: var(--shadow-sm);
+            color: #fff; font-size: 1.05rem; box-shadow: var(--shadow-sm); flex: none;
         }
         .theme-toggle {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            background: var(--surface);
-            color: var(--text);
-            font-family: inherit;
-            font-size: 0.86rem;
-            font-weight: 600;
-            cursor: pointer;
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 14px; border: 1px solid var(--border);
+            border-radius: 999px; background: var(--surface); color: var(--text);
+            font-family: inherit; font-size: 0.86rem; font-weight: 600; cursor: pointer;
             box-shadow: var(--shadow-sm);
             transition: transform 0.15s ease, border-color 0.2s ease, background 0.2s ease;
         }
@@ -161,44 +144,56 @@
         .theme-toggle .theme-icon { font-size: 1rem; line-height: 1; }
 
         /* ── 히어로 ───────────────────────── */
-        .hero { text-align: center; margin-bottom: 22px; }
-        h1 {
-            margin: 0 0 8px;
-            font-size: clamp(1.7rem, 4.5vw, 2.4rem);
-            font-weight: 700;
-            line-height: 1.15;
+        .bl-hero {
+            display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 28px;
+            align-items: center; margin-bottom: 22px;
+        }
+        .bl-eyebrow {
+            display: inline-block; font-size: 0.72rem; font-weight: 700;
+            letter-spacing: 0.14em; color: var(--primary);
+            background: var(--primary-soft); padding: 5px 11px; border-radius: 999px;
+            margin-bottom: 12px;
+        }
+        .bl-hero__copy h1 {
+            margin: 0 0 12px; font-size: clamp(1.9rem, 4.5vw, 2.7rem);
+            font-weight: 700; line-height: 1.12;
             background: linear-gradient(120deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+            -webkit-background-clip: text; background-clip: text; color: transparent;
         }
-        .hero p { margin: 0; color: var(--text-muted); font-size: 0.98rem; }
+        .bl-hero__sub { margin: 0 0 16px; color: var(--text-muted); font-size: 1rem; max-width: 42ch; }
+        .bl-badges { display: flex; flex-wrap: wrap; gap: 8px; }
 
-        /* ── 기능 상태 칩 ───────────────────────── */
-        .features-status {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 18px;
+        /* 히어로 아트(이미지 자리) */
+        .bl-hero__art { position: relative; display: grid; place-items: center; min-height: 200px; }
+        .bl-hero__glow {
+            position: absolute; inset: 8% 6%; border-radius: 30px; z-index: 0;
+            background: radial-gradient(circle at 30% 25%, var(--secondary), transparent 60%),
+                        radial-gradient(circle at 75% 80%, var(--primary), transparent 60%);
+            filter: blur(34px); opacity: 0.55;
         }
-        .features-status .label {
-            width: 100%;
-            text-align: center;
-            font-size: 0.82rem;
-            color: var(--text-muted);
-            margin-bottom: 2px;
+        .bl-hero__frame {
+            position: relative; z-index: 1; width: 100%; aspect-ratio: 4 / 3;
+            border-radius: 22px; border: 1px solid var(--border);
+            background: linear-gradient(150deg, var(--surface), var(--surface-2));
+            box-shadow: var(--shadow); display: grid; place-items: center;
+            overflow: hidden;
         }
+        .bl-hero__frame .glyph {
+            font-size: clamp(3.2rem, 9vw, 5rem); filter: drop-shadow(0 6px 16px rgba(0,0,0,0.22));
+        }
+        .bl-hero__chip {
+            position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%);
+            z-index: 2; white-space: nowrap;
+            background: var(--surface); border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm); border-radius: 999px;
+            padding: 7px 14px; font-size: 0.8rem; font-weight: 600; color: var(--text);
+        }
+
+        /* ── 뱃지 ───────────────────────── */
         .feature-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 11px;
-            border-radius: 999px;
-            font-size: 0.78rem;
-            font-weight: 600;
-            border: 1px solid transparent;
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 5px 11px; border-radius: 999px;
+            font-size: 0.78rem; font-weight: 600; border: 1px solid transparent;
         }
         .feature-available {
             background: color-mix(in srgb, var(--success) 16%, transparent);
@@ -214,255 +209,76 @@
 
         /* ── 메시지 영역 ───────────────────────── */
         .message-area {
-            padding: 12px 16px;
-            margin-bottom: 18px;
-            border-radius: 12px;
-            font-size: 0.94rem;
-            font-weight: 500;
-            word-wrap: break-word;
-            border: 1px solid var(--border);
-            background: var(--surface);
-            box-shadow: var(--shadow-sm);
+            padding: 12px 16px; margin-bottom: 18px; border-radius: var(--radius-md);
+            font-size: 0.94rem; font-weight: 500; word-wrap: break-word;
+            border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-sm);
         }
         .message-area.success {
             background: color-mix(in srgb, var(--success) 12%, var(--surface));
-            color: var(--success);
-            border-color: color-mix(in srgb, var(--success) 35%, transparent);
+            color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent);
         }
         .message-area.error {
             background: color-mix(in srgb, var(--error) 12%, var(--surface));
-            color: var(--error);
-            border-color: color-mix(in srgb, var(--error) 35%, transparent);
+            color: var(--error); border-color: color-mix(in srgb, var(--error) 35%, transparent);
         }
         .message-area.warning {
             background: color-mix(in srgb, var(--warning) 14%, var(--surface));
-            color: var(--warning-hover);
-            border-color: color-mix(in srgb, var(--warning) 35%, transparent);
+            color: var(--warning-hover); border-color: color-mix(in srgb, var(--warning) 35%, transparent);
         }
         .message-area.info {
-            color: var(--primary);
-            border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+            color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, transparent);
         }
 
-        /* ── 카드 ───────────────────────── */
+        /* ── 카드(공통 표면) ───────────────────────── */
         .card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 18px;
-            padding: 22px;
-            box-shadow: var(--shadow-sm);
+            background: var(--surface-card); border: 1px solid var(--border);
+            border-radius: var(--radius-2xl); padding: 22px; box-shadow: var(--shadow-sm);
             transition: background-color 0.35s ease, border-color 0.35s ease;
         }
         .card + .card { margin-top: 16px; }
-        .card-title {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            margin: 0 0 18px;
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: var(--text);
+
+        /* ── 메인 스테이지(악보 + 재생) ───────────────────────── */
+        .bl-stage { margin-bottom: 16px; }
+        .bl-stage__head {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 10px; margin-bottom: 16px;
         }
-        .card-title::before {
-            content: '';
-            width: 4px; height: 18px;
-            border-radius: 3px;
+        .bl-stage__title {
+            display: flex; align-items: center; gap: 9px; margin: 0;
+            font-size: 1.12rem; font-weight: 700; color: var(--text);
+        }
+        .bl-stage__bar {
+            width: 4px; height: 18px; border-radius: 3px; flex: none;
             background: linear-gradient(var(--primary), var(--secondary));
         }
-        .card-subtitle {
-            margin: -10px 0 16px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
+        .bl-stage__chips, .bl-meta { display: flex; flex-wrap: wrap; gap: 7px; }
+        .bl-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 5px 11px; border-radius: 999px;
+            background: var(--surface-2); border: 1px solid var(--border);
+            font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
         }
+        .bl-chip strong { color: var(--text); font-weight: 700; }
 
-        /* ── 폼 필드 ───────────────────────── */
-        .field-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 14px 16px;
-        }
-        .field { display: flex; flex-direction: column; gap: 7px; }
-        .field.full { grid-column: 1 / -1; }
-        label {
-            font-weight: 600;
-            color: var(--text);
-            font-size: 0.9rem;
-        }
-        input[type="number"],
-        input[type="text"],
-        input[type="password"],
-        select,
-        textarea {
-            width: 100%;
-            padding: 12px 14px;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-family: inherit;
-            background-color: var(--surface-2);
-            color: var(--text);
-            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-        }
-        select {
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23687087' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            padding-right: 38px;
-        }
-        input:focus, select:focus, textarea:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px var(--ring);
-            outline: none;
-            background-color: var(--surface);
-        }
-        textarea {
-            min-height: 110px;
-            resize: vertical;
-            font-family: 'Fira Code', 'Roboto Mono', monospace;
-            line-height: 1.6;
-            font-size: 0.9rem;
-        }
-        .hint {
-            font-size: 0.82rem;
-            color: var(--text-muted);
-            margin: 8px 0 0;
-        }
-        .hint code {
-            font-family: 'Fira Code', monospace;
-            background: var(--surface-3);
-            padding: 2px 6px;
-            border-radius: 6px;
-            font-size: 0.85em;
-            color: var(--text);
-        }
-        .warning-text {
-            color: var(--warning-hover);
-            font-weight: 500;
-        }
-
-        /* ── 버튼 ───────────────────────── */
-        button {
-            font-family: inherit;
-            border: none;
-            border-radius: 11px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
-        }
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 13px 20px;
-            font-size: 1rem;
-            color: #fff;
-            background-color: var(--primary);
-            box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent);
-        }
-        .btn:hover:not(:disabled) {
-            background-color: var(--primary-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 42%, transparent);
-        }
-        .btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
-        .btn:disabled { background-color: var(--text-muted); cursor: not-allowed; opacity: 0.55; box-shadow: none; }
-        .btn-block { width: 100%; margin-top: 6px; }
-
-        .btn-secondary { background-color: var(--accent); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent); }
-        .btn-secondary:hover:not(:disabled) { background-color: var(--accent-hover); box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 42%, transparent); }
-        .btn-purple { background-color: var(--secondary); box-shadow: 0 4px 14px color-mix(in srgb, var(--secondary) 35%, transparent); }
-        .btn-purple:hover:not(:disabled) { background-color: var(--secondary-hover); box-shadow: 0 8px 22px color-mix(in srgb, var(--secondary) 42%, transparent); }
-        .btn-warning { background-color: var(--warning); box-shadow: 0 4px 14px color-mix(in srgb, var(--warning) 35%, transparent); }
-        .btn-warning:hover:not(:disabled) { background-color: var(--warning-hover); box-shadow: 0 8px 22px color-mix(in srgb, var(--warning) 42%, transparent); }
-
-        .button-group {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 14px;
-        }
-        .button-group .btn { padding: 12px 14px; font-size: 0.92rem; }
-
-        /* 생성·재생 주요 액션 — 2칸 한 줄 */
-        .action-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 6px;
-        }
-
-        /* ── 로딩 스피너 ───────────────────────── */
-        .loading-spinner {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            text-align: center;
-            font-size: 0.95rem;
-            color: var(--primary);
-            margin-top: 12px;
-            font-weight: 600;
-        }
-        .loading-spinner.active { display: flex; }
-        .loading-spinner::after {
-            content: '';
-            width: 1.1em; height: 1.1em;
-            border: 0.16em solid var(--primary-soft);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ── 오디오 플레이어 ───────────────────────── */
-        audio {
-            width: 100%;
-            margin-top: 16px;
-            border-radius: 10px;
-        }
-
-        /* ── 악보 표시 영역 ───────────────────────── */
-        .score-card { margin-top: 16px; }
-        #professional-score-area { display: none; }
+        /* ── 악보 종이 / 표시 영역 ───────────────────────── */
         .paper {
-            background: var(--paper);
-            border: 1px solid var(--paper-border);
-            border-radius: 12px;
-            padding: 16px;
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            text-align: center;
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary) transparent;
+            background: var(--paper); border: 1px solid var(--paper-border);
+            border-radius: var(--radius-md); padding: 16px;
+            overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+            text-align: center; scrollbar-width: thin; scrollbar-color: var(--primary) transparent;
         }
         .paper::-webkit-scrollbar { height: 9px; }
         .paper::-webkit-scrollbar-track { background: transparent; }
         .paper::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; }
         .paper::-webkit-scrollbar-thumb:hover { background: var(--primary); }
-
-        #professionalScore {
-            display: none;
-            max-width: 100%;
-            height: auto;
-            margin: 0 auto;
-            border-radius: 6px;
-        }
+        .score-card { margin-top: 16px; }
+        #professional-score-area { display: none; }
+        #professionalScore { display: none; max-width: 100%; height: auto; margin: 0 auto; border-radius: 6px; }
         #textScore {
-            display: none;
-            text-align: left;
-            background: var(--surface-2);
-            color: var(--text);
-            padding: 16px;
-            border-radius: 10px;
-            overflow-x: auto;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.85rem;
-            line-height: 1.6;
-            margin: 0;
-            border: 1px solid var(--border);
+            display: none; text-align: left; background: var(--surface-2); color: var(--text);
+            padding: 16px; border-radius: var(--radius-md); overflow-x: auto;
+            font-family: 'Fira Code', monospace; font-size: 0.85rem; line-height: 1.6;
+            margin: 0; border: 1px solid var(--border);
         }
         #vexflowScore { width: 100%; }
         #vexflowScore svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
@@ -475,41 +291,148 @@
             transition: opacity 0.15s ease;
         }
         #playCursor.active { opacity: 0.9; }
-        #sheetMusicCanvas {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            margin: 0 auto;
-            border-radius: 6px;
-        }
+        #sheetMusicCanvas { max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 6px; }
 
-        .footer {
-            text-align: center;
-            margin-top: 26px;
-            font-size: 0.82rem;
-            color: var(--text-muted);
+        /* ── 버튼(공통) ───────────────────────── */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            width: auto; padding: 13px 20px; font-family: inherit;
+            font-size: 0.96rem; font-weight: 600; color: #fff; border: none;
+            border-radius: var(--radius-lg); cursor: pointer;
+            background-color: var(--primary);
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent);
+            transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
         }
-        .footer a { color: var(--primary); text-decoration: none; }
-        .footer a:hover { text-decoration: underline; }
+        .btn:hover:not(:disabled) {
+            background-color: var(--primary-hover); transform: translateY(-2px);
+            box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 42%, transparent);
+        }
+        .btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+        .btn:disabled { background-color: var(--text-muted); cursor: not-allowed; opacity: 0.55; box-shadow: none; }
+        .btn-block { width: 100%; }
+
+        /* ── 트랜스포트(재생) ───────────────────────── */
+        .bl-transport {
+            display: flex; align-items: center; gap: 14px; margin-top: 16px;
+            padding: 14px; border-radius: var(--radius-xl);
+            background: var(--surface-2); border: 1px solid var(--border);
+        }
+        .bl-play {
+            flex: none; width: 56px; height: 56px; border-radius: 50%; border: none;
+            cursor: pointer; color: #fff; font-size: 1.4rem; display: grid; place-items: center;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 42%, transparent);
+            transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        }
+        .bl-play:hover:not(:disabled) { transform: translateY(-2px) scale(1.03); }
+        .bl-play:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+        .bl-play:disabled { background: var(--text-muted); cursor: not-allowed; opacity: 0.55; box-shadow: none; }
+        .bl-transport__main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+        .bl-transport__main audio { width: 100%; height: 38px; margin: 0; border-radius: 10px; }
+
+        /* ── 내보내기 ───────────────────────── */
+        .bl-exports { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+        .bl-export {
+            display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+            padding: 12px 14px; border-radius: var(--radius-md); cursor: pointer;
+            font-family: inherit; font-size: 0.9rem; font-weight: 600;
+            color: var(--text); background: var(--surface); border: 1px solid var(--border);
+            transition: transform 0.15s ease, border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+        }
+        .bl-export:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--primary); background: var(--surface-2); }
+        .bl-export:active:not(:disabled) { transform: translateY(0); }
+        .bl-export:disabled { cursor: not-allowed; opacity: 0.5; }
+
+        /* ── 접이식 생성 설정 ───────────────────────── */
+        .bl-settings {
+            background: var(--surface-card); border: 1px solid var(--border);
+            border-radius: var(--radius-2xl); box-shadow: var(--shadow-sm); overflow: hidden;
+            transition: background-color 0.35s ease, border-color 0.35s ease;
+        }
+        .bl-settings__head {
+            display: flex; align-items: center; gap: 12px; width: 100%;
+            padding: 18px 22px; cursor: pointer; list-style: none; user-select: none;
+        }
+        .bl-settings__head::-webkit-details-marker { display: none; }
+        .bl-settings__icon { font-size: 1.15rem; flex: none; }
+        .bl-settings__label { font-size: 1.05rem; font-weight: 700; color: var(--text); flex: none; }
+        .bl-settings__summary { flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+        .bl-chev { flex: none; color: var(--text-muted); transition: transform 0.25s ease; }
+        .bl-settings[open] .bl-chev { transform: rotate(180deg); }
+        .bl-settings__body { padding: 4px 22px 22px; }
+
+        /* ── 폼 필드 ───────────────────────── */
+        .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 16px; }
+        .field { display: flex; flex-direction: column; gap: 7px; }
+        .field.full { grid-column: 1 / -1; }
+        label { font-weight: 600; color: var(--text); font-size: 0.9rem; }
+        input[type="number"], input[type="text"], input[type="password"], select, textarea {
+            width: 100%; padding: 12px 14px; border: 1px solid var(--border);
+            border-radius: 10px; font-size: 0.95rem; font-family: inherit;
+            background-color: var(--surface-2); color: var(--text);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23687087' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 12px center; padding-right: 38px;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary); box-shadow: 0 0 0 4px var(--ring);
+            outline: none; background-color: var(--surface);
+        }
+        textarea {
+            min-height: 110px; resize: vertical;
+            font-family: 'Fira Code', 'Roboto Mono', monospace; line-height: 1.6; font-size: 0.9rem;
+        }
+        .hint { font-size: 0.82rem; color: var(--text-muted); margin: 8px 0 0; }
+        .hint code {
+            font-family: 'Fira Code', monospace; background: var(--surface-3);
+            padding: 2px 6px; border-radius: 6px; font-size: 0.85em; color: var(--text);
+        }
+        .warning-text { color: var(--warning-hover); font-weight: 500; }
+
+        /* ── 로딩 스피너 ───────────────────────── */
+        .loading-spinner {
+            display: none; align-items: center; justify-content: center; gap: 10px;
+            text-align: center; font-size: 0.95rem; color: var(--primary);
+            margin-top: 12px; font-weight: 600;
+        }
+        .loading-spinner.active { display: flex; }
+        .loading-spinner::after {
+            content: ''; width: 1.1em; height: 1.1em;
+            border: 0.16em solid var(--primary-soft); border-top-color: var(--primary);
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── 푸터 ───────────────────────── */
+        .footer { text-align: center; margin-top: 26px; font-size: 0.82rem; color: var(--text-muted); }
 
         /* ── 반응형 ───────────────────────── */
+        @media (max-width: 720px) {
+            .bl-hero { grid-template-columns: 1fr; gap: 30px; }
+            .bl-hero__art { order: -1; min-height: 170px; }
+        }
         @media (max-width: 600px) {
             body { padding: 16px 12px 40px; }
-            .card { padding: 18px; border-radius: 15px; }
+            .card { padding: 18px; }
+            .bl-settings__body { padding: 4px 18px 18px; }
+            .bl-settings__head { padding: 16px 18px; }
             .field-grid { grid-template-columns: 1fr; }
-            .button-group { grid-template-columns: 1fr; }
-            .action-row { grid-template-columns: 1fr; }
-            .brand span { display: none; }
+            .bl-exports { grid-template-columns: 1fr; }
+            .bl-settings__summary { display: none; }
+            .bl-logo span:last-child { display: none; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="bl-wrap">
 
         <!-- 상단 바 -->
-        <div class="topbar">
-            <div class="brand">
-                <span class="logo">🎸</span>
+        <div class="bl-topbar">
+            <div class="bl-logo">
+                <span class="bl-logo__tile">🎸</span>
                 <span>BASE&nbsp;LOOP</span>
             </div>
             <button type="button" id="themeToggle" class="theme-toggle" onclick="toggleTheme()" aria-pressed="false" title="라이트/다크 테마 전환">
@@ -519,141 +442,39 @@
         </div>
 
         <!-- 히어로 -->
-        <div class="hero">
-            <h1>🎵 베이스 루프 자동 생성기 🎸</h1>
-            <p>스타일·AI로 베이스 라인을 만들고, 악보·MIDI·LilyPond로 내보내세요.</p>
-        </div>
-
-        <!-- 기능 상태 표시 -->
-        <div class="features-status">
-            <span class="label">🔧 사용 가능한 기능</span>
-            <span class="feature-badge {% if music21_available %}feature-available{% else %}feature-unavailable{% endif %}">🎼 Music21 전문 악보</span>
-            <span class="feature-badge {% if midi_available %}feature-available{% else %}feature-unavailable{% endif %}">🎹 MIDI 파일</span>
-            <span class="feature-badge {% if gemini_available %}feature-available{% else %}feature-unavailable{% endif %}">🤖 Gemini AI</span>
-            <span class="feature-badge feature-available">📝 LilyPond 악보</span>
-        </div>
+        <header class="bl-hero">
+            <div class="bl-hero__copy">
+                <span class="bl-eyebrow">🎸 BASS LOOP GENERATOR</span>
+                <h1>베이스 루프<br>자동 생성기</h1>
+                <p class="bl-hero__sub">장르 스타일·AI로 베이스 라인을 만들고, 악보·MIDI·LilyPond로 손쉽게 내보내세요.</p>
+                <div class="bl-badges">
+                    <span class="feature-badge {% if music21_available %}feature-available{% else %}feature-unavailable{% endif %}">🎼 Music21 전문 악보</span>
+                    <span class="feature-badge {% if midi_available %}feature-available{% else %}feature-unavailable{% endif %}">🎹 MIDI 파일</span>
+                    <span class="feature-badge {% if gemini_available %}feature-available{% else %}feature-unavailable{% endif %}">🤖 Gemini AI</span>
+                    <span class="feature-badge feature-available">📝 LilyPond 악보</span>
+                </div>
+            </div>
+            <div class="bl-hero__art">
+                <div class="bl-hero__glow"></div>
+                <div class="bl-hero__frame"><span class="glyph">🎸</span></div>
+                <span class="bl-hero__chip">🎵 4-string groove machine</span>
+            </div>
+        </header>
 
         <div id="messageArea" class="message-area" style="display:none;"></div>
 
-        <form id="bassGeneratorForm">
+        <form id="bassGeneratorForm" onsubmit="return false;">
 
-            <!-- 1) 생성 설정 -->
-            <section class="card">
-                <h2 class="card-title">생성 설정</h2>
-
-                <div class="field-grid">
-                    <div class="field full">
-                        <label for="generation_mode">생성 모드</label>
-                        <select id="generation_mode" name="generation_mode" onchange="toggleModeOptions()">
-                            <option value="random" selected>스타일 기반 랜덤 생성</option>
-                            <option value="ai">AI (Gemini) 추천 악보</option>
-                        </select>
-                    </div>
-
-                    <!-- AI 모드 관련 필드 (기본 숨김) -->
-                    <div class="field full" id="ai_mode_options" style="display:none;">
-                        <label for="gemini_api_key_input">Gemini API 키</label>
-                        <input type="password" id="gemini_api_key_input" name="gemini_api_key_input" placeholder="Google AI Studio에서 발급받은 키 입력">
-                        <p class="hint warning-text">⚠️ 이 키는 웹 서버로 전송됩니다. 학습/테스트용으로만 사용하고 보안에 주의하세요.</p>
-                    </div>
-
-                    <div class="field">
-                        <label for="bpm_input">BPM (분당 박자)</label>
-                        <input type="number" id="bpm_input" name="bpm_input" value="120" min="30" max="240" required>
-                    </div>
-
-                    <div class="field">
-                        <label for="length_input">루프 길이 (마디)</label>
-                        <input type="number" id="length_input" name="length_input" value="4" min="1" max="16" required>
-                    </div>
-
-                    <div class="field">
-                        <label for="key_note_input">루트 음 (근음)</label>
-                        <select id="key_note_input" name="key_note_input">
-                            <option value="C" selected>C</option>
-                            <option value="C#">C#</option>
-                            <option value="D">D</option>
-                            <option value="D#">D#</option>
-                            <option value="E">E</option>
-                            <option value="F">F</option>
-                            <option value="F#">F#</option>
-                            <option value="G">G</option>
-                            <option value="G#">G#</option>
-                            <option value="A">A</option>
-                            <option value="A#">A#</option>
-                            <option value="B">B</option>
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label for="octave_input">기본 옥타브 (C1=1 …)</label>
-                        <input type="number" id="octave_input" name="octave_input" value="2" min="0" max="4" required>
-                    </div>
-
-                    <div class="field full">
-                        <label for="genre_input">장르 스타일</label>
-                        <select id="genre_input" name="genre_input">
-                            <option value="rock" selected>락</option>
-                            <option value="funk">펑크</option>
-                            <option value="pop">팝</option>
-                            <option value="jazz">재즈</option>
-                            <option value="blues">블루스</option>
-                            <option value="reggae">레게</option>
-                            <option value="hiphop">힙합</option>
-                            <option value="random">완전 랜덤 (정확도 낮음)</option>
-                        </select>
+            <!-- 메인 스테이지: 악보 + 재생 -->
+            <section class="card bl-stage">
+                <div class="bl-stage__head">
+                    <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>생성된 악보</h2>
+                    <div class="bl-stage__chips">
+                        <span class="bl-chip">🎸 베이스 클레프</span>
+                        <span class="bl-chip">🎼 자동 표기</span>
                     </div>
                 </div>
 
-            </section>
-
-            <!-- 2) 악보 시퀀스 -->
-            <section class="card">
-                <h2 class="card-title">악보 시퀀스</h2>
-                <div class="field full">
-                    <label for="notes_sequence_input">생성/입력된 악보 시퀀스</label>
-                    <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0</textarea>
-                </div>
-                <p class="hint">형식: <code>음표이름+옥타브 박자단위</code>를 쉼표로 구분. 예: <code>C2 1.0, G2 0.5, Eb2 0.5, F2 1.0</code> (샤프 <code>#</code>·플랫 <code>b</code> 지원)</p>
-            </section>
-
-            <!-- 3) 오디오 & 내보내기 -->
-            <section class="card">
-                <h2 class="card-title">오디오 &amp; 내보내기</h2>
-
-                <div class="field full">
-                    <label for="num_loops_input">오디오 루프 반복 횟수</label>
-                    <input type="number" id="num_loops_input" name="num_loops_input" value="2" min="1" max="100" required>
-                </div>
-
-                <div class="action-row">
-                    <button type="button" id="generateNotesBtn" class="btn" onclick="generateNotes()">🎼 악보 자동 생성</button>
-                    <button type="button" id="playAudioBtn" class="btn" onclick="playGeneratedAudio()">▶️ 베이스 루프 오디오 생성 &amp; 재생</button>
-                </div>
-                <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
-                <div id="loadingSpinnerAudio" class="loading-spinner">오디오 생성 중...</div>
-
-                <audio controls id="audioPlayer"></audio>
-
-                <div class="button-group">
-                    <button type="button" id="midiBtn" onclick="downloadMidi()" class="btn btn-secondary">💾 MIDI 다운로드</button>
-                    <button type="button" id="lilypondBtn" onclick="downloadLilypond()" class="btn btn-purple">📝 LilyPond 악보</button>
-                    <button type="button" id="professionalScoreBtn" onclick="loadProfessionalScore()" class="btn btn-warning">🎼 전문 악보 보기</button>
-                </div>
-            </section>
-
-            <!-- 4) 전문 악보 (Music21 / MuseScore) -->
-            <section class="card score-card" id="professional-score-area">
-                <h2 class="card-title">🎼 Music21 전문 악보</h2>
-                <div class="paper" id="professionalScoreContainer">
-                    <img id="professionalScore" alt="전문 악보 (MuseScore SVG)">
-                    <pre id="textScore"></pre>
-                </div>
-            </section>
-
-            <!-- 5) 자동 생성 악보 (VexFlow, 실패 시 Canvas 폴백) -->
-            <section class="card score-card">
-                <h2 class="card-title">생성된 악보 <span style="font-weight:500;color:var(--text-muted);font-size:0.85rem;">(자동 표기)</span></h2>
                 <div class="paper" id="notation-area">
                     <div id="scoreStage">
                         <div id="vexflowScore"></div>
@@ -661,7 +482,132 @@
                         <div id="playCursor" aria-hidden="true"></div>
                     </div>
                 </div>
+
+                <div style="margin-top:16px;">
+                    <button type="button" id="generateNotesBtn" class="btn btn-block" onclick="generateNotes()">🎼 악보 자동 생성</button>
+                </div>
+                <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
+
+                <!-- 재생 트랜스포트 -->
+                <div class="bl-transport">
+                    <button type="button" id="playAudioBtn" class="bl-play" onclick="playGeneratedAudio()" aria-label="오디오 생성 및 재생"><span>▶</span></button>
+                    <div class="bl-transport__main">
+                        <audio controls id="audioPlayer"></audio>
+                        <div class="bl-meta">
+                            <span class="bl-chip">▶ 생성 후 재생</span>
+                            <span class="bl-chip">🎶 악보 위 재생 바 확인</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="loadingSpinnerAudio" class="loading-spinner">오디오 생성 중...</div>
+
+                <!-- 내보내기 -->
+                <div class="bl-exports">
+                    <button type="button" id="midiBtn" onclick="downloadMidi()" class="bl-export">🎹 MIDI 다운로드</button>
+                    <button type="button" id="lilypondBtn" onclick="downloadLilypond()" class="bl-export">📝 LilyPond 악보</button>
+                    <button type="button" id="professionalScoreBtn" onclick="loadProfessionalScore()" class="bl-export">🎼 전문 악보 보기</button>
+                </div>
             </section>
+
+            <!-- 전문 악보 (Music21 / MuseScore) — 보기 클릭 시 표시 -->
+            <section class="card score-card" id="professional-score-area">
+                <div class="bl-stage__head" style="margin-bottom:16px;">
+                    <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>🎼 Music21 전문 악보</h2>
+                </div>
+                <div class="paper" id="professionalScoreContainer">
+                    <img id="professionalScore" alt="전문 악보 (MuseScore SVG)">
+                    <pre id="textScore"></pre>
+                </div>
+            </section>
+
+            <!-- 접이식 생성 설정 -->
+            <details class="bl-settings" open>
+                <summary class="bl-settings__head">
+                    <span class="bl-settings__icon">🎛️</span>
+                    <span class="bl-settings__label">생성 설정</span>
+                    <span class="bl-settings__summary"><span class="bl-chip">장르 · 근음 · BPM · 마디 · 시퀀스</span></span>
+                    <span class="bl-chev" aria-hidden="true">▾</span>
+                </summary>
+                <div class="bl-settings__body">
+                    <div class="field-grid">
+                        <div class="field full">
+                            <label for="generation_mode">생성 모드</label>
+                            <select id="generation_mode" name="generation_mode" onchange="toggleModeOptions()">
+                                <option value="random" selected>스타일 기반 랜덤 생성</option>
+                                <option value="ai">AI (Gemini) 추천 악보</option>
+                            </select>
+                        </div>
+
+                        <!-- AI 모드 관련 필드 (기본 숨김) -->
+                        <div class="field full" id="ai_mode_options" style="display:none;">
+                            <label for="gemini_api_key_input">Gemini API 키</label>
+                            <input type="password" id="gemini_api_key_input" name="gemini_api_key_input" placeholder="Google AI Studio에서 발급받은 키 입력">
+                            <p class="hint warning-text">⚠️ 이 키는 웹 서버로 전송됩니다. 학습/테스트용으로만 사용하고 보안에 주의하세요.</p>
+                        </div>
+
+                        <div class="field full">
+                            <label for="genre_input">장르 스타일</label>
+                            <select id="genre_input" name="genre_input">
+                                <option value="rock" selected>락</option>
+                                <option value="funk">펑크</option>
+                                <option value="pop">팝</option>
+                                <option value="jazz">재즈</option>
+                                <option value="blues">블루스</option>
+                                <option value="reggae">레게</option>
+                                <option value="hiphop">힙합</option>
+                                <option value="random">완전 랜덤 (정확도 낮음)</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="key_note_input">루트 음 (근음)</label>
+                            <select id="key_note_input" name="key_note_input">
+                                <option value="C" selected>C</option>
+                                <option value="C#">C#</option>
+                                <option value="D">D</option>
+                                <option value="D#">D#</option>
+                                <option value="E">E</option>
+                                <option value="F">F</option>
+                                <option value="F#">F#</option>
+                                <option value="G">G</option>
+                                <option value="G#">G#</option>
+                                <option value="A">A</option>
+                                <option value="A#">A#</option>
+                                <option value="B">B</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="octave_input">기본 옥타브 (C1=1 …)</label>
+                            <input type="number" id="octave_input" name="octave_input" value="2" min="0" max="4" required>
+                        </div>
+
+                        <div class="field">
+                            <label for="bpm_input">BPM (분당 박자)</label>
+                            <input type="number" id="bpm_input" name="bpm_input" value="120" min="30" max="240" required>
+                        </div>
+
+                        <div class="field">
+                            <label for="length_input">루프 길이 (마디)</label>
+                            <input type="number" id="length_input" name="length_input" value="4" min="1" max="16" required>
+                        </div>
+
+                        <div class="field full">
+                            <label for="num_loops_input">오디오 루프 반복 횟수</label>
+                            <input type="number" id="num_loops_input" name="num_loops_input" value="2" min="1" max="100" required>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:18px;">
+                        <div class="field full">
+                            <label for="notes_sequence_input">악보 시퀀스 직접 편집</label>
+                            <textarea id="notes_sequence_input" name="notes_sequence_input" rows="4">C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0, C2 1.0, G2 1.0, A2 1.0, F2 1.0</textarea>
+                            <p class="hint">형식: <code>음표이름+옥타브 박자단위</code>를 쉼표로 구분. 예: <code>C2 1.0, G2 0.5, Eb2 0.5, F2 1.0</code> (샤프 <code>#</code>·플랫 <code>b</code> 지원)</p>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
         </form>
 
         <div class="footer">🎸 Base Loop</div>
