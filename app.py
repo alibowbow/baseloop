@@ -898,6 +898,15 @@ def parse_chord_symbol(symbol):
     if not symbol:
         raise ValueError("빈 코드 기호입니다.")
 
+    # 슬래시(온음) 코드: "C/E" → 코드 C, 베이스 음 E. 슬래시 뒤 음이 실제 베이스 음.
+    slash_bass_pc = None
+    if '/' in symbol:
+        main_part, bass_part = symbol.split('/', 1)
+        bm = re.match(r'^([A-Ga-g])([#b]?)$', bass_part.strip())
+        if bm:
+            slash_bass_pc = NOTE_TO_PC.get((bm.group(1).upper() + bm.group(2).replace('B', 'b')).upper())
+        symbol = main_part.strip()
+
     m = re.match(r'^([A-Ga-g])([#b]?)(.*)$', symbol)
     if not m:
         raise ValueError(f"유효하지 않은 코드 기호: '{symbol}'")
@@ -914,7 +923,9 @@ def parse_chord_symbol(symbol):
         # 알 수 없는 확장(텐션 등)은 메이저/마이너 트라이어드로 안전하게 축약
         intervals = [0, 3, 7] if quality_raw[:1] in ('m', '-') and quality_raw[:3] != 'maj' else [0, 4, 7]
 
-    return root_pc, intervals, root_name + quality_raw
+    bass_pc = slash_bass_pc if slash_bass_pc is not None else root_pc
+    name = root_name + quality_raw + (('/' + PC_TO_NAME[bass_pc][0] + PC_TO_NAME[bass_pc][1]) if bass_pc != root_pc else '')
+    return root_pc, intervals, bass_pc, name
 
 
 def parse_chord_progression(progression_str):
@@ -930,7 +941,8 @@ def parse_chord_progression(progression_str):
 # 장르별 그루브 템플릿: 한 마디(4박)를 채우는 (박자, 역할) 패턴 목록.
 # 역할(role) 의미:
 #   root/third/fifth/seventh = 현재 코드 톤, octave = 루트 한 옥타브 위,
-#   approach = 다음 코드 루트로 향하는 반음 접근음, rest = 쉼표.
+#   approach = 다음 코드의 베이스 음으로 향하는 반음 접근음, rest = 쉼표.
+#   (마디 첫 음의 root/octave는 슬래시 코드의 베이스 음을 사용)
 GROOVE_TEMPLATES = {
     'rock': [
         [(1.0, 'root'), (1.0, 'root'), (1.0, 'fifth'), (1.0, 'fifth')],
@@ -970,32 +982,37 @@ GROOVE_TEMPLATES = {
 }
 
 
-def _role_to_semitone(role, intervals, root_pc, next_root_pc):
-    """역할 문자열을 루트 기준 반음 오프셋으로 변환 (octave 정보는 별도 반환)."""
+def _role_to_note(role, intervals, root_pc, bass_pc, next_bass_pc, is_first):
+    """역할 → (기준 피치클래스, 반음 오프셋, 옥타브 오프셋).
+
+    마디 첫 음의 root/octave 역할은 슬래시 베이스 음(bass_pc)을 쓴다
+    (예: C/E → 첫 박을 E로). 3·5·7음은 코드 루트(root_pc) 기준 유지.
+    접근음은 다음 코드의 실제 베이스 음으로 향한다.
+    """
     if role == 'root':
-        return 0, 0
+        return (bass_pc if is_first else root_pc), 0, 0
     if role == 'octave':
-        return 0, 1
+        return (bass_pc if is_first else root_pc), 0, 1
     if role == 'third':
-        return intervals[1] if len(intervals) > 1 else 4, 0
+        return root_pc, (intervals[1] if len(intervals) > 1 else 4), 0
     if role == 'fifth':
-        return intervals[2] if len(intervals) > 2 else 7, 0
+        return root_pc, (intervals[2] if len(intervals) > 2 else 7), 0
     if role == 'seventh':
-        return intervals[3] if len(intervals) > 3 else 10, 0
+        return root_pc, (intervals[3] if len(intervals) > 3 else 10), 0
     if role == 'approach':
-        # 다음 코드 루트로 반음 아래에서 접근 (없으면 5도로 대체)
-        if next_root_pc is None:
-            return 7, 0
-        return ((next_root_pc - 1) - root_pc) % 12, 0
-    return 0, 0
+        # 다음 코드의 베이스 음으로 반음 아래에서 접근 (없으면 5도로 대체)
+        if next_bass_pc is None:
+            return root_pc, 7, 0
+        return root_pc, ((next_bass_pc - 1) - root_pc) % 12, 0
+    return root_pc, 0, 0
 
 
 def generate_bassline_from_chords(progression_str, genre, octave, seed=None,
                                   loops=1):
     """
     코드 진행 + 장르 그루브 템플릿으로 음악적인 베이스 라인을 생성한다.
-    각 코드는 한 마디(4박)를 차지한다. 시드를 주면 동일 입력에 동일 결과.
-    프론트엔드 시퀀스 문자열("C2 1.0, ...")을 반환한다.
+    각 코드는 한 마디(4박)를 차지한다. 슬래시 코드(C/E)의 베이스 음을 반영한다.
+    시드를 주면 동일 입력에 동일 결과. 프론트엔드 시퀀스 문자열("C2 1.0, ...")을 반환한다.
     """
     if seed is not None:
         np.random.seed(int(seed) % (2 ** 32))
@@ -1005,15 +1022,16 @@ def generate_bassline_from_chords(progression_str, genre, octave, seed=None,
 
     notes_out = []
     for _ in range(max(1, int(loops))):
-        for idx, (root_pc, intervals, _name) in enumerate(chords):
-            next_root_pc = chords[(idx + 1) % len(chords)][0]
+        for idx, (root_pc, intervals, bass_pc, _name) in enumerate(chords):
+            next_bass_pc = chords[(idx + 1) % len(chords)][2]
             template = templates[np.random.randint(len(templates))]
-            for dur, role in template:
+            for j, (dur, role) in enumerate(template):
                 if role == 'rest':
                     notes_out.append(('R', 4, float(dur), True, ''))
                     continue
-                semitone, oct_off = _role_to_semitone(role, intervals, root_pc, next_root_pc)
-                total = root_pc + semitone
+                ref_pc, semitone, oct_off = _role_to_note(
+                    role, intervals, root_pc, bass_pc, next_bass_pc, j == 0)
+                total = ref_pc + semitone
                 pc = total % 12
                 note_octave = octave + oct_off + (total // 12)
                 note_octave = max(0, min(6, note_octave))
