@@ -25,6 +25,11 @@
     <!-- VexFlow: 전문 악보 표기 라이브러리 (실패 시 Canvas 폴백) -->
     <script defer src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
 
+    <!-- Tone.js: 브라우저 클라이언트 오디오 합성/재생 (서버 WAV 의존 제거) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- lamejs: 클라이언트 MP3 인코딩 (WAV는 자체 인코더 사용) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+
     <style>
         /* ============================================================
            디자인 시스템 — Base Loop (라이트/다크 듀얼 테마)
@@ -342,6 +347,42 @@
         .bl-export:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--primary); background: var(--surface-2); }
         .bl-export:active:not(:disabled) { transform: translateY(0); }
         .bl-export:disabled { cursor: not-allowed; opacity: 0.5; }
+        .bl-exports { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+        /* ── 반주/메트로놈 토글 칩 ───────────────────────── */
+        .bl-toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .bl-toggle {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 13px; border-radius: 999px; cursor: pointer;
+            font-family: inherit; font-size: 0.84rem; font-weight: 600;
+            color: var(--text-muted); background: var(--surface); border: 1px solid var(--border);
+            transition: transform 0.15s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+        }
+        .bl-toggle:hover { transform: translateY(-1px); border-color: var(--primary); }
+        .bl-toggle.on {
+            color: #fff; border-color: transparent;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 35%, transparent);
+        }
+
+        /* ── 히스토리 ───────────────────────── */
+        .bl-history-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+        .bl-history-item {
+            display: flex; align-items: center; gap: 10px; justify-content: space-between;
+            padding: 10px 12px; border-radius: var(--radius-md);
+            background: var(--surface-2); border: 1px solid var(--border); cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+        .bl-history-item:hover { border-color: var(--primary); background: var(--surface-3); }
+        .bl-history-item__meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .bl-history-item__title { font-weight: 600; font-size: 0.9rem; color: var(--text); }
+        .bl-history-item__sub { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60vw; }
+        .bl-history-item__del {
+            flex: none; border: none; background: transparent; color: var(--text-muted);
+            cursor: pointer; font-size: 1rem; padding: 4px 8px; border-radius: 8px;
+        }
+        .bl-history-item__del:hover { color: var(--error); background: color-mix(in srgb, var(--error) 12%, transparent); }
+        .bl-history-empty { color: var(--text-muted); font-size: 0.88rem; padding: 6px 2px; }
 
         /* ── 접이식 생성 설정 ───────────────────────── */
         .bl-settings {
@@ -488,21 +529,39 @@
                 </div>
                 <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
 
-                <!-- 재생 트랜스포트 -->
+                <!-- 재생 트랜스포트 (클라이언트 Tone.js 합성) -->
                 <div class="bl-transport">
-                    <button type="button" id="playAudioBtn" class="bl-play" onclick="playGeneratedAudio()" aria-label="오디오 생성 및 재생"><span>▶</span></button>
+                    <button type="button" id="playAudioBtn" class="bl-play" onclick="togglePlayback()" aria-label="재생/정지"><span id="playIcon">▶</span></button>
                     <div class="bl-transport__main">
-                        <audio controls id="audioPlayer"></audio>
+                        <div class="bl-toggles">
+                            <button type="button" id="metronomeToggle" class="bl-toggle" onclick="toggleMetronome()">🔔 메트로놈</button>
+                            <button type="button" id="drumsToggle" class="bl-toggle" onclick="toggleDrums()">🥁 드럼 반주</button>
+                            <span id="transportStatus" class="bl-chip">⚡ 즉시 재생 준비됨</span>
+                        </div>
                     </div>
                 </div>
-                <div id="loadingSpinnerAudio" class="loading-spinner">오디오 생성 중...</div>
+                <div id="loadingSpinnerAudio" class="loading-spinner">오디오 렌더링 중...</div>
 
                 <!-- 내보내기 -->
                 <div class="bl-exports">
+                    <button type="button" id="wavBtn" onclick="downloadAudio('wav')" class="bl-export">💾 WAV 다운로드</button>
+                    <button type="button" id="mp3Btn" onclick="downloadAudio('mp3')" class="bl-export">🎧 MP3 다운로드</button>
                     <button type="button" id="midiBtn" onclick="downloadMidi()" class="bl-export">🎹 MIDI 다운로드</button>
                     <button type="button" id="lilypondBtn" onclick="downloadLilypond()" class="bl-export">📝 LilyPond 악보</button>
                     <button type="button" id="professionalScoreBtn" onclick="loadProfessionalScore()" class="bl-export">🎼 전문 악보 보기</button>
                 </div>
+            </section>
+
+            <!-- 저장 · 공유 -->
+            <section class="card">
+                <div class="bl-stage__head" style="margin-bottom:14px;">
+                    <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>저장 · 공유</h2>
+                    <div class="bl-stage__chips">
+                        <button type="button" class="bl-toggle" onclick="shareCurrentState()">🔗 링크 복사</button>
+                        <button type="button" class="bl-toggle" onclick="saveToHistory()">⭐ 히스토리에 저장</button>
+                    </div>
+                </div>
+                <div id="historyList" class="bl-history-list"></div>
             </section>
 
             <!-- 전문 악보 (Music21 / MuseScore) — 보기 클릭 시 표시 -->
@@ -526,6 +585,21 @@
                 </summary>
                 <div class="bl-settings__body">
                     <div class="field-grid">
+                        <div class="field full">
+                            <label for="generation_mode_input">생성 방식</label>
+                            <select id="generation_mode_input" name="generation_mode_input" onchange="onGenerationModeChange()">
+                                <option value="random" selected>스타일 랜덤 (장르 그루브)</option>
+                                <option value="chords">코드 진행 따라가기 (음악성 ↑)</option>
+                            </select>
+                        </div>
+
+                        <div class="field full" id="chordProgressionField" style="display:none;">
+                            <label for="chord_progression_input">코드 진행</label>
+                            <input type="text" id="chord_progression_input" name="chord_progression_input"
+                                   value="C G Am F" placeholder="예: C G Am F  또는  Dm7 G7 Cmaj7">
+                            <p class="hint">공백/쉼표로 코드 구분. 각 코드 = 1마디. 지원: <code>C</code> <code>Am</code> <code>G7</code> <code>Fmaj7</code> <code>Bdim</code> <code>Dsus4</code> 등</p>
+                        </div>
+
                         <div class="field full">
                             <label for="genre_input">장르 스타일</label>
                             <select id="genre_input" name="genre_input">
@@ -573,9 +647,20 @@
                             <input type="number" id="length_input" name="length_input" value="4" min="1" max="16" required>
                         </div>
 
-                        <div class="field full">
+                        <div class="field">
                             <label for="num_loops_input">오디오 루프 반복 횟수</label>
                             <input type="number" id="num_loops_input" name="num_loops_input" value="2" min="1" max="100" required>
+                        </div>
+
+                        <div class="field">
+                            <label for="swing_input">스윙 <span id="swingValue" style="color:var(--text-muted);font-weight:500;">0%</span></label>
+                            <input type="range" id="swing_input" name="swing_input" value="0" min="0" max="80" step="5"
+                                   oninput="document.getElementById('swingValue').textContent = this.value + '%'; applySwingLive();">
+                        </div>
+
+                        <div class="field">
+                            <label for="seed_input">시드 (비우면 랜덤)</label>
+                            <input type="number" id="seed_input" name="seed_input" placeholder="예: 12345" min="0" step="1">
                         </div>
                     </div>
 
@@ -625,6 +710,10 @@
 
             document.getElementById('messageArea').style.display = 'none';
 
+            // 공유 링크(#state=...)가 있으면 폼 상태 복원
+            const restored = restoreStateFromUrl();
+            onGenerationModeChange();
+
             // 기본 악보 렌더링
             setTimeout(() => {
                 renderSheetMusic(document.getElementById('notes_sequence_input').value,
@@ -635,9 +724,20 @@
             // 기능 상태 확인
             checkFeaturesStatus();
 
-            // 재생 커서 이벤트 바인딩
-            initPlaybackCursorEvents();
+            // 히스토리 패널 렌더
+            renderHistory();
+
+            if (restored) {
+                showMessage('🔗 공유된 설정을 불러왔습니다.', 'info');
+            }
         });
+
+        // 생성 방식(랜덤/코드) 전환 시 코드 진행 입력 표시 토글
+        function onGenerationModeChange() {
+            const mode = document.getElementById('generation_mode_input').value;
+            const chordField = document.getElementById('chordProgressionField');
+            if (chordField) chordField.style.display = (mode === 'chords') ? 'flex' : 'none';
+        }
 
         async function checkFeaturesStatus() {
             try {
@@ -695,28 +795,35 @@
         }
 
         async function generateNotes() {
+            const mode = document.getElementById('generation_mode_input').value;
             const bpm = document.getElementById('bpm_input').value;
             const length = document.getElementById('length_input').value;
             const genre = document.getElementById('genre_input').value;
             const keyNote = document.getElementById('key_note_input').value;
             const octave = document.getElementById('octave_input').value;
+            const seed = document.getElementById('seed_input').value;
+            const chords = document.getElementById('chord_progression_input').value;
 
             const notesSequenceInput = document.getElementById('notes_sequence_input');
 
+            stopPlayback();
             notesSequenceInput.value = "";
             showMessage("", 'info');
             clearSheetMusic();
 
-            setLoadingState('loadingSpinnerNotes', true, '랜덤 생성기가 악보를 생성 중입니다...');
+            setLoadingState('loadingSpinnerNotes', true,
+                mode === 'chords' ? '코드 진행을 따라 베이스 라인을 생성 중입니다...' : '랜덤 생성기가 악보를 생성 중입니다...');
 
             try {
                 const formData = new FormData();
-                formData.append('generation_mode', 'random');
+                formData.append('generation_mode', mode);
                 formData.append('bpm_input', bpm);
                 formData.append('length_input', length);
                 formData.append('genre_input', genre);
                 formData.append('key_note_input', keyNote);
                 formData.append('octave_input', octave);
+                formData.append('seed_input', seed);
+                if (mode === 'chords') formData.append('chord_progression_input', chords);
 
                 const response = await fetch('/generate_notes', {
                     method: 'POST',
@@ -727,8 +834,11 @@
 
                 if (response.ok && data.status === 'success') {
                     notesSequenceInput.value = data.notes;
-                    showMessage("🎉 악보가 성공적으로 생성되었습니다! 다양한 형식으로 다운로드하거나 재생해보세요.", 'success');
+                    if (data.seed != null) document.getElementById('seed_input').value = data.seed;
+                    showMessage("🎉 악보가 생성되었습니다! 재생하거나 WAV·MP3·MIDI로 내보내세요. (시드 " + data.seed + ")", 'success');
                     renderSheetMusic(data.notes, parseInt(length), parseInt(bpm));
+                    updateShareUrl();
+                    saveToHistory(true);
                 } else {
                     const errorMessage = data.message || '알 수 없는 오류가 발생했습니다.';
                     showMessage(`🚨 악보 생성 실패: ${errorMessage}`, 'error');
@@ -742,97 +852,474 @@
             }
         }
 
-        // 같은 악보·BPM·반복수면 서버 재생성 없이 캐시된 오디오를 재사용
-        let __audioCache = { key: null, url: null };
+        // ============================================================
+        // 클라이언트 오디오 엔진 (Tone.js) — 서버 WAV 의존 없이 즉시 재생
+        // ============================================================
+        let __isPlaying = false;
+        let __useMetronome = false;
+        let __useDrums = false;
+        let __toneNodes = null;     // { synth, parts:[], drums:[], metro }
+        let __loopSeconds = 0;
 
-        function playCursorReset(audioPlayer) {
-            audioPlayer.onended = () => {
-                audioPlayer.onended = null;
-                stopPlaybackCursor();
-                showMessage("재생이 완료되었습니다.", 'info');
-            };
+        // 장르별 드럼 패턴 (한 마디=16스텝, 값은 0..15 스텝 인덱스)
+        const DRUM_PATTERNS = {
+            rock:   { kick: [0, 8],        snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14] },
+            funk:   { kick: [0, 6, 10],    snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14] },
+            pop:    { kick: [0, 8],        snare: [4, 12], hat: [0, 4, 8, 12] },
+            jazz:   { kick: [0],           snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14] },
+            blues:  { kick: [0, 8],        snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14] },
+            reggae: { kick: [4, 12],       snare: [8],     hat: [2, 6, 10, 14] },
+            hiphop: { kick: [0, 6, 10],    snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14] },
+        };
+
+        function currentSwing() {
+            return (parseInt(document.getElementById('swing_input').value) || 0) / 100;
         }
 
-        async function playGeneratedAudio() {
-            const notesSequence = document.getElementById('notes_sequence_input').value;
-            const bpm = document.getElementById('bpm_input').value;
-            const numLoops = document.getElementById('num_loops_input').value;
-            const lengthEl = document.getElementById('length_input');
-            const lengthVal = lengthEl ? parseInt(lengthEl.value) : 4;
+        // 베이스 신스 (Tone.js MonoSynth — 따뜻한 저역)
+        function makeBassSynth(dest) {
+            return new Tone.MonoSynth({
+                oscillator: { type: 'fmsquare', modulationType: 'sine', harmonicity: 0.5 },
+                filter: { Q: 2, type: 'lowpass', rolloff: -24 },
+                envelope: { attack: 0.012, decay: 0.18, sustain: 0.65, release: 0.25 },
+                filterEnvelope: { attack: 0.02, decay: 0.2, sustain: 0.4, release: 0.3, baseFrequency: 90, octaves: 2.8 },
+                volume: -7,
+            }).connect(dest);
+        }
 
-            const audioPlayer = document.getElementById('audioPlayer');
+        // 현재 폼 상태로부터 루프 이벤트(스윙 반영) 구성
+        function buildLoopData() {
+            const seq = document.getElementById('notes_sequence_input').value;
+            const bpm = parseInt(document.getElementById('bpm_input').value) || 120;
+            const secPerBeat = 60 / bpm;
+            const swing = currentSwing();
+            const notes = parseNotes(seq);
+            const measures = groupIntoMeasures(notes);
 
-            showMessage("", 'info');
+            // 박자 위치 → 초 (오프비트 8분음표를 스윙만큼 지연)
+            const swingTime = (beat) => {
+                const frac = beat - Math.floor(beat);
+                let b = beat;
+                if (Math.abs(frac - 0.5) < 0.001) b = beat + swing * (1 / 6);
+                return b * secPerBeat;
+            };
 
-            if (!notesSequence.trim()) {
-                showMessage("❗ 먼저 악보 시퀀스를 생성하거나 입력해주세요!", 'error');
-                return;
-            }
-
-            const cacheKey = notesSequence + '|' + bpm + '|' + numLoops;
-
-            // 캐시 적중: 동일 악보 → 재생성 없이 처음 생성한 오디오를 그대로 다시 재생
-            if (__audioCache.url && __audioCache.key === cacheKey) {
-                try {
-                    renderSheetMusic(notesSequence, lengthVal, parseInt(bpm));
-                } catch (e) { console.warn('재생 전 악보 동기화 실패:', e); }
-                if (audioPlayer.src !== __audioCache.url) audioPlayer.src = __audioCache.url;
-                playCursorReset(audioPlayer);
-                try { audioPlayer.currentTime = 0; } catch (e) {}
-                await audioPlayer.play();
-                showMessage("🎶 재생을 시작합니다.", 'success');
-                return;
-            }
-
-            setLoadingState('loadingSpinnerAudio', true, '오디오 생성 중...');
-            audioPlayer.src = '';
-            audioPlayer.load();
-
-            try {
-                // 오디오는 마디 단위로 패딩된 시퀀스로 생성 → 악보의 패딩 쉼표 구간까지 무음으로 채워
-                // 커서 타임라인(패딩 포함)과 오디오 길이가 정확히 일치하게 한다.
-                const audioSequence = padSequenceForAudio(notesSequence);
-                const formData = new FormData();
-                formData.append('notes_sequence_input', audioSequence);
-                formData.append('bpm_input', bpm);
-                formData.append('num_loops_input', numLoops);
-
-                const response = await fetch('/generate_audio', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (response.ok) {
-                    const audioBlob = await response.blob();
-                    const audioUrl = URL.createObjectURL(audioBlob);
-
-                    // 이전 캐시 URL 해제 후 새 오디오를 캐싱 (다음 재생부터 재사용)
-                    if (__audioCache.url && __audioCache.url !== audioUrl) {
-                        URL.revokeObjectURL(__audioCache.url);
-                    }
-                    __audioCache = { key: cacheKey, url: audioUrl };
-
-                    // 재생 전에 악보를 현재 시퀀스로 다시 그려 커서 타임라인을 동기화
-                    try {
-                        renderSheetMusic(notesSequence, lengthVal, parseInt(bpm));
-                    } catch (e) { console.warn('재생 전 악보 동기화 실패:', e); }
-
-                    audioPlayer.src = audioUrl;
-                    playCursorReset(audioPlayer);
-                    await audioPlayer.play();
-                    showMessage("🎶 오디오 재생을 시작합니다!", 'success');
-                } else {
-                    const errorMessage = await response.text();
-                    showMessage(`🚨 오디오 생성 실패: ${errorMessage}`, 'error');
-                    console.error('Server response error:', response.status, errorMessage);
+            let beat = 0;
+            const bassEvents = [];
+            measures.forEach(m => m.forEach(n => {
+                if (!n.isRest) {
+                    bassEvents.push({
+                        time: swingTime(beat),
+                        note: n.name + n.octave,
+                        dur: Math.max(0.05, n.duration * secPerBeat * 0.95),
+                    });
                 }
+                beat += n.duration;
+            }));
 
+            const loopBeats = beat;
+            return { bassEvents, measures, loopBeats, secPerBeat, bpm, swing, swingTime, genre: document.getElementById('genre_input').value };
+        }
+
+        // 드럼/메트로놈 이벤트 (오프라인 렌더와 공유)
+        function buildDrumEvents(data) {
+            const pat = DRUM_PATTERNS[data.genre] || DRUM_PATTERNS.rock;
+            const ev = [];
+            for (let mi = 0; mi < data.measures.length; mi++) {
+                const base = mi * 4;
+                pat.kick.forEach(s => ev.push({ time: data.swingTime(base + s * 0.25), type: 'k' }));
+                pat.snare.forEach(s => ev.push({ time: data.swingTime(base + s * 0.25), type: 's' }));
+                pat.hat.forEach(s => ev.push({ time: data.swingTime(base + s * 0.25), type: 'h' }));
+            }
+            return ev;
+        }
+        function buildMetroEvents(data) {
+            const ev = [];
+            for (let mi = 0; mi < data.measures.length; mi++)
+                for (let b = 0; b < 4; b++) ev.push({ time: (mi * 4 + b) * data.secPerBeat, accent: b === 0 });
+            return ev;
+        }
+        function makeDrumKit(dest) {
+            return {
+                kick: new Tone.MembraneSynth({ volume: -5 }).connect(dest),
+                snare: new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.18, sustain: 0 }, volume: -17 }).connect(dest),
+                hat: new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.04, sustain: 0 }, volume: -27 }).connect(dest),
+            };
+        }
+        function makeMetronome(dest) {
+            return new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.02 }, volume: -12 }).connect(dest);
+        }
+        function triggerDrum(kit, type, time) {
+            if (type === 'k') kit.kick.triggerAttackRelease('C1', '8n', time);
+            else if (type === 's') kit.snare.triggerAttackRelease('16n', time);
+            else kit.hat.triggerAttackRelease('32n', time);
+        }
+
+        function startEngine() {
+            const data = buildLoopData();
+            if (!data.bassEvents.length) { showMessage('재생할 음표가 없습니다.', 'error'); return false; }
+            __loopSeconds = data.loopBeats * data.secPerBeat;
+
+            // 마스터 체인: 게인(헤드룸) → 리미터(-1dB) → 출력. 합산 클리핑 방지.
+            const limiter = new Tone.Limiter(-1).toDestination();
+            const master = new Tone.Gain(0.5).connect(limiter);
+            const synth = makeBassSynth(master);
+            const nodes = { synth, master, limiter, parts: [], drums: null, metro: null };
+
+            const bassPart = new Tone.Part((time, ev) => {
+                synth.triggerAttackRelease(ev.note, ev.dur, time);
+            }, data.bassEvents);
+            bassPart.loop = true; bassPart.loopEnd = __loopSeconds; bassPart.start(0);
+            nodes.parts.push(bassPart);
+
+            if (__useDrums) {
+                const kit = makeDrumKit(master);
+                nodes.drums = kit;
+                const dp = new Tone.Part((time, ev) => triggerDrum(kit, ev.type, time), buildDrumEvents(data));
+                dp.loop = true; dp.loopEnd = __loopSeconds; dp.start(0);
+                nodes.parts.push(dp);
+            }
+            if (__useMetronome) {
+                const metro = makeMetronome(master);
+                nodes.metro = metro;
+                const mp = new Tone.Part((time, ev) => metro.triggerAttackRelease(ev.accent ? 'C6' : 'C5', '32n', time), buildMetroEvents(data));
+                mp.loop = true; mp.loopEnd = __loopSeconds; mp.start(0);
+                nodes.parts.push(mp);
+            }
+
+            Tone.Transport.bpm.value = data.bpm;
+            Tone.Transport.swing = 0;   // 스윙은 이벤트 시간에 직접 반영했음
+            Tone.Transport.loop = false;
+            Tone.Transport.position = 0;
+            Tone.Transport.start();
+            __toneNodes = nodes;
+            return true;
+        }
+
+        function disposeEngine() {
+            try { Tone.Transport.stop(); Tone.Transport.cancel(0); } catch (e) {}
+            if (!__toneNodes) return;
+            __toneNodes.parts.forEach(p => { try { p.stop(); p.dispose(); } catch (e) {} });
+            try { __toneNodes.synth.dispose(); } catch (e) {}
+            if (__toneNodes.drums) Object.values(__toneNodes.drums).forEach(d => { try { d.dispose(); } catch (e) {} });
+            if (__toneNodes.metro) { try { __toneNodes.metro.dispose(); } catch (e) {} }
+            if (__toneNodes.master) { try { __toneNodes.master.dispose(); } catch (e) {} }
+            if (__toneNodes.limiter) { try { __toneNodes.limiter.dispose(); } catch (e) {} }
+            __toneNodes = null;
+        }
+
+        async function togglePlayback() {
+            if (typeof Tone === 'undefined') { showMessage('오디오 라이브러리(Tone.js)를 불러오지 못했습니다.', 'error'); return; }
+            if (__isPlaying) { stopPlayback(); showMessage('■ 재생을 정지했습니다.', 'info'); return; }
+
+            const seq = document.getElementById('notes_sequence_input').value;
+            if (!seq.trim()) { showMessage('❗ 먼저 악보 시퀀스를 생성하거나 입력해주세요!', 'error'); return; }
+
+            try { await Tone.start(); } catch (e) { /* 사용자 제스처 내에서 호출됨 */ }
+
+            const bpm = parseInt(document.getElementById('bpm_input').value) || 120;
+            const len = parseInt(document.getElementById('length_input').value) || 4;
+            try { renderSheetMusic(seq, len, bpm); } catch (e) { console.warn('재생 전 악보 동기화 실패:', e); }
+
+            disposeEngine();
+            if (!startEngine()) return;
+            __isPlaying = true;
+            setPlayIcon(true);
+            setTransportStatus('▶ 재생 중 (반복)');
+            startPlaybackCursor();
+            showMessage('🎶 재생을 시작합니다.', 'success');
+        }
+
+        function stopPlayback() {
+            disposeEngine();
+            __isPlaying = false;
+            setPlayIcon(false);
+            setTransportStatus('⚡ 즉시 재생 준비됨');
+            stopPlaybackCursor();
+        }
+
+        function setPlayIcon(playing) {
+            const icon = document.getElementById('playIcon');
+            if (icon) icon.textContent = playing ? '⏸' : '▶';
+        }
+        function setTransportStatus(text) {
+            const el = document.getElementById('transportStatus');
+            if (el) el.textContent = text;
+        }
+
+        // 재생 중 엔진 옵션(드럼/메트로놈/스윙) 변경 시 즉시 반영 (처음부터 다시)
+        function restartIfPlaying() {
+            if (!__isPlaying) return;
+            disposeEngine();
+            startEngine();
+            startPlaybackCursor();
+        }
+        function toggleMetronome() {
+            __useMetronome = !__useMetronome;
+            document.getElementById('metronomeToggle').classList.toggle('on', __useMetronome);
+            restartIfPlaying();
+        }
+        function toggleDrums() {
+            __useDrums = !__useDrums;
+            document.getElementById('drumsToggle').classList.toggle('on', __useDrums);
+            restartIfPlaying();
+        }
+        function applySwingLive() {
+            if (__isPlaying) restartIfPlaying();
+        }
+
+        // ============================================================
+        // WAV / MP3 내보내기 (Tone.Offline 클라이언트 렌더링)
+        // ============================================================
+        async function renderToBuffer() {
+            const data = buildLoopData();
+            const loops = Math.min(100, Math.max(1, parseInt(document.getElementById('num_loops_input').value) || 2));
+            const oneLoop = data.loopBeats * data.secPerBeat;
+            const total = oneLoop * loops + 0.4;
+            const useDrums = __useDrums, useMetro = __useMetronome;
+            const drumEv = useDrums ? buildDrumEvents(data) : [];
+            const metroEv = useMetro ? buildMetroEvents(data) : [];
+
+            const buffer = await Tone.Offline(() => {
+                const limiter = new Tone.Limiter(-1).toDestination();
+                const master = new Tone.Gain(0.5).connect(limiter);
+                const synth = makeBassSynth(master);
+                const kit = useDrums ? makeDrumKit(master) : null;
+                const metro = useMetro ? makeMetronome(master) : null;
+                for (let L = 0; L < loops; L++) {
+                    const off = L * oneLoop;
+                    data.bassEvents.forEach(e => synth.triggerAttackRelease(e.note, e.dur, off + e.time));
+                    if (kit) drumEv.forEach(e => triggerDrum(kit, e.type, off + e.time));
+                    if (metro) metroEv.forEach(e => metro.triggerAttackRelease(e.accent ? 'C6' : 'C5', '32n', off + e.time));
+                }
+            }, total);
+            return buffer;
+        }
+
+        async function downloadAudio(fmt) {
+            const seq = document.getElementById('notes_sequence_input').value;
+            if (!seq.trim()) { showMessage('❗ 먼저 악보 시퀀스를 생성해주세요!', 'error'); return; }
+            if (typeof Tone === 'undefined') { showMessage('오디오 라이브러리(Tone.js)를 불러오지 못했습니다.', 'error'); return; }
+
+            setLoadingState('loadingSpinnerAudio', true, (fmt === 'mp3' ? 'MP3' : 'WAV') + ' 렌더링 중...');
+            try {
+                await Tone.start();
+                const toneBuf = await renderToBuffer();
+                const ab = toneBuf.get ? toneBuf.get() : toneBuf;
+                const bpm = document.getElementById('bpm_input').value;
+                let blob, ext;
+                if (fmt === 'mp3') {
+                    if (typeof lamejs === 'undefined') { showMessage('MP3 인코더를 불러오지 못했습니다. WAV을 사용해주세요.', 'error'); return; }
+                    blob = audioBufferToMp3(ab); ext = 'mp3';
+                } else {
+                    blob = audioBufferToWav(ab); ext = 'wav';
+                }
+                triggerDownload(blob, `bassloop_${bpm}bpm.${ext}`);
+                showMessage(`💾 ${ext.toUpperCase()} 파일이 다운로드되었습니다!`, 'success');
             } catch (error) {
-                showMessage('⚠️ 오디오 재생 중 네트워크 오류 또는 서버 문제가 발생했습니다.', 'error');
-                console.error('Error playing audio:', error);
+                console.error('오디오 내보내기 오류:', error);
+                showMessage('⚠️ 오디오 내보내기 중 오류가 발생했습니다.', 'error');
             } finally {
                 setLoadingState('loadingSpinnerAudio', false);
             }
+        }
+
+        function triggerDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        // AudioBuffer → 16bit PCM WAV Blob
+        function audioBufferToWav(buffer) {
+            const numCh = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const len = buffer.length;
+            const bytesPerSample = 2;
+            const blockAlign = numCh * bytesPerSample;
+            const dataSize = len * blockAlign;
+            const ab = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(ab);
+            const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+            writeStr(0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); writeStr(8, 'WAVE');
+            writeStr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+            view.setUint16(22, numCh, true); view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * blockAlign, true); view.setUint16(32, blockAlign, true);
+            view.setUint16(34, 16, true); writeStr(36, 'data'); view.setUint32(40, dataSize, true);
+
+            const channels = [];
+            for (let c = 0; c < numCh; c++) channels.push(buffer.getChannelData(c));
+            let offset = 44;
+            for (let i = 0; i < len; i++) {
+                for (let c = 0; c < numCh; c++) {
+                    let s = Math.max(-1, Math.min(1, channels[c][i]));
+                    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                    offset += 2;
+                }
+            }
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        // AudioBuffer → MP3 Blob (lamejs, 모노 다운믹스)
+        function audioBufferToMp3(buffer) {
+            const sampleRate = buffer.sampleRate;
+            const numCh = buffer.numberOfChannels;
+            const len = buffer.length;
+            const ch0 = buffer.getChannelData(0);
+            const ch1 = numCh > 1 ? buffer.getChannelData(1) : ch0;
+            const mono = new Int16Array(len);
+            for (let i = 0; i < len; i++) {
+                let s = (ch0[i] + ch1[i]) / 2;
+                s = Math.max(-1, Math.min(1, s));
+                mono[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            const enc = new lamejs.Mp3Encoder(1, sampleRate, 128);
+            const blockSize = 1152;
+            const out = [];
+            for (let i = 0; i < mono.length; i += blockSize) {
+                const chunk = mono.subarray(i, i + blockSize);
+                const buf = enc.encodeBuffer(chunk);
+                if (buf.length > 0) out.push(new Int8Array(buf));
+            }
+            const end = enc.flush();
+            if (end.length > 0) out.push(new Int8Array(end));
+            return new Blob(out, { type: 'audio/mpeg' });
+        }
+
+        // ============================================================
+        // 상태 저장 · 공유 (URL 해시) · 히스토리 (localStorage)
+        // ============================================================
+        function collectState() {
+            return {
+                mode: document.getElementById('generation_mode_input').value,
+                genre: document.getElementById('genre_input').value,
+                key: document.getElementById('key_note_input').value,
+                octave: document.getElementById('octave_input').value,
+                bpm: document.getElementById('bpm_input').value,
+                length: document.getElementById('length_input').value,
+                loops: document.getElementById('num_loops_input').value,
+                swing: document.getElementById('swing_input').value,
+                seed: document.getElementById('seed_input').value,
+                chords: document.getElementById('chord_progression_input').value,
+                seq: document.getElementById('notes_sequence_input').value,
+            };
+        }
+        function applyState(s) {
+            if (!s) return;
+            const set = (id, v) => { const el = document.getElementById(id); if (el != null && v != null) el.value = v; };
+            set('generation_mode_input', s.mode);
+            set('genre_input', s.genre);
+            set('key_note_input', s.key);
+            set('octave_input', s.octave);
+            set('bpm_input', s.bpm);
+            set('length_input', s.length);
+            set('num_loops_input', s.loops);
+            set('swing_input', s.swing);
+            set('seed_input', s.seed);
+            set('chord_progression_input', s.chords);
+            set('notes_sequence_input', s.seq);
+            const sv = document.getElementById('swingValue'); if (sv) sv.textContent = (s.swing || 0) + '%';
+            onGenerationModeChange();
+            if (s.seq) {
+                try { renderSheetMusic(s.seq, parseInt(s.length) || 4, parseInt(s.bpm) || 120); } catch (e) {}
+            }
+        }
+
+        function encodeState(s) {
+            try { return btoa(unescape(encodeURIComponent(JSON.stringify(s)))); }
+            catch (e) { return ''; }
+        }
+        function decodeState(str) {
+            try { return JSON.parse(decodeURIComponent(escape(atob(str)))); }
+            catch (e) { return null; }
+        }
+
+        function updateShareUrl() {
+            const enc = encodeState(collectState());
+            if (enc) history.replaceState(null, '', '#s=' + enc);
+        }
+        function restoreStateFromUrl() {
+            const m = (location.hash || '').match(/[#&]s=([^&]+)/);
+            if (!m) return false;
+            const s = decodeState(m[1]);
+            if (!s) return false;
+            applyState(s);
+            return true;
+        }
+        async function shareCurrentState() {
+            updateShareUrl();
+            const url = location.href;
+            try {
+                await navigator.clipboard.writeText(url);
+                showMessage('🔗 공유 링크를 클립보드에 복사했습니다!', 'success');
+            } catch (e) {
+                window.prompt('아래 링크를 복사하세요:', url);
+            }
+        }
+
+        const HISTORY_KEY = 'baseloop-history';
+        function loadHistory() {
+            try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+            catch (e) { return []; }
+        }
+        function persistHistory(list) {
+            try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch (e) {}
+        }
+        function saveToHistory(silent) {
+            const state = collectState();
+            if (!state.seq || !state.seq.trim()) { if (!silent) showMessage('저장할 악보가 없습니다.', 'error'); return; }
+            let list = loadHistory();
+            // 동일 시퀀스는 중복 저장하지 않음 (최신으로 갱신)
+            list = list.filter(item => item.state.seq !== state.seq);
+            const label = (state.mode === 'chords' ? '코드: ' + (state.chords || '') : (state.genre || 'rock')) +
+                          ' · ' + state.bpm + 'BPM · 시드 ' + (state.seed || '?');
+            list.unshift({ ts: Date.now(), label, state });
+            if (list.length > 12) list = list.slice(0, 12);
+            persistHistory(list);
+            renderHistory();
+            if (!silent) showMessage('⭐ 히스토리에 저장했습니다.', 'success');
+        }
+        function deleteHistory(ts, ev) {
+            if (ev) ev.stopPropagation();
+            persistHistory(loadHistory().filter(i => i.ts !== ts));
+            renderHistory();
+        }
+        function restoreHistory(ts) {
+            const item = loadHistory().find(i => i.ts === ts);
+            if (item) { stopPlayback(); applyState(item.state); updateShareUrl(); showMessage('⏪ 저장된 베이스 라인을 불러왔습니다.', 'info'); }
+        }
+        function renderHistory() {
+            const host = document.getElementById('historyList');
+            if (!host) return;
+            const list = loadHistory();
+            if (!list.length) {
+                host.innerHTML = '<div class="bl-history-empty">아직 저장된 항목이 없습니다. 악보를 생성하면 자동으로 기록됩니다.</div>';
+                return;
+            }
+            host.innerHTML = '';
+            list.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'bl-history-item';
+                row.onclick = () => restoreHistory(item.ts);
+                const preview = (item.state.seq || '').slice(0, 48);
+                row.innerHTML =
+                    '<div class="bl-history-item__meta">' +
+                        '<span class="bl-history-item__title">' + escapeHtml(item.label) + '</span>' +
+                        '<span class="bl-history-item__sub">' + escapeHtml(preview) + '…</span>' +
+                    '</div>';
+                const del = document.createElement('button');
+                del.className = 'bl-history-item__del';
+                del.title = '삭제';
+                del.textContent = '✕';
+                del.onclick = (e) => deleteHistory(item.ts, e);
+                row.appendChild(del);
+                host.appendChild(row);
+            });
+        }
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
         // === MIDI 다운로드 ===
@@ -1059,20 +1546,6 @@
             }
 
             return measures;
-        }
-
-        // ---- 마디 단위로 정렬된 시퀀스 문자열 생성 (오디오 생성용) ----
-        // 화면 악보와 동일한 groupIntoMeasures 결과를 그대로 사용해 패딩 쉼표를 오디오에도 포함시킨다.
-        // → 오디오 루프 길이 = 타임라인 loopBeats가 항상 일치하므로 커서가 모든 쉼표를 통과한다.
-        function fmtDur(d) { return String(Number(d.toFixed(4))); }
-        function padSequenceForAudio(notesSequenceStr) {
-            const notes = parseNotes(notesSequenceStr);
-            if (!notes.length) return notesSequenceStr; // 파싱 실패 시 원본 그대로 (서버 검증에 맡김)
-            const parts = [];
-            groupIntoMeasures(notes).forEach(measure => measure.forEach(n => {
-                parts.push(n.isRest ? `R ${fmtDur(n.duration)}` : `${n.name}${n.octave} ${fmtDur(n.duration)}`);
-            }));
-            return parts.join(', ');
         }
 
         // ---- 박자(quarter=1.0) → VexFlow duration 코드 ----
@@ -1449,8 +1922,7 @@
                 const sc = window.__lastScore;
                 try {
                     renderSheetMusic(sc.seq, sc.len, sc.bpm);
-                    const a = document.getElementById('audioPlayer');
-                    if (a && !a.paused && !a.ended) startPlaybackCursor();
+                    if (__isPlaying) startPlaybackCursor();
                 } catch (e) {}
             }, 250);
         });
@@ -1459,26 +1931,24 @@
         // 재생 커서 (오디오 재생 위치를 악보 위에 실시간 표시)
         // ============================================================
         let __cursorRAF = null;
-        // 오디오 출력 지연 보정(초). currentTime은 "지금 출력으로 보내는" 미디어 위치라
-        // 실제 소리는 출력 지연만큼 늦게 들린다 → 커서가 소리보다 앞서 보이는 현상.
-        // 그만큼 커서를 뒤로 당겨 귀로 듣는 소리와 싱크를 맞춘다.
-        // 기기/브라우저마다 달라서 콘솔에서 window.__cursorLatencyComp 로 미세조정 가능.
-        if (window.__cursorLatencyComp == null) window.__cursorLatencyComp = 0.12;
+        // 오디오 출력 지연 보정(초). Tone.Transport.seconds는 오디오 컨텍스트 기준 위치라
+        // 출력 지연만큼 소리가 늦게 들릴 수 있다. 콘솔에서 window.__cursorLatencyComp 로 미세조정 가능.
+        if (window.__cursorLatencyComp == null) window.__cursorLatencyComp = 0.0;
         function startPlaybackCursor() {
             const tl = window.__scoreTimeline;
-            const audio = document.getElementById('audioPlayer');
             const cursor = document.getElementById('playCursor');
             const host = document.getElementById('vexflowScore');
             const canvas = document.getElementById('sheetMusicCanvas');
-            if (!tl || !tl.segs || !tl.segs.length || !audio || !cursor) return;
+            if (!tl || !tl.segs || !tl.segs.length || !cursor || typeof Tone === 'undefined') return;
             const secPerBeat = 60 / (tl.bpm || 120);
             cursor.classList.add('active');
 
             function frame() {
-                if (!audio || audio.paused || audio.ended) { stopPlaybackCursor(); return; }
+                if (!__isPlaying) { stopPlaybackCursor(); return; }
                 const segs = tl.segs;
                 const comp = window.__cursorLatencyComp || 0;
-                let loopBeat = Math.max(0, audio.currentTime - comp) / secPerBeat;
+                const tSec = Tone.Transport.seconds;
+                let loopBeat = Math.max(0, tSec - comp) / secPerBeat;
                 if (tl.loopBeats > 0) loopBeat = loopBeat % tl.loopBeats;
 
                 let i = 0;
@@ -1517,15 +1987,6 @@
             if (__cursorRAF) { cancelAnimationFrame(__cursorRAF); __cursorRAF = null; }
             const cursor = document.getElementById('playCursor');
             if (cursor) cursor.classList.remove('active');
-        }
-        function initPlaybackCursorEvents() {
-            const audio = document.getElementById('audioPlayer');
-            if (!audio || audio.__cursorBound) return;
-            audio.__cursorBound = true;
-            audio.addEventListener('playing', startPlaybackCursor);
-            audio.addEventListener('play', startPlaybackCursor);
-            audio.addEventListener('pause', stopPlaybackCursor);
-            audio.addEventListener('ended', stopPlaybackCursor);
         }
     </script>
 </body>

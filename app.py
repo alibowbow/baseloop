@@ -4,7 +4,6 @@ from flask import Flask, render_template, request, send_file, Response, jsonify
 import io
 import re
 import os
-import ast # For safe parsing of LLM output
 import glob
 import traceback
 import logging
@@ -24,6 +23,37 @@ except ImportError:
 # ─── Music21 MuseScore 환경 설정 함수 ───────────────────────
 _M21_CONFIGURED = False
 
+# 자동 탐색 시 시도할 MuseScore 실행 파일 후보 경로
+MUSESCORE_CANDIDATE_PATHS = [
+    "/usr/bin/musescore3",
+    "/usr/bin/musescore",
+    "/usr/local/bin/musescore3",
+    "/usr/local/bin/musescore",
+    "/snap/bin/musescore",
+]
+
+
+def find_musescore_path() -> str:
+    """
+    MuseScore 실행 파일 경로를 결정합니다.
+    MUSESCORE_PATH 환경 변수를 우선하고, 없으면 알려진 후보 경로를 탐색합니다.
+    찾지 못하면 기본값(/usr/bin/musescore3)을 반환합니다.
+    """
+    env_path = os.getenv("MUSESCORE_PATH")
+    if env_path:
+        logger.info(f"환경 변수 MUSESCORE_PATH 사용: {env_path}")
+        return env_path
+
+    for path in MUSESCORE_CANDIDATE_PATHS:
+        if os.path.exists(path) and os.access(path, os.X_OK):
+            logger.info(f"MuseScore 발견: {path}")
+            return path
+
+    default_path = "/usr/bin/musescore3"
+    logger.warning(f"MuseScore를 찾을 수 없습니다. 기본 경로 사용: {default_path}")
+    return default_path
+
+
 def setup_music21_environment() -> bool:
     """
     MuseScore 경로와 Qt 헤드리스 환경 변수를 Music21에 등록합니다.
@@ -40,29 +70,7 @@ def setup_music21_environment() -> bool:
         from music21 import environment
         us = environment.UserSettings()
 
-        musescore_path = os.getenv("MUSESCORE_PATH")
-        if musescore_path:
-            logger.info(f"환경 변수 MUSESCORE_PATH 사용: {musescore_path}")
-        else:
-            logger.info("MUSESCORE_PATH 환경 변수가 설정되지 않았습니다. 자동 탐색을 시도합니다.")
-            # 여러 가능한 경로 시도
-            possible_paths = [
-                "/usr/bin/musescore3",
-                "/usr/bin/musescore",
-                "/usr/local/bin/musescore3",
-                "/usr/local/bin/musescore",
-                "/snap/bin/musescore"
-            ]
-            
-            for path in possible_paths:
-                if os.path.exists(path) and os.access(path, os.X_OK):
-                    musescore_path = path
-                    logger.info(f"MuseScore 발견: {path}")
-                    break
-            
-            if not musescore_path:
-                musescore_path = "/usr/bin/musescore3"  # 기본값
-                logger.warning(f"MuseScore를 찾을 수 없습니다. 기본 경로 사용: {musescore_path}")
+        musescore_path = find_musescore_path()
 
         # Music21에 MuseScore 경로 설정
         us["musescoreDirectPNGPath"] = musescore_path
@@ -133,14 +141,6 @@ except ImportError:
     MIDI_AVAILABLE = False
     print("Warning: mido 라이브러리가 설치되지 않았습니다. MIDI 파일 생성을 사용할 수 없습니다.")
 
-# Google Gemini 라이브러리 (AI 모드 사용 시 필수)
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-    print("Warning: google-generativeai 라이브러리가 설치되지 않았습니다. AI 모드를 사용할 수 없습니다.")
-
 # 로컬 개발용 .env 파일 로딩
 try:
     from dotenv import load_dotenv
@@ -162,50 +162,6 @@ else:
     logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
-
-# --- Hardcoded MusicXML Test (글로벌 플래그) ---
-# 이 플래그를 True로 설정하면 generate_music21_score_with_fallback 함수가
-# music21 스코어 생성 로직을 건너뛰고 미리 정의된 MusicXML을 사용하여 SVG 생성을 시도합니다.
-# MuseScore 직접 실행 기능 테스트 및 디버깅에 유용합니다.
-USE_HARDCODED_XML_TEST = False # True로 변경하여 테스트 활성화
-
-HARDCODED_MUSICXML_STRING = """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
-<score-partwise version="4.0">
-  <part-list>
-    <score-part id="P1">
-      <part-name>Bass</part-name>
-    </score-part>
-  </part-list>
-  <part id="P1">
-    <measure number="1">
-      <attributes>
-        <divisions>1</divisions>
-        <key>
-          <fifths>0</fifths>
-          <mode>major</mode>
-        </key>
-        <time>
-          <beats>4</beats>
-          <beat-type>4</beat-type>
-        </time>
-        <clef>
-          <sign>F</sign>
-          <line>4</line>
-        </clef>
-      </attributes>
-      <note>
-        <pitch>
-          <step>C</step>
-          <octave>2</octave>
-        </pitch>
-        <duration>4</duration>
-        <type>whole</type>
-      </note>
-    </measure>
-  </part>
-</score-partwise>
-"""
 
 # Flask 앱 초기화
 app = Flask(__name__, template_folder='templates', static_folder='static')
@@ -448,63 +404,9 @@ def generate_music21_score_with_fallback(
 
     temp_dir = None
     try:
-        temp_dir = tempfile.mkdtemp() # Moved earlier to be available for hardcoded test
+        temp_dir = tempfile.mkdtemp()
         logger.info(f"악보 생성을 위한 임시 디렉토리 생성: {temp_dir}")
 
-        if USE_HARDCODED_XML_TEST:
-            logger.warning("하드코딩된 MusicXML 테스트 경로를 사용합니다 (SVG 출력).")
-            hardcoded_xml_path = os.path.join(temp_dir, "hardcoded_score.xml")
-            hardcoded_svg_path = os.path.join(temp_dir, "hardcoded_score.svg") # Changed to SVG
-
-            try:
-                with open(hardcoded_xml_path, "w", encoding="utf-8") as f:
-                    f.write(HARDCODED_MUSICXML_STRING)
-                logger.info(f"하드코딩된 MusicXML 파일 저장: {hardcoded_xml_path}")
-
-                musescore_path_env = os.environ.get("MUSESCORE_PATH", "/usr/bin/musescore3")
-                cmd_hardcoded = [musescore_path_env, "-o", hardcoded_svg_path, hardcoded_xml_path]
-
-                logger.info(f"하드코딩된 XML로 MuseScore 직접 실행 명령: {' '.join(cmd_hardcoded)}")
-
-                result_hardcoded = subprocess.run(cmd_hardcoded, capture_output=True, text=True, timeout=30)
-
-                logger.info(f"하드코딩된 XML MuseScore 실행 Return Code: {result_hardcoded.returncode}")
-                if result_hardcoded.stdout:
-                    logger.info(f"하드코딩된 XML MuseScore 실행 STDOUT: {result_hardcoded.stdout.strip()}")
-                if result_hardcoded.stderr:
-                    logger.warning(f"하드코딩된 XML MuseScore 실행 STDERR: {result_hardcoded.stderr.strip()}")
-
-                if result_hardcoded.returncode == 0 and os.path.exists(hardcoded_svg_path) and os.path.getsize(hardcoded_svg_path) > 0:
-                    logger.info(f"하드코딩된 XML로부터 SVG 파일 생성 성공: {hardcoded_svg_path}, 크기: {os.path.getsize(hardcoded_svg_path)} 바이트")
-                    with open(hardcoded_svg_path, "rb") as f_svg:
-                        svg_data = f_svg.read()
-                    if temp_dir and os.path.exists(temp_dir): # Cleanup before early return
-                        shutil.rmtree(temp_dir)
-                    return base64.b64encode(svg_data).decode('utf-8'), None
-                else:
-                    logger.error(f"하드코딩된 XML로부터 SVG 생성 실패. Return Code: {result_hardcoded.returncode}, stderr: {result_hardcoded.stderr.strip()}")
-                    if temp_dir and os.path.exists(temp_dir): # Cleanup before early return
-                        shutil.rmtree(temp_dir)
-                    return None, "하드코딩된 XML 테스트 SVG 생성 실패." # Special error message
-
-            except Exception as e_hardcoded:
-                logger.error(f"하드코딩된 XML 테스트 중 예외 발생: {e_hardcoded}")
-                logger.error(traceback.format_exc())
-                if temp_dir and os.path.exists(temp_dir): # Cleanup before early return
-                    shutil.rmtree(temp_dir)
-                return None, f"하드코딩된 XML 테스트 중 예외: {str(e_hardcoded)}"
-            # If USE_HARDCODED_XML_TEST is true, the function will have returned by this point.
-            # The main finally block is thus only for the normal execution path.
-            # However, since this path *does* return, we'd need to clean up temp_dir here.
-            # For simplicity in this subtask, I will let the main finally block handle it,
-            # which means if USE_HARDCODED_XML_TEST is True and successful, the temp_dir might not be cleaned immediately.
-            # A more robust solution would duplicate the finally logic or refactor cleanup.
-            # For now, the focus is on the conditional execution.
-            # Let's ensure the main finally block is reached by not returning early from here if test fails.
-            # If test fails, it will return (None, "Hardcoded XML test PNG 생성 실패."),
-            # and the main finally block will execute.
-
-        # Normal processing starts here if USE_HARDCODED_XML_TEST is False
         logger.info("Music21 악보 객체 생성 시작.")
         score = stream.Score()
         score.append(tempo.MetronomeMark(number=bpm))
@@ -551,7 +453,7 @@ def generate_music21_score_with_fallback(
                 raise RuntimeError(f"Failed to create MusicXML file at {xml_path_for_svg}")
             
             # MuseScore로 SVG 직접 생성
-            musescore_exec_path = os.environ.get("MUSESCORE_PATH", "/usr/bin/musescore3")
+            musescore_exec_path = find_musescore_path()
             cmd_svg = [musescore_exec_path, "-o", svg_path, xml_path_for_svg]
             
             logger.info(f"MuseScore SVG 생성 명령: {' '.join(cmd_svg)}")
@@ -953,92 +855,177 @@ def create_random_bass_loop_by_style(style, key_root_note, octave, length_measur
     return formatted_sequence
 
 
-# --- Gemini LLM 설정 및 호출 함수 ---
-def generate_notes_with_gemini(api_key, genre, bpm, measures, key_note, octave):
-    """Gemini AI를 사용한 베이스 라인 생성"""
-    if not GEMINI_AVAILABLE:
-        raise ValueError("Google Generative AI 라이브러리가 설치되지 않았습니다. pip install google-generativeai를 실행하세요.")
-        
-    if not api_key or not api_key.strip():
-        raise ValueError("Gemini API 키가 필요합니다. 입력해주세요.")
+# ============================================================
+# 음악성 강화: 코드 진행 기반 그루브 생성
+# ============================================================
+# 음이름 → 피치 클래스(0=C). 이명동음 표기를 모두 흡수한다.
+NOTE_TO_PC = {
+    'C': 0, 'B#': 0, 'C#': 1, 'DB': 1, 'D': 2, 'D#': 3, 'EB': 3,
+    'E': 4, 'FB': 4, 'F': 5, 'E#': 5, 'F#': 6, 'GB': 6, 'G': 7,
+    'G#': 8, 'AB': 8, 'A': 9, 'A#': 10, 'BB': 10, 'B': 11, 'CB': 11,
+}
+# 피치 클래스 → (음이름, 임시표). 베이스 표기는 플랫을 선호한다.
+PC_TO_NAME = {
+    0: ('C', ''), 1: ('C', '#'), 2: ('D', ''), 3: ('E', 'b'), 4: ('E', ''),
+    5: ('F', ''), 6: ('F', '#'), 7: ('G', ''), 8: ('A', 'b'), 9: ('A', ''),
+    10: ('B', 'b'), 11: ('B', ''),
+}
 
-    try:
-        genai.configure(api_key=api_key.strip()) 
-        gemini_model = genai.GenerativeModel('gemini-pro') 
-        
-        prompt = f"""Generate a bassline sequence in Python list of tuples format: [('NoteName', Octave, DurationUnit, Accidental), ...].
-        Example: `[('C', 2, 1.0, ''), ('G', 2, 0.5, ''), ('A', 2, 0.5, '#'), ('F', 2, 1.0, 'b'), ('R', 4, 1.0, '')]`
-        - NoteName: C, D, E, F, G, A, B (uppercase). For rests, use 'R'.
-        - Octave: Integer (e.g., 2, 3). For rests, use 4.
-        - DurationUnit: Float (0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0 etc. for quarterLength)
-        - Accidental: '', '#', or 'b' (empty string if no accidental). For rests, use ''.
+# 코드 품질 → 루트 기준 반음 간격 (third, fifth, seventh 위치 파악용)
+CHORD_QUALITIES = {
+    '': [0, 4, 7], 'maj': [0, 4, 7], 'M': [0, 4, 7],
+    'm': [0, 3, 7], 'min': [0, 3, 7], '-': [0, 3, 7],
+    '7': [0, 4, 7, 10], 'dom7': [0, 4, 7, 10],
+    'maj7': [0, 4, 7, 11], 'M7': [0, 4, 7, 11], 'Δ': [0, 4, 7, 11],
+    'm7': [0, 3, 7, 10], 'min7': [0, 3, 7, 10], '-7': [0, 3, 7, 10],
+    'dim': [0, 3, 6], '°': [0, 3, 6], 'o': [0, 3, 6],
+    'dim7': [0, 3, 6, 9], '°7': [0, 3, 6, 9],
+    'm7b5': [0, 3, 6, 10], 'ø': [0, 3, 6, 10],
+    'aug': [0, 4, 8], '+': [0, 4, 8],
+    'sus2': [0, 2, 7], 'sus4': [0, 5, 7], 'sus': [0, 5, 7],
+    '6': [0, 4, 7, 9], 'm6': [0, 3, 7, 9], 'min6': [0, 3, 7, 9],
+    '9': [0, 4, 7, 10], 'm9': [0, 3, 7, 10], 'maj9': [0, 4, 7, 11],
+}
 
-        Requirements:
-        - Genre: {genre}
-        - BPM: {bpm}
-        - Key: {key_note}
-        - Starting octave: {octave}
-        - Total beats: {measures * 4} (each measure has 4 beats)
-        - Use octaves {octave} to {octave + 1} mainly, but allow adjacent octaves for musicality.
-        - Make it musically appropriate for {genre}.
-        - Ensure total duration matches Total beats. Use rests (R) if necessary to fill measures.
-        
-        Return ONLY the Python list, no explanation or extra text.
-        """
-        
-        response = gemini_model.generate_content(prompt)
-        text_response = response.text.strip()
-        
-        if text_response.startswith('```python') and text_response.endswith('```'):
-            text_response = text_response[len('```python'):-len('```')].strip()
-        elif text_response.startswith('```') and text_response.endswith('```'):
-            text_response = text_response[3:-3].strip()
-            
-        if text_response.startswith('list(') and text_response.endswith(')'):
-             text_response = text_response[len('list('):-len(')')].strip()
-        
-        logger.info(f"Gemini 응답 원본: {text_response[:500]}...")
-        
-        parsed_sequence_raw = ast.literal_eval(text_response)
-        
-        if not isinstance(parsed_sequence_raw, list):
-            raise ValueError("AI가 Python 리스트를 반환하지 않았습니다.")
-            
-        final_parsed_sequence_for_output = [] 
-        for item in parsed_sequence_raw:
-            if not isinstance(item, tuple) or len(item) != 4: 
-                raise ValueError(f"AI가 잘못된 형식의 튜플을 반환했습니다: {item}. (NoteName, Octave, DurationUnit, Accidental) 형식이어야 합니다.")
-            
-            note_name = str(item[0]).upper()
-            octave = int(item[1])
-            duration = float(item[2])
-            accidental = str(item[3])
 
-            is_rest = (note_name == 'R')
+def parse_chord_symbol(symbol):
+    """
+    "C", "Am", "G7", "Fmaj7", "D#m7", "Bbdim" 같은 코드 기호를 파싱.
+    (root_pc, intervals, normalized_name) 튜플을 반환한다.
+    intervals 는 루트 기준 반음 간격 리스트(예: [0,4,7]).
+    """
+    symbol = symbol.strip()
+    if not symbol:
+        raise ValueError("빈 코드 기호입니다.")
 
-            if not (0 <= octave <= 8):
-                logger.warning(f"AI 생성 옥타브 범위 오류: {octave}. 2로 강제 조정합니다.")
-                octave = 2
-            if not (0 < duration <= 8):
-                logger.warning(f"AI 생성 음표 길이 오류: {duration}. 1.0으로 강제 조정합니다.")
-                duration = 1.0
-            if accidental not in ['', '#', 'b']:
-                 logger.warning(f"AI 생성 임시표 오류: '{accidental}'. 빈 문자열로 강제 조정합니다.")
-                 accidental = ''
+    m = re.match(r'^([A-Ga-g])([#b]?)(.*)$', symbol)
+    if not m:
+        raise ValueError(f"유효하지 않은 코드 기호: '{symbol}'")
 
-            final_parsed_sequence_for_output.append((note_name, octave, duration, is_rest, accidental))
-        
-        formatted_sequence_str = ", ".join([f"{n[0]}{n[4]}{n[1]} {float(n[2])}" for n in final_parsed_sequence_for_output])
-        logger.info(f"Gemini 생성 시퀀스 (프론트엔드 형식): {formatted_sequence_str}")
-        return formatted_sequence_str
-        
-    except ValueError as ve:
-        logger.error(f"AI 응답 파싱 또는 유효성 검사 오류: {str(ve)}")
-        raise ValueError(f"AI 응답 파싱 중 오류: {str(ve)}. AI가 요청된 형식을 따르지 않았을 수 있습니다.")
-    except Exception as e:
-        logger.error(f"Gemini API 호출 오류: {e}")
-        logger.error(traceback.format_exc())
-        raise ValueError(f"Gemini API 호출 중 오류: {str(e)}. API 키가 유효한지 확인하거나 네트워크 상태를 점검하세요.")
+    root_name = m.group(1).upper() + m.group(2).replace('B', 'b')
+    quality_raw = m.group(3).strip()
+
+    root_pc = NOTE_TO_PC.get(root_name.upper())
+    if root_pc is None:
+        raise ValueError(f"유효하지 않은 코드 루트: '{symbol}'")
+
+    intervals = CHORD_QUALITIES.get(quality_raw)
+    if intervals is None:
+        # 알 수 없는 확장(텐션 등)은 메이저/마이너 트라이어드로 안전하게 축약
+        intervals = [0, 3, 7] if quality_raw[:1] in ('m', '-') and quality_raw[:3] != 'maj' else [0, 4, 7]
+
+    return root_pc, intervals, root_name + quality_raw
+
+
+def parse_chord_progression(progression_str):
+    """ "C G Am F" 또는 "C, G, Am, F" 형태의 진행을 코드 리스트로 파싱."""
+    if not progression_str or not progression_str.strip():
+        raise ValueError("코드 진행이 비어 있습니다.")
+    tokens = [t for t in re.split(r'[\s,|]+', progression_str.strip()) if t]
+    if not tokens:
+        raise ValueError("코드 진행에서 유효한 코드를 찾지 못했습니다.")
+    return [parse_chord_symbol(t) for t in tokens]
+
+
+# 장르별 그루브 템플릿: 한 마디(4박)를 채우는 (박자, 역할) 패턴 목록.
+# 역할(role) 의미:
+#   root/third/fifth/seventh = 현재 코드 톤, octave = 루트 한 옥타브 위,
+#   approach = 다음 코드 루트로 향하는 반음 접근음, rest = 쉼표.
+GROOVE_TEMPLATES = {
+    'rock': [
+        [(1.0, 'root'), (1.0, 'root'), (1.0, 'fifth'), (1.0, 'fifth')],
+        [(1.0, 'root'), (0.5, 'root'), (0.5, 'octave'), (1.0, 'fifth'), (1.0, 'approach')],
+        [(0.5, 'root'), (0.5, 'root'), (1.0, 'fifth'), (1.0, 'root'), (1.0, 'approach')],
+    ],
+    'funk': [
+        [(0.5, 'root'), (0.5, 'rest'), (0.5, 'root'), (0.25, 'octave'), (0.25, 'root'),
+         (0.5, 'rest'), (0.5, 'fifth'), (0.5, 'approach'), (0.5, 'root')],
+        [(0.25, 'root'), (0.25, 'root'), (0.5, 'octave'), (0.5, 'rest'), (0.5, 'fifth'),
+         (1.0, 'root'), (0.5, 'third'), (0.5, 'approach')],
+    ],
+    'pop': [
+        [(1.0, 'root'), (1.0, 'fifth'), (1.0, 'root'), (1.0, 'third')],
+        [(2.0, 'root'), (1.0, 'fifth'), (1.0, 'approach')],
+        [(1.0, 'root'), (0.5, 'root'), (0.5, 'fifth'), (1.0, 'octave'), (1.0, 'approach')],
+    ],
+    'jazz': [  # 워킹 베이스: 4분음표로 코드톤→접근음
+        [(1.0, 'root'), (1.0, 'third'), (1.0, 'fifth'), (1.0, 'approach')],
+        [(1.0, 'root'), (1.0, 'fifth'), (1.0, 'seventh'), (1.0, 'approach')],
+        [(1.0, 'root'), (1.0, 'third'), (1.0, 'fifth'), (1.0, 'seventh')],
+    ],
+    'blues': [
+        [(1.5, 'root'), (0.5, 'third'), (1.0, 'fifth'), (1.0, 'seventh')],
+        [(1.0, 'root'), (1.0, 'third'), (1.0, 'fifth'), (1.0, 'octave')],
+        [(1.0, 'root'), (1.0, 'fifth'), (1.0, 'seventh'), (1.0, 'approach')],
+    ],
+    'reggae': [  # 강박을 비우고 약박을 강조
+        [(1.0, 'rest'), (1.0, 'root'), (1.0, 'rest'), (0.5, 'root'), (0.5, 'fifth')],
+        [(1.0, 'rest'), (0.5, 'root'), (0.5, 'octave'), (1.0, 'rest'), (1.0, 'fifth')],
+    ],
+    'hiphop': [
+        [(2.0, 'root'), (1.0, 'rest'), (1.0, 'octave')],
+        [(1.5, 'root'), (0.5, 'rest'), (1.0, 'fifth'), (1.0, 'root')],
+        [(1.0, 'root'), (1.0, 'rest'), (1.0, 'root'), (0.5, 'fifth'), (0.5, 'approach')],
+    ],
+}
+
+
+def _role_to_semitone(role, intervals, root_pc, next_root_pc):
+    """역할 문자열을 루트 기준 반음 오프셋으로 변환 (octave 정보는 별도 반환)."""
+    if role == 'root':
+        return 0, 0
+    if role == 'octave':
+        return 0, 1
+    if role == 'third':
+        return intervals[1] if len(intervals) > 1 else 4, 0
+    if role == 'fifth':
+        return intervals[2] if len(intervals) > 2 else 7, 0
+    if role == 'seventh':
+        return intervals[3] if len(intervals) > 3 else 10, 0
+    if role == 'approach':
+        # 다음 코드 루트로 반음 아래에서 접근 (없으면 5도로 대체)
+        if next_root_pc is None:
+            return 7, 0
+        return ((next_root_pc - 1) - root_pc) % 12, 0
+    return 0, 0
+
+
+def generate_bassline_from_chords(progression_str, genre, octave, seed=None,
+                                  loops=1):
+    """
+    코드 진행 + 장르 그루브 템플릿으로 음악적인 베이스 라인을 생성한다.
+    각 코드는 한 마디(4박)를 차지한다. 시드를 주면 동일 입력에 동일 결과.
+    프론트엔드 시퀀스 문자열("C2 1.0, ...")을 반환한다.
+    """
+    if seed is not None:
+        np.random.seed(int(seed) % (2 ** 32))
+
+    chords = parse_chord_progression(progression_str)
+    templates = GROOVE_TEMPLATES.get(genre, GROOVE_TEMPLATES['rock'])
+
+    notes_out = []
+    for _ in range(max(1, int(loops))):
+        for idx, (root_pc, intervals, _name) in enumerate(chords):
+            next_root_pc = chords[(idx + 1) % len(chords)][0]
+            template = templates[np.random.randint(len(templates))]
+            for dur, role in template:
+                if role == 'rest':
+                    notes_out.append(('R', 4, float(dur), True, ''))
+                    continue
+                semitone, oct_off = _role_to_semitone(role, intervals, root_pc, next_root_pc)
+                total = root_pc + semitone
+                pc = total % 12
+                note_octave = octave + oct_off + (total // 12)
+                note_octave = max(0, min(6, note_octave))
+                name, acc = PC_TO_NAME[pc]
+                notes_out.append((name, note_octave, float(dur), False, acc))
+
+    formatted = ", ".join(
+        [f"{n[0]}{n[4]}{n[1]} {float(n[2])}" if not n[3] else f"R {float(n[2])}"
+         for n in notes_out]
+    )
+    logger.info(f"코드 진행 생성 시퀀스: {formatted}")
+    return formatted
 
 # --- Flask 웹 라우트 ---
 
@@ -1049,7 +1036,6 @@ def index_page():
         'index.html',
         music21_available=MUSIC21_AVAILABLE,
         midi_available=MIDI_AVAILABLE,
-        gemini_available=GEMINI_AVAILABLE,
     )
 
 @app.route('/health')
@@ -1058,18 +1044,18 @@ def health_check():
     return {'status': 'ok'}, 200
 
 @app.route('/generate_notes', methods=['POST'])
-def generate_notes_route(): 
-    """사용자 요청에 따라 랜덤 또는 AI 방식으로 악보 시퀀스를 생성하여 반환"""
+def generate_notes_route():
+    """사용자 요청에 따라 랜덤(스타일) 또는 코드 진행 방식으로 악보 시퀀스를 생성하여 반환"""
     try:
-        generation_mode = request.form.get('generation_mode', 'random') 
-        
+        generation_mode = request.form.get('generation_mode', 'random')
+
         try:
             bpm = int(request.form.get('bpm_input', 120))
             length_measures = int(request.form.get('length_input', 4))
             octave = int(request.form.get('octave_input', 2))
         except ValueError:
             return jsonify({'status': 'error', 'message': 'BPM, 마디 길이, 옥타브는 숫자여야 합니다.'}), 400
-        
+
         genre = request.form.get('genre_input', 'rock')
         key_note = request.form.get('key_note_input', 'C')
 
@@ -1080,26 +1066,32 @@ def generate_notes_route():
         if not (0 <= octave <= 4):
             return jsonify({'status': 'error', 'message': '옥타브는 0-4 범위여야 합니다.'}), 400
 
+        # 시드: 비우면 무작위 시드를 만들어 사용하고 응답으로 돌려준다(재현/공유 가능).
+        seed_raw = request.form.get('seed_input', '').strip()
+        try:
+            seed = int(seed_raw) if seed_raw else int(np.random.randint(0, 2 ** 31 - 1))
+        except ValueError:
+            return jsonify({'status': 'error', 'message': '시드는 정수여야 합니다.'}), 400
+        np.random.seed(seed % (2 ** 32))
+
         generated_notes_str = ""
 
         if generation_mode == "random":
             generated_notes_str = create_random_bass_loop_by_style(
                 genre, key_note, octave, length_measures, bpm
             )
-        elif generation_mode == "ai":
-            if not GEMINI_AVAILABLE:
-                return jsonify({'status': 'error', 'message': 'AI 모드를 사용하려면 `google-generativeai` 라이브러리가 필요합니다.'}), 400
-            api_key_from_ui = request.form.get('gemini_api_key_input', '').strip()
-            if not api_key_from_ui:
-                return jsonify({'status': 'error', 'message': 'AI 모드를 사용하려면 Gemini API 키를 입력해야 합니다.'}), 400
-            generated_notes_str = generate_notes_with_gemini(
-                api_key_from_ui, genre, bpm, length_measures, key_note, octave
+        elif generation_mode == "chords":
+            progression = request.form.get('chord_progression_input', '').strip()
+            if not progression:
+                return jsonify({'status': 'error', 'message': '코드 진행을 입력해주세요. 예: C G Am F'}), 400
+            generated_notes_str = generate_bassline_from_chords(
+                progression, genre, octave, seed=seed
             )
         else:
             return jsonify({'status': 'error', 'message': '알 수 없는 생성 모드입니다.'}), 400
 
         if generated_notes_str:
-            return jsonify({'status': 'success', 'notes': generated_notes_str})
+            return jsonify({'status': 'success', 'notes': generated_notes_str, 'seed': seed})
         else:
             return jsonify({'status': 'error', 'message': '악보 생성에 실패했습니다.'}), 500
 
@@ -1232,10 +1224,9 @@ def get_features_status():
         music21_configured = setup_music21_environment() 
 
     return jsonify({
-        'music21_available': MUSIC21_AVAILABLE, 
-        'music21_configured_for_png': music21_configured, 
-        'midi_available': MIDI_AVAILABLE, 
-        'gemini_available': GEMINI_AVAILABLE
+        'music21_available': MUSIC21_AVAILABLE,
+        'music21_configured_for_png': music21_configured,
+        'midi_available': MIDI_AVAILABLE,
     })
 
 @app.route('/debug_musescore')
@@ -1309,7 +1300,6 @@ def not_found_error(error):
         'index.html',
         music21_available=MUSIC21_AVAILABLE,
         midi_available=MIDI_AVAILABLE,
-        gemini_available=GEMINI_AVAILABLE,
     ), 404
 
 @app.errorhandler(500)
@@ -1328,7 +1318,6 @@ if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
     logger.info(f"서버 시작 - 포트: {port}, 디버그: {debug_mode}")
-    logger.info(f"Gemini AI 사용 가능: {GEMINI_AVAILABLE}")
     logger.info(f"Music21 사용 가능: {MUSIC21_AVAILABLE}")
     logger.info(f"MIDI 사용 가능: {MIDI_AVAILABLE}")
     
