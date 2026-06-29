@@ -725,6 +725,12 @@
             // 기능 상태 확인
             checkFeaturesStatus();
 
+            // 리얼 베이스 샘플을 미리 받아둠(디코딩은 컨텍스트 정지 상태에서도 가능)
+            // → 첫 재생 때 폴백 없이 바로 실제 베이스 음색이 나오도록.
+            if (typeof Tone !== 'undefined' && __useRealBass) {
+                try { getBassSampler(15000); } catch (e) {}
+            }
+
             // 히스토리 패널 렌더
             renderHistory();
 
@@ -877,11 +883,17 @@
             return (parseInt(document.getElementById('swing_input').value) || 0) / 100;
         }
 
-        // ── 리얼 베이스: GM 사운드폰트(electric_bass_finger) 멀티샘플 ──
-        // gleitz/midi-js-soundfonts CDN. 자연음만 로드하고 나머지는 Tone.Sampler가 피치시프트.
+        // ── 리얼 베이스: 실제 일렉트릭 베이스 멀티샘플 ──
+        // tonejs-instruments(bass-electric) — Tone.Sampler 용으로 검증된 샘플 세트.
+        // 일부 음만 로드하고 나머지는 Tone.Sampler가 피치시프트로 채운다.
         let __useRealBass = true;
-        const BASS_SAMPLE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/electric_bass_finger-mp3/';
-        const BASS_SAMPLE_URLS = { 'C2': 'C2.mp3', 'E2': 'E2.mp3', 'G2': 'G2.mp3', 'C3': 'C3.mp3', 'E3': 'E3.mp3', 'G3': 'G3.mp3', 'C4': 'C4.mp3' };
+        const BASS_SAMPLE_BASE = 'https://nbrosowsky.github.io/tonejs-instruments/samples/bass-electric/';
+        const BASS_SAMPLE_URLS = {
+            'E1': 'E1.mp3', 'G1': 'G1.mp3', 'A#1': 'As1.mp3',
+            'C#2': 'Cs2.mp3', 'E2': 'E2.mp3', 'G2': 'G2.mp3', 'A#2': 'As2.mp3',
+            'C#3': 'Cs3.mp3', 'E3': 'E3.mp3', 'G3': 'G3.mp3', 'A#3': 'As3.mp3',
+            'E4': 'E4.mp3',
+        };
         let __bassSampler = null;        // 로드 완료된 공유 샘플러 (라이브용, 재사용)
         let __bassSamplerLoading = null; // 진행 중 로드 Promise
 
@@ -907,14 +919,15 @@
             return __bassSamplerLoading;
         }
 
-        // 베이스 신스 (Tone.js MonoSynth — 따뜻한 저역)
+        // 폴백 베이스 신스 — 샘플 미로드 시. 톱니파 + 빠르게 닫히는 로우패스로
+        // 손가락 플럭 베이스 느낌(오르간/지속음 회피).
         function makeBassSynth(dest) {
             return new Tone.MonoSynth({
-                oscillator: { type: 'fmsquare', modulationType: 'sine', harmonicity: 0.5 },
-                filter: { Q: 2, type: 'lowpass', rolloff: -24 },
-                envelope: { attack: 0.012, decay: 0.18, sustain: 0.65, release: 0.25 },
-                filterEnvelope: { attack: 0.02, decay: 0.2, sustain: 0.4, release: 0.3, baseFrequency: 90, octaves: 2.8 },
-                volume: -7,
+                oscillator: { type: 'sawtooth' },
+                filter: { Q: 1.5, type: 'lowpass', rolloff: -24 },
+                envelope: { attack: 0.006, decay: 0.28, sustain: 0.28, release: 0.18 },
+                filterEnvelope: { attack: 0.004, decay: 0.26, sustain: 0.12, release: 0.2, baseFrequency: 55, octaves: 3.2, exponent: 2 },
+                volume: -8,
             }).connect(dest);
         }
 
