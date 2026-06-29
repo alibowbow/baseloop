@@ -75,37 +75,59 @@ class MidiConversionTests(unittest.TestCase):
 
 class ChordParsingTests(unittest.TestCase):
     def test_major_triad(self):
-        root, intervals, name = app.parse_chord_symbol("C")
+        root, intervals, bass, name = app.parse_chord_symbol("C")
         self.assertEqual(root, 0)
         self.assertEqual(intervals, [0, 4, 7])
+        self.assertEqual(bass, 0)  # 슬래시 없으면 베이스 = 루트
 
     def test_minor_triad(self):
-        root, intervals, _ = app.parse_chord_symbol("Am")
+        root, intervals, bass, _ = app.parse_chord_symbol("Am")
         self.assertEqual(root, 9)
         self.assertEqual(intervals, [0, 3, 7])
 
     def test_dominant_seventh(self):
-        root, intervals, _ = app.parse_chord_symbol("G7")
+        root, intervals, bass, _ = app.parse_chord_symbol("G7")
         self.assertEqual(root, 7)
         self.assertEqual(intervals, [0, 4, 7, 10])
 
     def test_major_seventh(self):
-        _, intervals, _ = app.parse_chord_symbol("Fmaj7")
+        _, intervals, _, _ = app.parse_chord_symbol("Fmaj7")
         self.assertEqual(intervals, [0, 4, 7, 11])
 
     def test_sharp_root(self):
-        root, _, _ = app.parse_chord_symbol("D#m7")
+        root, _, _, _ = app.parse_chord_symbol("D#m7")
         self.assertEqual(root, 3)
 
     def test_flat_root(self):
-        root, _, _ = app.parse_chord_symbol("Bb")
+        root, _, _, _ = app.parse_chord_symbol("Bb")
         self.assertEqual(root, 10)
 
     def test_unknown_quality_falls_back(self):
         # 알 수 없는 확장은 메이저/마이너 트라이어드로 축약 (예외 아님)
-        _, intervals, _ = app.parse_chord_symbol("Cadd9")
+        _, intervals, _, _ = app.parse_chord_symbol("Cadd9")
         self.assertIn(0, intervals)
         self.assertIn(7, intervals)
+
+    def test_slash_chord_bass_note(self):
+        # C/E → 코드 루트 C, 베이스 음 E
+        root, intervals, bass, name = app.parse_chord_symbol("C/E")
+        self.assertEqual(root, 0)
+        self.assertEqual(bass, 4)        # E
+        self.assertEqual(intervals, [0, 4, 7])
+        self.assertIn("/E", name)
+
+    def test_slash_chord_sharp_bass(self):
+        root, _, bass, _ = app.parse_chord_symbol("D/F#")
+        self.assertEqual(root, 2)
+        self.assertEqual(bass, 6)        # F#
+
+    def test_slash_uses_bass_on_downbeat(self):
+        # C/E 한 마디 → 첫 음은 베이스 E(피치클래스 4)여야 한다
+        seq = app.generate_bassline_from_chords("C/E", "rock", 2, seed=1)
+        first = app.parse_note_sequence_string(seq)[0]
+        name, octv, dur, is_rest, acc = first
+        pc = app.NOTE_TO_PC[(name + acc).upper()]
+        self.assertEqual(pc, 4)
 
     def test_invalid_symbol_raises(self):
         with self.assertRaises(ValueError):
