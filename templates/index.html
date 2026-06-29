@@ -919,16 +919,21 @@
             return __bassSamplerLoading;
         }
 
-        // 폴백 베이스 신스 — 샘플 미로드 시. 톱니파 + 빠르게 닫히는 로우패스로
-        // 손가락 플럭 베이스 느낌(오르간/지속음 회피).
+        // 리얼 베이스를 끈 모드 = 초창기(서버 numpy) 합성음 재현.
+        // 배음 구조(1·0.4·0.2·0.1) + 부드러운 ADSR(sustain 0.8) + 저역 부스트 + 살짝의 새추레이션.
+        // (사용자 피드백: 이 초기 음색이 가장 '베이스답다')
         function makeBassSynth(dest) {
-            return new Tone.MonoSynth({
-                oscillator: { type: 'sawtooth' },
-                filter: { Q: 1.5, type: 'lowpass', rolloff: -24 },
-                envelope: { attack: 0.006, decay: 0.28, sustain: 0.28, release: 0.18 },
-                filterEnvelope: { attack: 0.004, decay: 0.26, sustain: 0.12, release: 0.2, baseFrequency: 55, octaves: 3.2, exponent: 2 },
-                volume: -8,
-            }).connect(dest);
+            const lp = new Tone.Filter({ type: 'lowpass', frequency: 2400, rolloff: -12 });
+            const lowBoost = new Tone.Filter({ type: 'lowshelf', frequency: 150, gain: 3.5 });
+            const sat = new Tone.Distortion({ distortion: 0.06, oversample: '2x' });
+            const synth = new Tone.Synth({
+                oscillator: { type: 'custom', partials: [1, 0.4, 0.2, 0.1] },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.3 },
+                volume: -1,
+            });
+            synth.chain(lp, lowBoost, sat, dest);
+            synth._auxNodes = [lp, lowBoost, sat];   // disposeEngine에서 함께 정리
+            return synth;
         }
 
         // 현재 폼 상태로부터 루프 이벤트(스윙 반영) 구성
@@ -1054,7 +1059,10 @@
             __toneNodes.parts.forEach(p => { try { p.stop(); p.dispose(); } catch (e) {} });
             // 공유 샘플러는 재사용을 위해 dispose하지 않고 연결만 끊는다.
             if (__toneNodes.bassShared) { try { __toneNodes.synth.disconnect(); } catch (e) {} }
-            else { try { __toneNodes.synth.dispose(); } catch (e) {} }
+            else {
+                try { (__toneNodes.synth._auxNodes || []).forEach(n => n.dispose()); } catch (e) {}
+                try { __toneNodes.synth.dispose(); } catch (e) {}
+            }
             if (__toneNodes.drums) Object.values(__toneNodes.drums).forEach(d => { try { d.dispose(); } catch (e) {} });
             if (__toneNodes.metro) { try { __toneNodes.metro.dispose(); } catch (e) {} }
             if (__toneNodes.master) { try { __toneNodes.master.dispose(); } catch (e) {} }
