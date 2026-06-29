@@ -936,6 +936,40 @@
             return synth;
         }
 
+        // 화면 악보와 동일하게 마디 단위로 패딩한 시퀀스 문자열 (서버 WAV 길이=타임라인 일치용)
+        function fmtDur(d) { return String(Number(d.toFixed(4))); }
+        function padSequenceForAudio(notesSequenceStr) {
+            const notes = parseNotes(notesSequenceStr);
+            if (!notes.length) return notesSequenceStr;
+            const parts = [];
+            groupIntoMeasures(notes).forEach(measure => measure.forEach(n => {
+                parts.push(n.isRest ? `R ${fmtDur(n.duration)}` : `${n.name}${n.octave} ${fmtDur(n.duration)}`);
+            }));
+            return parts.join(', ');
+        }
+
+        // 초기(업그레이드 직전) 베이스 음색 = 서버 generate_note_waveform WAV.
+        // 1루프 분량을 받아 AudioBuffer로 디코드해 캐시한다(같은 입력이면 재사용).
+        let __origBassCache = { key: null, buf: null };
+        async function getOriginalBassBuffer(data) {
+            const seq = document.getElementById('notes_sequence_input').value;
+            const padded = padSequenceForAudio(seq);
+            const key = padded + '|' + data.bpm;
+            if (__origBassCache.buf && __origBassCache.key === key) return __origBassCache.buf;
+            try {
+                const fd = new FormData();
+                fd.append('notes_sequence_input', padded);
+                fd.append('bpm_input', data.bpm);
+                fd.append('num_loops_input', '1');
+                const resp = await fetch('/generate_audio', { method: 'POST', body: fd });
+                if (!resp.ok) return null;
+                const arr = await resp.arrayBuffer();
+                const buf = await Tone.getContext().rawContext.decodeAudioData(arr);
+                __origBassCache = { key, buf };
+                return buf;
+            } catch (e) { console.warn('초기 베이스 WAV 로드 실패:', e); return null; }
+        }
+
         // 현재 폼 상태로부터 루프 이벤트(스윙 반영) 구성
         function buildLoopData() {
             const seq = document.getElementById('notes_sequence_input').value;
@@ -1013,21 +1047,36 @@
             const limiter = new Tone.Limiter(-1).toDestination();
             const master = new Tone.Gain(0.5).connect(limiter);
 
-            // 베이스: 리얼 모드면 샘플러(실패 시 신스 폴백), 아니면 신스
-            let synth = null, bassShared = false;
+            // 베이스 음원 선택:
+            //  · 리얼 베이스 ON & 샘플 로드 → Tone.Sampler(음 단위)
+            //  · 그 외(OFF/샘플 실패) → 초기 서버 WAV(Tone.Player) = 업그레이드 직전 음색
+            //  · 서버 WAV도 실패하면 최후로 Tone 합성음
+            let synth = null, bassShared = false, bassPlayer = null;
             if (__useRealBass) {
                 setTransportStatus('🎸 리얼 베이스 샘플 로딩…');
                 const smp = await getBassSampler();
                 if (smp) { try { smp.disconnect(); } catch (e) {} smp.connect(master); synth = smp; bassShared = true; }
             }
-            if (!synth) synth = makeBassSynth(master);
-            const nodes = { synth, bassShared, master, limiter, parts: [], drums: null, metro: null };
+            if (!synth) {
+                setTransportStatus('🎚️ 초기 베이스 음색 준비…');
+                const buf = await getOriginalBassBuffer(data);
+                if (buf) {
+                    bassPlayer = new Tone.Player(buf).connect(master);
+                    bassPlayer.volume.value = 4;   // 마스터 게인(0.5) 보정 — 원래 체감 음량에 가깝게
+                    bassPlayer.loop = true; bassPlayer.loopStart = 0; bassPlayer.loopEnd = buf.duration;
+                    bassPlayer.sync().start(0);
+                }
+            }
+            if (!synth && !bassPlayer) synth = makeBassSynth(master);  // 최후 폴백
+            const nodes = { synth, bassShared, bassPlayer, master, limiter, parts: [], drums: null, metro: null };
 
-            const bassPart = new Tone.Part((time, ev) => {
-                synth.triggerAttackRelease(ev.note, ev.dur, time);
-            }, data.bassEvents);
-            bassPart.loop = true; bassPart.loopEnd = __loopSeconds; bassPart.start(0);
-            nodes.parts.push(bassPart);
+            if (synth) {  // 샘플러/합성: 음 단위 스케줄
+                const bassPart = new Tone.Part((time, ev) => {
+                    synth.triggerAttackRelease(ev.note, ev.dur, time);
+                }, data.bassEvents);
+                bassPart.loop = true; bassPart.loopEnd = __loopSeconds; bassPart.start(0);
+                nodes.parts.push(bassPart);
+            }
 
             if (__useDrums) {
                 const kit = makeDrumKit(master);
@@ -1059,9 +1108,12 @@
             __toneNodes.parts.forEach(p => { try { p.stop(); p.dispose(); } catch (e) {} });
             // 공유 샘플러는 재사용을 위해 dispose하지 않고 연결만 끊는다.
             if (__toneNodes.bassShared) { try { __toneNodes.synth.disconnect(); } catch (e) {} }
-            else {
+            else if (__toneNodes.synth) {
                 try { (__toneNodes.synth._auxNodes || []).forEach(n => n.dispose()); } catch (e) {}
                 try { __toneNodes.synth.dispose(); } catch (e) {}
+            }
+            if (__toneNodes.bassPlayer) {
+                try { __toneNodes.bassPlayer.stop(); __toneNodes.bassPlayer.unsync(); __toneNodes.bassPlayer.dispose(); } catch (e) {}
             }
             if (__toneNodes.drums) Object.values(__toneNodes.drums).forEach(d => { try { d.dispose(); } catch (e) {} });
             if (__toneNodes.metro) { try { __toneNodes.metro.dispose(); } catch (e) {} }
@@ -1087,7 +1139,9 @@
             if (!(await startEngine())) { setPlayIcon(false); return; }
             __isPlaying = true;
             setPlayIcon(true);
-            setTransportStatus(__toneNodes && __toneNodes.bassShared ? '▶ 재생 중 · 🎸 리얼 베이스' : '▶ 재생 중 (반복)');
+            const _mode = (__toneNodes && __toneNodes.bassShared) ? '🎸 리얼 베이스'
+                        : (__toneNodes && __toneNodes.bassPlayer) ? '🎚️ 초기 음색' : '합성음';
+            setTransportStatus('▶ 재생 중 · ' + _mode);
             startPlaybackCursor();
             showMessage('🎶 재생을 시작합니다.', 'success');
         }
@@ -1147,10 +1201,13 @@
             const metroEv = useMetro ? buildMetroEvents(data) : [];
 
             const useRealBass = __useRealBass;
+            // 리얼 베이스 OFF면 초기 음색(서버 WAV) 버퍼를 미리 확보 (오프라인 컨텍스트 밖에서 디코드)
+            const origBuf = useRealBass ? null : await getOriginalBassBuffer(data);
+
             const buffer = await Tone.Offline(async () => {
                 const limiter = new Tone.Limiter(-1).toDestination();
                 const master = new Tone.Gain(0.5).connect(limiter);
-                let synth = null;
+                let synth = null, player = null;
                 if (useRealBass) {
                     synth = await new Promise((resolve) => {
                         let s;
@@ -1162,12 +1219,17 @@
                     });
                     if (synth) synth.connect(master);
                 }
-                if (!synth) synth = makeBassSynth(master);
+                if (!synth && origBuf) {
+                    player = new Tone.Player(origBuf).connect(master);
+                    player.volume.value = 4;
+                    player.loop = true; player.loopEnd = origBuf.duration; player.start(0);
+                }
+                if (!synth && !player) synth = makeBassSynth(master);  // 최후 폴백
                 const kit = useDrums ? makeDrumKit(master) : null;
                 const metro = useMetro ? makeMetronome(master) : null;
                 for (let L = 0; L < loops; L++) {
                     const off = L * oneLoop;
-                    data.bassEvents.forEach(e => synth.triggerAttackRelease(e.note, e.dur, off + e.time));
+                    if (synth) data.bassEvents.forEach(e => synth.triggerAttackRelease(e.note, e.dur, off + e.time));
                     if (kit) drumEv.forEach(e => triggerDrum(kit, e.type, off + e.time));
                     if (metro) metroEv.forEach(e => metro.triggerAttackRelease(e.accent ? 'C6' : 'C5', '32n', off + e.time));
                 }
