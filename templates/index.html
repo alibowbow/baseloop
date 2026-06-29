@@ -534,6 +534,7 @@
                     <button type="button" id="playAudioBtn" class="bl-play" onclick="togglePlayback()" aria-label="재생/정지"><span id="playIcon">▶</span></button>
                     <div class="bl-transport__main">
                         <div class="bl-toggles">
+                            <button type="button" id="realBassToggle" class="bl-toggle on" onclick="toggleRealBass()" title="실제 베이스 샘플(GM 사운드폰트)로 재생. 끄면 신스 사운드">🎸 리얼 베이스</button>
                             <button type="button" id="metronomeToggle" class="bl-toggle" onclick="toggleMetronome()">🔔 메트로놈</button>
                             <button type="button" id="drumsToggle" class="bl-toggle" onclick="toggleDrums()">🥁 드럼 반주</button>
                             <span id="transportStatus" class="bl-chip">⚡ 즉시 재생 준비됨</span>
@@ -876,6 +877,36 @@
             return (parseInt(document.getElementById('swing_input').value) || 0) / 100;
         }
 
+        // ── 리얼 베이스: GM 사운드폰트(electric_bass_finger) 멀티샘플 ──
+        // gleitz/midi-js-soundfonts CDN. 자연음만 로드하고 나머지는 Tone.Sampler가 피치시프트.
+        let __useRealBass = true;
+        const BASS_SAMPLE_BASE = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/electric_bass_finger-mp3/';
+        const BASS_SAMPLE_URLS = { 'C2': 'C2.mp3', 'E2': 'E2.mp3', 'G2': 'G2.mp3', 'C3': 'C3.mp3', 'E3': 'E3.mp3', 'G3': 'G3.mp3', 'C4': 'C4.mp3' };
+        let __bassSampler = null;        // 로드 완료된 공유 샘플러 (라이브용, 재사용)
+        let __bassSamplerLoading = null; // 진행 중 로드 Promise
+
+        // 공유 베이스 샘플러를 로드(또는 캐시 반환). 실패/타임아웃 시 null → 신스 폴백.
+        function getBassSampler(timeoutMs) {
+            if (__bassSampler) return Promise.resolve(__bassSampler);
+            if (__bassSamplerLoading) return __bassSamplerLoading;
+            __bassSamplerLoading = new Promise((resolve) => {
+                let done = false;
+                const finish = (val) => { if (!done) { done = true; resolve(val); } };
+                let sampler;
+                try {
+                    sampler = new Tone.Sampler({
+                        urls: BASS_SAMPLE_URLS,
+                        baseUrl: BASS_SAMPLE_BASE,
+                        release: 0.4,
+                        onload: () => { __bassSampler = sampler; finish(sampler); },
+                        onerror: () => finish(null),
+                    });
+                } catch (e) { finish(null); return; }
+                setTimeout(() => { if (!__bassSampler) finish(null); }, timeoutMs || 9000);
+            }).then(v => { __bassSamplerLoading = null; return v; });
+            return __bassSamplerLoading;
+        }
+
         // 베이스 신스 (Tone.js MonoSynth — 따뜻한 저역)
         function makeBassSynth(dest) {
             return new Tone.MonoSynth({
@@ -955,7 +986,7 @@
             else kit.hat.triggerAttackRelease('32n', time);
         }
 
-        function startEngine() {
+        async function startEngine() {
             const data = buildLoopData();
             if (!data.bassEvents.length) { showMessage('재생할 음표가 없습니다.', 'error'); return false; }
             __loopSeconds = data.loopBeats * data.secPerBeat;
@@ -963,8 +994,16 @@
             // 마스터 체인: 게인(헤드룸) → 리미터(-1dB) → 출력. 합산 클리핑 방지.
             const limiter = new Tone.Limiter(-1).toDestination();
             const master = new Tone.Gain(0.5).connect(limiter);
-            const synth = makeBassSynth(master);
-            const nodes = { synth, master, limiter, parts: [], drums: null, metro: null };
+
+            // 베이스: 리얼 모드면 샘플러(실패 시 신스 폴백), 아니면 신스
+            let synth = null, bassShared = false;
+            if (__useRealBass) {
+                setTransportStatus('🎸 리얼 베이스 샘플 로딩…');
+                const smp = await getBassSampler();
+                if (smp) { try { smp.disconnect(); } catch (e) {} smp.connect(master); synth = smp; bassShared = true; }
+            }
+            if (!synth) synth = makeBassSynth(master);
+            const nodes = { synth, bassShared, master, limiter, parts: [], drums: null, metro: null };
 
             const bassPart = new Tone.Part((time, ev) => {
                 synth.triggerAttackRelease(ev.note, ev.dur, time);
@@ -1000,7 +1039,9 @@
             try { Tone.Transport.stop(); Tone.Transport.cancel(0); } catch (e) {}
             if (!__toneNodes) return;
             __toneNodes.parts.forEach(p => { try { p.stop(); p.dispose(); } catch (e) {} });
-            try { __toneNodes.synth.dispose(); } catch (e) {}
+            // 공유 샘플러는 재사용을 위해 dispose하지 않고 연결만 끊는다.
+            if (__toneNodes.bassShared) { try { __toneNodes.synth.disconnect(); } catch (e) {} }
+            else { try { __toneNodes.synth.dispose(); } catch (e) {} }
             if (__toneNodes.drums) Object.values(__toneNodes.drums).forEach(d => { try { d.dispose(); } catch (e) {} });
             if (__toneNodes.metro) { try { __toneNodes.metro.dispose(); } catch (e) {} }
             if (__toneNodes.master) { try { __toneNodes.master.dispose(); } catch (e) {} }
@@ -1022,10 +1063,10 @@
             try { renderSheetMusic(seq, len, bpm); } catch (e) { console.warn('재생 전 악보 동기화 실패:', e); }
 
             disposeEngine();
-            if (!startEngine()) return;
+            if (!(await startEngine())) { setPlayIcon(false); return; }
             __isPlaying = true;
             setPlayIcon(true);
-            setTransportStatus('▶ 재생 중 (반복)');
+            setTransportStatus(__toneNodes && __toneNodes.bassShared ? '▶ 재생 중 · 🎸 리얼 베이스' : '▶ 재생 중 (반복)');
             startPlaybackCursor();
             showMessage('🎶 재생을 시작합니다.', 'success');
         }
@@ -1047,12 +1088,11 @@
             if (el) el.textContent = text;
         }
 
-        // 재생 중 엔진 옵션(드럼/메트로놈/스윙) 변경 시 즉시 반영 (처음부터 다시)
-        function restartIfPlaying() {
+        // 재생 중 엔진 옵션(드럼/메트로놈/스윙/베이스) 변경 시 즉시 반영 (처음부터 다시)
+        async function restartIfPlaying() {
             if (!__isPlaying) return;
             disposeEngine();
-            startEngine();
-            startPlaybackCursor();
+            if (await startEngine()) startPlaybackCursor();
         }
         function toggleMetronome() {
             __useMetronome = !__useMetronome;
@@ -1062,6 +1102,11 @@
         function toggleDrums() {
             __useDrums = !__useDrums;
             document.getElementById('drumsToggle').classList.toggle('on', __useDrums);
+            restartIfPlaying();
+        }
+        function toggleRealBass() {
+            __useRealBass = !__useRealBass;
+            document.getElementById('realBassToggle').classList.toggle('on', __useRealBass);
             restartIfPlaying();
         }
         function applySwingLive() {
@@ -1080,10 +1125,23 @@
             const drumEv = useDrums ? buildDrumEvents(data) : [];
             const metroEv = useMetro ? buildMetroEvents(data) : [];
 
-            const buffer = await Tone.Offline(() => {
+            const useRealBass = __useRealBass;
+            const buffer = await Tone.Offline(async () => {
                 const limiter = new Tone.Limiter(-1).toDestination();
                 const master = new Tone.Gain(0.5).connect(limiter);
-                const synth = makeBassSynth(master);
+                let synth = null;
+                if (useRealBass) {
+                    synth = await new Promise((resolve) => {
+                        let s;
+                        try {
+                            s = new Tone.Sampler({ urls: BASS_SAMPLE_URLS, baseUrl: BASS_SAMPLE_BASE, release: 0.4,
+                                onload: () => resolve(s), onerror: () => resolve(null) });
+                        } catch (e) { resolve(null); return; }
+                        setTimeout(() => resolve(s && s.loaded ? s : null), 9000);
+                    });
+                    if (synth) synth.connect(master);
+                }
+                if (!synth) synth = makeBassSynth(master);
                 const kit = useDrums ? makeDrumKit(master) : null;
                 const metro = useMetro ? makeMetronome(master) : null;
                 for (let L = 0; L < loops; L++) {
