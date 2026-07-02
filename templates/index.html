@@ -640,6 +640,15 @@
             outline: none; box-shadow: 0 0 0 4px var(--ring);
         }
 
+        /* 히스토리: 세로 무한 증가 → 반응형 그리드 + 높이 제한 스크롤 */
+        .bl-history-list {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px;
+            scrollbar-width: thin;
+        }
+        .bl-history-item { margin: 0; }
+        .bl-history-item__sub { max-width: 100%; }
+
         /* ── 🎓 학습 모드 UI ───────────────────────── */
         .role-legend {
             display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
@@ -711,6 +720,47 @@
         .quiz-feedback { font-size: 0.9rem; padding: 10px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
         .quiz-feedback.ok { border-color: color-mix(in srgb, var(--success) 45%, transparent); }
         .quiz-feedback.no { border-color: color-mix(in srgb, var(--error) 40%, transparent); }
+
+        /* ── 🎯 연습 커리큘럼 ───────────────────────── */
+        .curriculum-list { display: flex; flex-direction: column; gap: 14px; }
+        .curr-level {
+            border: 1px solid var(--border); border-radius: var(--radius-md);
+            background: var(--surface-2); padding: 12px 14px;
+        }
+        .curr-level__head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .curr-level__name { font-weight: 700; font-size: 0.92rem; color: var(--text); flex: none; }
+        .curr-level__meter {
+            flex: 1 1 auto; height: 6px; border-radius: 3px; overflow: hidden;
+            background: var(--surface-3);
+        }
+        .curr-level__meter i {
+            display: block; height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transition: width 0.3s ease;
+        }
+        .curr-level__count { flex: none; font-size: 0.78rem; font-weight: 700; color: var(--text-muted); }
+        .curr-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 6px; border-top: 1px solid var(--border);
+        }
+        .curr-item.done .curr-meta b { text-decoration: line-through; color: var(--text-muted); }
+        .curr-no {
+            flex: none; width: 38px; text-align: center; font-family: 'Space Grotesk', monospace;
+            font-weight: 700; font-size: 0.82rem; color: var(--primary);
+            background: var(--primary-soft); border-radius: 8px; padding: 4px 0;
+        }
+        .curr-meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
+        .curr-meta b { font-size: 0.88rem; color: var(--text); }
+        .curr-meta small { font-size: 0.76rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .curr-check {
+            flex: none; border: none; background: transparent; cursor: pointer;
+            font-size: 1.05rem; padding: 4px 6px; border-radius: 8px; line-height: 1;
+        }
+        .curr-check:hover { background: var(--surface-3); }
+        @media (max-width: 600px) {
+            .curr-meta small { white-space: normal; }
+            .curr-item { flex-wrap: wrap; }
+        }
     </style>
 </head>
 <body>
@@ -884,7 +934,8 @@
                     <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>저장 · 공유</h2>
                     <div class="bl-stage__chips">
                         <button type="button" class="bl-toggle" onclick="shareCurrentState()">🔗 링크 복사</button>
-                        <button type="button" class="bl-toggle" onclick="saveToHistory()">⭐ 히스토리에 저장</button>
+                        <button type="button" class="bl-toggle" onclick="saveToHistory()">⭐ 저장</button>
+                        <button type="button" class="bl-toggle" onclick="clearHistory()" title="히스토리 전체 삭제">🗑 비우기</button>
                     </div>
                 </div>
                 <div id="historyList" class="bl-history-list"></div>
@@ -899,6 +950,11 @@
 
                 <!-- 지금 이 베이스라인 분석 (생성할 때마다 갱신) -->
                 <div id="lineAnalysis" class="learn-analysis"></div>
+
+                <!-- 🎯 연습 커리큘럼: 체르니처럼 번호 붙은 단계별 연습 -->
+                <h3 class="learn-subtitle">🎯 연습 커리큘럼 — 기초부터 차근차근 <span id="currTotalProgress" class="bl-chip" style="margin-left:6px;"></span></h3>
+                <p class="hint" style="margin:0 0 10px;">피아노의 체르니처럼 번호 순서대로 연습하세요. "▶ 연습"이 악보를 띄우고 반복 재생합니다. 익숙해지면 ✓로 완료 체크!</p>
+                <div id="curriculumList" class="curriculum-list"></div>
 
                 <h3 class="learn-subtitle">📚 미니 레슨 — 설명 읽고, 바로 들어보기</h3>
                 <div id="lessonList" class="lesson-list"></div>
@@ -1078,8 +1134,9 @@
             // 히스토리 패널 렌더
             renderHistory();
 
-            // 🎓 학습 UI 초기화 (토글 상태·레슨 목록·귀 훈련 첫 문제)
+            // 🎓 학습 UI 초기화 (토글 상태·커리큘럼·레슨 목록·귀 훈련 첫 문제)
             syncLearnToggle();
+            renderCurriculum();
             buildLessons();
             renderQuiz();
 
@@ -1246,7 +1303,7 @@
             ballad:  { chords: 'C/E F G/B Am F C/E Dm7 G7',         genre: 'pop',   bpm: 72,  swing: 0,  label: '소울 발라드 (슬래시 코드)' },
             funk1:   { chords: 'E7 E7 E7 E7',                       genre: 'funk',  bpm: 104, swing: 20, label: '펑크 원코드 vamp' },
         };
-        async function applyPreset(key) {
+        async function applyPreset(key, seed) {
             const p = CHORD_PRESETS[key];
             if (!p) return;
             stopPlayback();
@@ -1257,9 +1314,12 @@
             const sw = document.getElementById('swing_input');
             sw.value = p.swing;
             const sv = document.getElementById('swingValue'); if (sv) sv.textContent = p.swing + '%';
+            // 프리셋은 새 출발: 시드 초기화 (커리큘럼 연습은 고정 시드로 항상 동일 악보)
+            document.getElementById('seed_input').value = (seed != null) ? seed : '';
             onGenerationModeChange();
             showMessage('✨ 프리셋 적용: ' + p.label + ' — 생성 중…', 'info');
             await generateNotes();
+            if (seed != null) document.getElementById('seed_input').value = '';
         }
 
         // Space 키로 재생/정지 (입력 필드에 포커스가 없을 때만)
@@ -1874,6 +1934,11 @@
             persistHistory(loadHistory().filter(i => i.ts !== ts));
             renderHistory();
         }
+        function clearHistory() {
+            persistHistory([]);
+            renderHistory();
+            showMessage('🗑 히스토리를 비웠습니다.', 'info');
+        }
         function restoreHistory(ts) {
             const item = loadHistory().find(i => i.ts === ts);
             if (item) { stopPlayback(); applyState(item.state); updateShareUrl(); showMessage('⏪ 저장된 베이스 라인을 불러왔습니다.', 'info'); }
@@ -2101,11 +2166,105 @@
             document.getElementById('generation_mode_input').value = 'random';
             document.getElementById('genre_input').value = demo.genre || 'rock';
             document.getElementById('bpm_input').value = demo.bpm || 100;
+            const sw = demo.swing ?? 0;
+            document.getElementById('swing_input').value = sw;
+            const sv = document.getElementById('swingValue'); if (sv) sv.textContent = sw + '%';
             document.getElementById('notes_sequence_input').value = demo.seq;
             onGenerationModeChange();
             renderSheetMusic(demo.seq, 4, demo.bpm || 100);
             document.getElementById('notation-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
             await togglePlayback();
+        }
+
+        // ── 🎯 연습 커리큘럼: 체르니식 단계별 베이스 연습 ──
+        // seq 항목은 손으로 쓴 고정 악보(항상 동일), preset 항목은 고정 시드로 생성(항상 동일).
+        const CURRICULUM = [
+            { level: '기초 — 뿌리 다지기', items: [
+                { id:'1-1', title:'온음표로 근음 지키기', focus:'4박을 속으로 세며 정확한 타이밍에 치기',
+                  seq:'C2 4.0, C2 4.0, G2 4.0, C2 4.0', bpm:60, genre:'pop' },
+                { id:'1-2', title:'2분음표 근음 이동', focus:'코드가 바뀔 때 다음 근음을 미리 준비',
+                  seq:'C2 2.0, C2 2.0, G2 2.0, G2 2.0, A2 2.0, A2 2.0, F2 2.0, F2 2.0', bpm:70, genre:'pop' },
+                { id:'1-3', title:'4분음표 근음 반복', focus:'모든 음을 같은 세기·같은 길이로 고르게',
+                  seq:'C2 1.0, C2 1.0, C2 1.0, C2 1.0, F2 1.0, F2 1.0, F2 1.0, F2 1.0, G2 1.0, G2 1.0, G2 1.0, G2 1.0, C2 1.0, C2 1.0, C2 1.0, C2 1.0', bpm:80, genre:'pop' },
+                { id:'1-4', title:'근음–옥타브 왕복', focus:'옥타브 도약 후에도 박자가 밀리지 않게',
+                  seq:'C2 1.0, C3 1.0, C2 1.0, C3 1.0, F2 1.0, F3 1.0, F2 1.0, F3 1.0', bpm:84, genre:'funk' },
+                { id:'1-5', title:'근음–5도 패턴', focus:'컨트리·락의 기본. 5도의 안정감을 귀로 익히기',
+                  seq:'C2 1.0, G2 1.0, C2 1.0, G2 1.0, F2 1.0, C3 1.0, F2 1.0, C3 1.0', bpm:88, genre:'rock' },
+            ]},
+            { level: '중급 — 라인 만들기', items: [
+                { id:'2-1', title:'메이저 아르페지오 (R–3–5)', focus:'코드톤만으로 라인 만들기, 밝은 3음 느끼기',
+                  seq:'C2 1.0, E2 1.0, G2 1.0, E2 1.0, F2 1.0, A2 1.0, C3 1.0, A2 1.0', bpm:90, genre:'pop' },
+                { id:'2-2', title:'마이너 아르페지오 (R–♭3–5)', focus:'단3도의 어두운 표정을 메이저와 비교',
+                  seq:'A1 1.0, C2 1.0, E2 1.0, C2 1.0, D2 1.0, F2 1.0, A2 1.0, F2 1.0', bpm:90, genre:'pop' },
+                { id:'2-3', title:'7음 추가 (R–3–5–♭7)', focus:'블루스 필의 핵심, ♭7의 긴장감',
+                  seq:'C2 1.0, E2 1.0, G2 1.0, Bb2 1.0, F2 1.0, A2 1.0, C3 1.0, Eb3 1.0', bpm:92, genre:'blues' },
+                { id:'2-4', title:'접근음으로 코드 연결', focus:'C→F는 E로, F→C는 B로 미끄러지기',
+                  seq:'C2 1.0, C2 1.0, C2 1.0, E2 1.0, F2 1.0, F2 1.0, F2 1.0, B1 1.0, C2 4.0', bpm:84, genre:'pop' },
+                { id:'2-5', title:'머니코드 8분음표 그루브', focus:'8분음표 유지 + 4번째마다 옥타브 액센트',
+                  seq:'C2 0.5, C2 0.5, C2 0.5, C3 0.5, C2 0.5, C2 0.5, C3 0.5, C2 0.5, G2 0.5, G2 0.5, G2 0.5, G3 0.5, G2 0.5, G2 0.5, G3 0.5, G2 0.5, A2 0.5, A2 0.5, A2 0.5, A3 0.5, A2 0.5, A2 0.5, A3 0.5, A2 0.5, F2 0.5, F2 0.5, F2 0.5, F3 0.5, F2 0.5, F2 0.5, F3 0.5, F2 0.5', bpm:100, genre:'rock' },
+            ]},
+            { level: '고급 — 그루브와 스타일', items: [
+                { id:'3-1', title:'워킹 베이스 2–5–1', focus:'4분음표를 스윙 필로, 코드톤→접근음 걷기',
+                  seq:'D2 1.0, F2 1.0, A2 1.0, C3 1.0, G2 1.0, B2 1.0, D3 1.0, F2 1.0, C2 1.0, E2 1.0, G2 1.0, B2 1.0, C3 4.0', bpm:120, genre:'jazz', swing:55 },
+                { id:'3-2', title:'12마디 블루스 셔플', focus:'12마디 폼을 외울 때까지 반복 (I–IV–V)',
+                  preset:'blues12', seed:20260702 },
+                { id:'3-3', title:'펑크 싱코페이션', focus:'16분 쉼표의 공백을 정확히 지키기 — 쉼표도 리듬',
+                  seq:'C2 0.5, R 0.25, C2 0.25, C3 0.5, C2 0.5, R 0.5, G2 0.5, Bb2 0.5, C2 0.5, C2 0.5, R 0.25, C2 0.25, C3 0.5, R 0.25, C3 0.25, G2 0.5, F2 0.5, G2 0.5, C2 0.5', bpm:104, genre:'funk', swing:10 },
+                { id:'3-4', title:'레게 오프비트', focus:'1박을 비우는 용기 — 공간이 그루브를 만든다',
+                  seq:'R 1.0, C2 0.5, C2 0.5, R 1.0, G2 0.5, A2 0.5, R 1.0, F2 0.5, F2 0.5, R 1.0, G2 0.5, B1 0.5', bpm:76, genre:'reggae' },
+                { id:'3-5', title:'슬래시 코드 발라드', focus:'베이스가 화음의 색을 바꾸는 순간 (C/E, G/B)',
+                  preset:'ballad', seed:20260703 },
+            ]},
+        ];
+
+        function loadCurriculumDone() {
+            try { return JSON.parse(localStorage.getItem('baseloop-curriculum')) || {}; }
+            catch (e) { return {}; }
+        }
+        function toggleExerciseDone(id, ev) {
+            if (ev) ev.stopPropagation();
+            const done = loadCurriculumDone();
+            done[id] = !done[id];
+            try { localStorage.setItem('baseloop-curriculum', JSON.stringify(done)); } catch (e) {}
+            renderCurriculum();
+        }
+        async function startExercise(id) {
+            const item = CURRICULUM.flatMap(l => l.items).find(i => i.id === id);
+            if (!item) return;
+            showMessage('🎯 연습 ' + item.id + ' — ' + item.title + ' · 포커스: ' + item.focus, 'info');
+            if (item.preset) {
+                await applyPreset(item.preset, item.seed);
+                document.getElementById('notation-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                await togglePlayback();
+            } else {
+                await demoSequence(item);
+            }
+        }
+        function renderCurriculum() {
+            const host = document.getElementById('curriculumList');
+            if (!host) return;
+            const done = loadCurriculumDone();
+            let doneCount = 0, total = 0;
+            host.innerHTML = CURRICULUM.map(level => {
+                const lvDone = level.items.filter(i => done[i.id]).length;
+                doneCount += lvDone; total += level.items.length;
+                const rows = level.items.map(i => `
+                    <div class="curr-item ${done[i.id] ? 'done' : ''}">
+                        <span class="curr-no">${i.id}</span>
+                        <span class="curr-meta"><b>${escapeHtml(i.title)}</b><small>${escapeHtml(i.focus)}</small></span>
+                        <button type="button" class="bl-toggle" onclick="startExercise('${i.id}')">▶ 연습</button>
+                        <button type="button" class="curr-check" title="완료 체크" onclick="toggleExerciseDone('${i.id}', event)">${done[i.id] ? '✅' : '☐'}</button>
+                    </div>`).join('');
+                const pct = Math.round(lvDone / level.items.length * 100);
+                return `<div class="curr-level">
+                    <div class="curr-level__head">
+                        <span class="curr-level__name">${escapeHtml(level.level)}</span>
+                        <span class="curr-level__meter"><i style="width:${pct}%"></i></span>
+                        <span class="curr-level__count">${lvDone}/${level.items.length}</span>
+                    </div>${rows}</div>`;
+            }).join('');
+            const totalEl = document.getElementById('currTotalProgress');
+            if (totalEl) totalEl.textContent = `진도 ${doneCount}/${total}`;
         }
         async function playLessonDemo(i, which) {
             const l = LESSONS[i];

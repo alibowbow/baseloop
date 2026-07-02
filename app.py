@@ -188,7 +188,9 @@ def get_note_frequency(note_name_chromatic, octave):
     if note_name_std not in chromatic_notes_midi_offset:
         raise ValueError(f"유효하지 않은 크로매틱 음표 이름: {note_name_chromatic} (변환 후: {note_name_std})")
 
-    midi_note_number = (octave * 12) + chromatic_notes_midi_offset[note_name_std]
+    # 표준 MIDI 규약(C4=60, A4=440Hz) — 악보/클라이언트(Tone.js)와 옥타브가 일치해야
+    # 서버 WAV(초기 음색)가 악보에 적힌 그대로 들린다.
+    midi_note_number = ((octave + 1) * 12) + chromatic_notes_midi_offset[note_name_std]
     
     A4_MIDI = 69
     A4_FREQ = 440.0
@@ -554,10 +556,10 @@ def generate_text_score(notes_sequence, bpm):
 
 # --- MIDI 생성 함수 ---
 def note_name_to_midi(note_name, octave, accidental=''):
-    """음표 이름을 MIDI 노트 번호로 변환 (accidental 포함)"""
+    """음표 이름을 표준 MIDI 노트 번호로 변환 (C4=60, accidental 포함)"""
     notes = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
-    
-    midi_base = (octave * 12) + notes[note_name.upper()]
+
+    midi_base = ((octave + 1) * 12) + notes[note_name.upper()]
     
     if accidental == '#':
         midi_base += 1
