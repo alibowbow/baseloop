@@ -640,6 +640,41 @@
             outline: none; box-shadow: 0 0 0 4px var(--ring);
         }
 
+        /* ── 정보 칩(클릭 불가) vs 버튼(클릭 가능) 구분 강화 ──
+           칩: 테두리 없는 납작한 라벨 / 버튼: 도톰한 표면 + 그림자 + 호버 */
+        .bl-chip {
+            background: transparent; border-color: transparent;
+            color: var(--text-muted); cursor: default; padding-left: 7px; padding-right: 7px;
+        }
+        .bl-toggle, .bl-preset {
+            background: var(--surface); border-color: var(--border-strong);
+            box-shadow: var(--shadow-sm);
+        }
+        .bl-toggle:active, .bl-preset:active { transform: translateY(1px); box-shadow: none; }
+
+        /* ── 탭: 스튜디오 / 학습 ───────────────────────── */
+        .bl-tabbar {
+            display: flex; gap: 6px; width: max-content; max-width: 100%;
+            margin: 20px auto 16px; padding: 6px;
+            border-radius: 999px; background: var(--surface-2);
+            border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        }
+        .bl-tab {
+            padding: 10px 30px; border-radius: 999px; border: none;
+            background: transparent; color: var(--text-muted);
+            font-family: 'Space Grotesk', 'Rubik', sans-serif; font-weight: 700; font-size: 0.95rem;
+            cursor: pointer; transition: color 0.2s ease, background 0.25s ease, box-shadow 0.2s ease;
+        }
+        .bl-tab:hover:not(.on) { color: var(--text); }
+        .bl-tab.on {
+            color: #fff;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent);
+        }
+        #bassGeneratorForm[data-tab="studio"] .tp-learn { display: none !important; }
+        #bassGeneratorForm[data-tab="learn"] .tp-studio { display: none !important; }
+        @media (max-width: 600px) { .bl-tab { padding: 9px 20px; font-size: 0.88rem; } }
+
         /* 히스토리: 세로 무한 증가 → 반응형 그리드 + 높이 제한 스크롤 */
         .bl-history-list {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -869,7 +904,7 @@
                 <div class="bl-stage__head">
                     <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>생성된 악보</h2>
                     <div class="bl-stage__chips">
-                        <button type="button" id="learnToggle" class="bl-toggle" onclick="toggleLearnMode()" title="음표를 화성 역할별로 색칠하고 코드 분석을 표시합니다">🎓 학습 모드</button>
+                        <button type="button" id="learnToggle" class="bl-toggle" onclick="toggleLearnMode()" title="음표를 화성 역할별로 색칠하고 코드 분석을 표시합니다">🔍 분석 보기</button>
                         <span class="bl-chip">🎸 베이스 클레프</span>
                     </div>
                 </div>
@@ -928,8 +963,14 @@
                 </div>
             </section>
 
+            <!-- 탭: 스튜디오(만들기·저장·설정) / 학습(이론·연습) — 세로 스크롤 분리 -->
+            <div class="bl-tabbar" role="tablist">
+                <button type="button" id="tabStudioBtn" class="bl-tab on" role="tab" onclick="switchTab('studio')">🎛 스튜디오</button>
+                <button type="button" id="tabLearnBtn" class="bl-tab" role="tab" onclick="switchTab('learn')">🎓 학습</button>
+            </div>
+
             <!-- 저장 · 공유 -->
-            <section class="card">
+            <section class="card tp-studio">
                 <div class="bl-stage__head" style="margin-bottom:14px;">
                     <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>저장 · 공유</h2>
                     <div class="bl-stage__chips">
@@ -942,7 +983,7 @@
             </section>
 
             <!-- 🎓 음악 이론 학습 센터: 연주로 배우는 화성학 -->
-            <section class="card" id="learn-center">
+            <section class="card tp-learn" id="learn-center">
                 <div class="bl-stage__head" style="margin-bottom:14px;">
                     <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>🎓 음악 이론 학습</h2>
                     <div class="bl-stage__chips"><span class="bl-chip">연주로 배우는 화성학</span></div>
@@ -965,7 +1006,7 @@
             </section>
 
             <!-- 전문 악보 (Music21 / MuseScore) — 보기 클릭 시 표시 -->
-            <section class="card score-card" id="professional-score-area">
+            <section class="card score-card tp-studio" id="professional-score-area">
                 <div class="bl-stage__head" style="margin-bottom:16px;">
                     <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>🎼 Music21 전문 악보</h2>
                 </div>
@@ -976,7 +1017,7 @@
             </section>
 
             <!-- 접이식 생성 설정 -->
-            <details class="bl-settings" open>
+            <details class="bl-settings tp-studio" open>
                 <summary class="bl-settings__head">
                     <span class="bl-settings__icon">🎛️</span>
                     <span class="bl-settings__label">생성 설정</span>
@@ -1134,7 +1175,8 @@
             // 히스토리 패널 렌더
             renderHistory();
 
-            // 🎓 학습 UI 초기화 (토글 상태·커리큘럼·레슨 목록·귀 훈련 첫 문제)
+            // 🎓 학습 UI 초기화 (탭·토글 상태·커리큘럼·레슨 목록·귀 훈련 첫 문제)
+            switchTab(localStorage.getItem('baseloop-tab') || 'studio');
             syncLearnToggle();
             renderCurriculum();
             buildLessons();
@@ -1144,6 +1186,17 @@
                 showMessage('🔗 공유된 설정을 불러왔습니다.', 'info');
             }
         });
+
+        // ── 탭 전환: 스튜디오 / 학습 ──
+        function switchTab(name) {
+            const form = document.getElementById('bassGeneratorForm');
+            if (form) form.dataset.tab = name;
+            const sBtn = document.getElementById('tabStudioBtn');
+            const lBtn = document.getElementById('tabLearnBtn');
+            if (sBtn) sBtn.classList.toggle('on', name === 'studio');
+            if (lBtn) lBtn.classList.toggle('on', name === 'learn');
+            try { localStorage.setItem('baseloop-tab', name); } catch (e) {}
+        }
 
         // 생성 방식(랜덤/코드) 전환 시 코드 진행 입력 표시 토글
         function onGenerationModeChange() {
@@ -1600,7 +1653,8 @@
             Tone.Transport.swing = 0;   // 스윙은 이벤트 시간에 직접 반영했음
             Tone.Transport.loop = false;
             Tone.Transport.position = 0;
-            Tone.Transport.start();
+            // 약간의 스케줄 여유(+50ms)로 첫 음이 과거에 스케줄돼 밀리는 것을 방지 → 커서와 정확히 동기
+            Tone.Transport.start('+0.05');
             __toneNodes = nodes;
             return true;
         }
@@ -3005,16 +3059,19 @@
             } catch (e) { return 0; }
         }
         function startPlaybackCursor() {
-            const tl = window.__scoreTimeline;
             const cursor = document.getElementById('playCursor');
             const host = document.getElementById('vexflowScore');
             const canvas = document.getElementById('sheetMusicCanvas');
-            if (!tl || !tl.segs || !tl.segs.length || !cursor || typeof Tone === 'undefined') return;
-            const secPerBeat = 60 / (tl.bpm || 120);
+            if (!window.__scoreTimeline || !cursor || typeof Tone === 'undefined') return;
             cursor.classList.add('active');
 
             function frame() {
                 if (!__isPlaying) { stopPlaybackCursor(); return; }
+                // 항상 최신 타임라인 참조 — 재생 중 악보가 다시 그려져도(리사이즈·재생성)
+                // 낡은 좌표를 쓰지 않아 커서가 즉시 재동기화된다.
+                const tl = window.__scoreTimeline;
+                if (!tl || !tl.segs || !tl.segs.length) { __cursorRAF = requestAnimationFrame(frame); return; }
+                const secPerBeat = 60 / (tl.bpm || 120);
                 const segs = tl.segs;
                 const comp = outputLatencySec() + (window.__cursorLatencyComp || 0);
                 const tSec = Tone.Transport.seconds;
