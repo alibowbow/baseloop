@@ -20,7 +20,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 
     <!-- VexFlow: 전문 악보 표기 라이브러리 (실패 시 Canvas 폴백) -->
     <script defer src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
@@ -466,6 +466,162 @@
             .bl-settings__summary { display: none; }
             .bl-logo span:last-child { display: none; }
         }
+
+        /* ============================================================
+           V2 프리미엄 폴리시 — 타이포·글래스·마이크로 인터랙션
+           ============================================================ */
+        h1, h2, .bl-logo, .bl-settings__label { font-family: 'Space Grotesk', 'Rubik', sans-serif; letter-spacing: -0.01em; }
+
+        body {
+            background-image:
+                radial-gradient(1100px circle at 8% -10%, var(--bg-glow-1), transparent 50%),
+                radial-gradient(1000px circle at 100% -5%, var(--bg-glow-2), transparent 48%),
+                radial-gradient(800px circle at 50% 115%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 55%);
+        }
+
+        /* 카드: 글래스 표면 + 레이어드 섀도 + 헤어라인 하이라이트 */
+        .card, .bl-settings {
+            background: color-mix(in srgb, var(--surface-card) 88%, transparent);
+            backdrop-filter: blur(14px) saturate(1.15);
+            -webkit-backdrop-filter: blur(14px) saturate(1.15);
+            box-shadow:
+                inset 0 1px 0 color-mix(in srgb, #ffffff 55%, transparent),
+                0 1px 2px rgba(20, 25, 40, 0.05),
+                0 12px 34px rgba(20, 25, 40, 0.09);
+        }
+        [data-theme="dark"] .card, [data-theme="dark"] .bl-settings {
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.06),
+                0 1px 2px rgba(0, 0, 0, 0.35),
+                0 16px 44px rgba(0, 0, 0, 0.5);
+        }
+        /* 메인 스테이지엔 그라데이션 톱 헤어라인 */
+        .bl-stage { position: relative; overflow: hidden; }
+        .bl-stage::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+            opacity: 0.9;
+        }
+
+        /* 기본 버튼: 그라데이션 + 글로우 */
+        .btn {
+            background-image: linear-gradient(135deg, var(--primary), var(--secondary));
+            background-size: 150% 150%; background-position: 0% 50%;
+            transition: transform 0.16s ease, box-shadow 0.22s ease, background-position 0.35s ease;
+        }
+        .btn:hover:not(:disabled) {
+            background-position: 100% 50%;
+            box-shadow: 0 10px 26px color-mix(in srgb, var(--secondary) 38%, transparent);
+        }
+
+        /* 재생 버튼: 링 + 재생 중 펄스 */
+        .bl-play { width: 62px; height: 62px; font-size: 1.5rem; position: relative; }
+        .bl-play::after {
+            content: ''; position: absolute; inset: -5px; border-radius: 50%;
+            border: 2px solid color-mix(in srgb, var(--primary) 45%, transparent);
+            opacity: 0; transition: opacity 0.25s ease;
+        }
+        .bl-play.playing::after { opacity: 1; animation: playRing 1.6s ease-out infinite; }
+        @keyframes playRing {
+            0%   { transform: scale(0.92); opacity: 0.85; }
+            100% { transform: scale(1.35); opacity: 0; }
+        }
+
+        /* 프리셋 칩 */
+        .bl-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 14px; }
+        .bl-presets__label { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.04em; }
+        .bl-preset {
+            padding: 7px 13px; border-radius: 999px; cursor: pointer;
+            font-family: inherit; font-size: 0.82rem; font-weight: 600;
+            color: var(--text); background: var(--surface-2);
+            border: 1px solid var(--border);
+            transition: transform 0.14s ease, border-color 0.2s ease, background 0.25s ease, color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .bl-preset:hover {
+            transform: translateY(-2px); color: #fff; border-color: transparent;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 35%, transparent);
+        }
+        .bl-preset:active { transform: translateY(0); }
+
+        /* 스윙 슬라이더: 커스텀 트랙/썸 */
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none; width: 100%; height: 30px;
+            background: transparent; padding: 0; border: none; cursor: pointer;
+        }
+        input[type="range"]:focus { box-shadow: none; outline: none; }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 6px; border-radius: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            opacity: 0.85;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; margin-top: -7px; border-radius: 50%;
+            background: #fff; border: 2px solid var(--primary);
+            box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 45%, transparent);
+            transition: transform 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.12); }
+        input[type="range"]::-moz-range-track {
+            height: 6px; border-radius: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #fff; border: 2px solid var(--primary);
+            box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 45%, transparent);
+        }
+
+        /* 히어로: 살아있는 이퀄라이저 */
+        .bl-hero__frame { position: relative; }
+        .bl-eq { display: flex; align-items: flex-end; gap: 7px; height: 46%; }
+        .bl-eq span {
+            width: 9px; border-radius: 5px; height: 30%;
+            background: linear-gradient(180deg, var(--secondary), var(--primary));
+            box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent);
+            animation: eqBounce 1.15s ease-in-out infinite;
+        }
+        .bl-eq span:nth-child(1) { animation-delay: 0s;    }
+        .bl-eq span:nth-child(2) { animation-delay: 0.12s; }
+        .bl-eq span:nth-child(3) { animation-delay: 0.28s; }
+        .bl-eq span:nth-child(4) { animation-delay: 0.05s; }
+        .bl-eq span:nth-child(5) { animation-delay: 0.35s; }
+        .bl-eq span:nth-child(6) { animation-delay: 0.18s; }
+        .bl-eq span:nth-child(7) { animation-delay: 0.42s; }
+        .bl-eq span:nth-child(8) { animation-delay: 0.08s; }
+        .bl-eq span:nth-child(9) { animation-delay: 0.25s; }
+        @keyframes eqBounce {
+            0%, 100% { height: 24%; opacity: 0.75; }
+            50%      { height: 96%; opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .bl-eq span, .bl-play.playing::after { animation: none; }
+        }
+        .bl-hero__glyph {
+            position: absolute; right: 14px; bottom: 10px;
+            font-size: 1.7rem !important; filter: none; opacity: 0.9;
+        }
+
+        /* 내보내기 버튼: 아이콘 정돈 + 호버 색 */
+        .bl-export { border-radius: 12px; }
+        .bl-export:hover:not(:disabled) {
+            color: var(--primary);
+            box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 18%, transparent);
+        }
+
+        /* 히스토리: 부드러운 리프트 */
+        .bl-history-item { transition: transform 0.15s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease; }
+        .bl-history-item:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+        /* 상태 칩 강조 */
+        #transportStatus { font-variant-numeric: tabular-nums; }
+
+        /* 포커스 접근성 링 통일 */
+        .bl-preset:focus-visible, .bl-toggle:focus-visible, .btn:focus-visible,
+        .bl-export:focus-visible, .bl-play:focus-visible, .theme-toggle:focus-visible {
+            outline: none; box-shadow: 0 0 0 4px var(--ring);
+        }
     </style>
 </head>
 <body>
@@ -497,7 +653,12 @@
             </div>
             <div class="bl-hero__art">
                 <div class="bl-hero__glow"></div>
-                <div class="bl-hero__frame"><span class="glyph">🎸</span></div>
+                <div class="bl-hero__frame">
+                    <div class="bl-eq" aria-hidden="true">
+                        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                    <span class="glyph bl-hero__glyph">🎸</span>
+                </div>
                 <span class="bl-hero__chip">🎵 4-string groove machine</span>
             </div>
         </header>
@@ -524,7 +685,18 @@
                     </div>
                 </div>
 
-                <div style="margin-top:16px;">
+                <!-- 인기 코드 진행 프리셋: 원클릭으로 코드 모드 세팅 + 즉시 생성 -->
+                <div class="bl-presets" role="group" aria-label="코드 진행 프리셋">
+                    <span class="bl-presets__label">✨ 프리셋</span>
+                    <button type="button" class="bl-preset" onclick="applyPreset('money')">머니코드</button>
+                    <button type="button" class="bl-preset" onclick="applyPreset('canon')">캐논</button>
+                    <button type="button" class="bl-preset" onclick="applyPreset('jazz251')">재즈 2‑5‑1</button>
+                    <button type="button" class="bl-preset" onclick="applyPreset('blues12')">12마디 블루스</button>
+                    <button type="button" class="bl-preset" onclick="applyPreset('ballad')">소울 발라드</button>
+                    <button type="button" class="bl-preset" onclick="applyPreset('funk1')">펑크 원코드</button>
+                </div>
+
+                <div style="margin-top:14px;">
                     <button type="button" id="generateNotesBtn" class="btn btn-block" onclick="generateNotes()">🎼 악보 자동 생성</button>
                 </div>
                 <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
@@ -874,6 +1046,41 @@
             return false;
         }
 
+        // ── 인기 코드 진행 프리셋: 코드 모드 세팅 + 즉시 생성 ──
+        const CHORD_PRESETS = {
+            money:   { chords: 'C G Am F',                          genre: 'pop',   bpm: 92,  swing: 0,  label: '머니코드 (I‑V‑vi‑IV)' },
+            canon:   { chords: 'C G Am Em F C F G',                 genre: 'pop',   bpm: 100, swing: 0,  label: '캐논 진행' },
+            jazz251: { chords: 'Dm7 G7 Cmaj7 Cmaj7',                genre: 'jazz',  bpm: 140, swing: 55, label: '재즈 2‑5‑1 (스윙)' },
+            blues12: { chords: 'C7 C7 C7 C7 F7 F7 C7 C7 G7 F7 C7 G7', genre: 'blues', bpm: 96, swing: 45, label: '12마디 블루스 (셔플)' },
+            ballad:  { chords: 'C/E F G/B Am F C/E Dm7 G7',         genre: 'pop',   bpm: 72,  swing: 0,  label: '소울 발라드 (슬래시 코드)' },
+            funk1:   { chords: 'E7 E7 E7 E7',                       genre: 'funk',  bpm: 104, swing: 20, label: '펑크 원코드 vamp' },
+        };
+        async function applyPreset(key) {
+            const p = CHORD_PRESETS[key];
+            if (!p) return;
+            stopPlayback();
+            document.getElementById('generation_mode_input').value = 'chords';
+            document.getElementById('chord_progression_input').value = p.chords;
+            document.getElementById('genre_input').value = p.genre;
+            document.getElementById('bpm_input').value = p.bpm;
+            const sw = document.getElementById('swing_input');
+            sw.value = p.swing;
+            const sv = document.getElementById('swingValue'); if (sv) sv.textContent = p.swing + '%';
+            onGenerationModeChange();
+            showMessage('✨ 프리셋 적용: ' + p.label + ' — 생성 중…', 'info');
+            await generateNotes();
+        }
+
+        // Space 키로 재생/정지 (입력 필드에 포커스가 없을 때만)
+        document.addEventListener('keydown', (e) => {
+            if (e.code !== 'Space' && e.key !== ' ') return;
+            const t = e.target;
+            const tag = t && t.tagName ? t.tagName.toUpperCase() : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+            e.preventDefault();
+            togglePlayback();
+        });
+
         // ============================================================
         // 클라이언트 오디오 엔진 (Tone.js) — 서버 WAV 의존 없이 즉시 재생
         // ============================================================
@@ -1002,14 +1209,28 @@
                 return b * secPerBeat;
             };
 
+            // 휴머나이즈: 실제 베이시스트처럼 강박은 세게, 약박·고스트는 여리게 +
+            // 첫 음을 제외한 음들에 ±4ms 미세 타이밍 오차를 준다.
+            const velocityFor = (b) => {
+                const inMeasure = b % 4;
+                let v;
+                if (inMeasure === 0) v = 1.0;                       // 마디 첫 박: 가장 강하게
+                else if (b % 1 === 0) v = 0.88;                     // 정박
+                else if (Math.abs((b % 1) - 0.5) < 0.001) v = 0.78; // 오프비트 8분
+                else v = 0.68;                                       // 16분 고스트
+                return Math.max(0.5, Math.min(1, v + (Math.random() * 0.1 - 0.05)));
+            };
+
             let beat = 0;
             const bassEvents = [];
             measures.forEach(m => m.forEach(n => {
                 if (!n.isRest) {
+                    const jitter = bassEvents.length === 0 ? 0 : (Math.random() * 0.008 - 0.004);
                     bassEvents.push({
-                        time: swingTime(beat),
+                        time: Math.max(0, swingTime(beat) + jitter),
                         note: n.name + n.octave,
                         dur: Math.max(0.05, n.duration * secPerBeat * 0.95),
+                        vel: velocityFor(beat),
                     });
                 }
                 beat += n.duration;
@@ -1053,6 +1274,16 @@
             else kit.hat.triggerAttackRelease('32n', time);
         }
 
+        // 리얼 베이스 톤 체인: EQ(저역 +, 초고역 -) → 컴프레서(어택 펀치) → 약한 새추레이션(앰프 질감).
+        // 실제 베이스 앰프 신호 경로를 흉내 내 샘플의 존재감·일관성을 높인다.
+        function makeBassBus(dest) {
+            const eq = new Tone.EQ3({ low: 3, mid: 0.5, high: -3, lowFrequency: 180, highFrequency: 2200 });
+            const comp = new Tone.Compressor({ threshold: -20, ratio: 3.5, attack: 0.008, release: 0.14, knee: 12 });
+            const sat = new Tone.Distortion({ distortion: 0.05, oversample: '2x', wet: 0.3 });
+            eq.chain(comp, sat, dest);
+            return { input: eq, nodes: [eq, comp, sat] };
+        }
+
         async function startEngine() {
             const data = buildLoopData();
             if (!data.bassEvents.length) { showMessage('재생할 음표가 없습니다.', 'error'); return false; }
@@ -1066,11 +1297,16 @@
             //  · 리얼 베이스 ON & 샘플 로드 → Tone.Sampler(음 단위)
             //  · 그 외(OFF/샘플 실패) → 초기 서버 WAV(Tone.Player) = 업그레이드 직전 음색
             //  · 서버 WAV도 실패하면 최후로 Tone 합성음
-            let synth = null, bassShared = false, bassPlayer = null;
+            let synth = null, bassShared = false, bassPlayer = null, bassBus = null;
             if (__useRealBass) {
                 setTransportStatus('🎸 리얼 베이스 샘플 로딩…');
                 const smp = await getBassSampler();
-                if (smp) { try { smp.disconnect(); } catch (e) {} smp.connect(master); synth = smp; bassShared = true; }
+                if (smp) {
+                    try { smp.disconnect(); } catch (e) {}
+                    bassBus = makeBassBus(master);          // 앰프 톤 체인 경유
+                    smp.connect(bassBus.input);
+                    synth = smp; bassShared = true;
+                }
             }
             if (!synth) {
                 setTransportStatus('🎚️ 초기 베이스 음색 준비…');
@@ -1083,11 +1319,11 @@
                 }
             }
             if (!synth && !bassPlayer) synth = makeBassSynth(master);  // 최후 폴백
-            const nodes = { synth, bassShared, bassPlayer, master, limiter, parts: [], drums: null, metro: null };
+            const nodes = { synth, bassShared, bassPlayer, bassBus, master, limiter, parts: [], drums: null, metro: null };
 
-            if (synth) {  // 샘플러/합성: 음 단위 스케줄
+            if (synth) {  // 샘플러/합성: 음 단위 스케줄 (벨로시티 휴머나이즈 반영)
                 const bassPart = new Tone.Part((time, ev) => {
-                    synth.triggerAttackRelease(ev.note, ev.dur, time);
+                    synth.triggerAttackRelease(ev.note, ev.dur, time, ev.vel || 0.9);
                 }, data.bassEvents);
                 bassPart.loop = true; bassPart.loopEnd = __loopSeconds; bassPart.start(0);
                 nodes.parts.push(bassPart);
@@ -1130,6 +1366,7 @@
             if (__toneNodes.bassPlayer) {
                 try { __toneNodes.bassPlayer.stop(); __toneNodes.bassPlayer.unsync(); __toneNodes.bassPlayer.dispose(); } catch (e) {}
             }
+            if (__toneNodes.bassBus) { try { __toneNodes.bassBus.nodes.forEach(n => n.dispose()); } catch (e) {} }
             if (__toneNodes.drums) Object.values(__toneNodes.drums).forEach(d => { try { d.dispose(); } catch (e) {} });
             if (__toneNodes.metro) { try { __toneNodes.metro.dispose(); } catch (e) {} }
             if (__toneNodes.master) { try { __toneNodes.master.dispose(); } catch (e) {} }
@@ -1172,6 +1409,8 @@
         function setPlayIcon(playing) {
             const icon = document.getElementById('playIcon');
             if (icon) icon.textContent = playing ? '⏸' : '▶';
+            const btn = document.getElementById('playAudioBtn');
+            if (btn) btn.classList.toggle('playing', !!playing);
         }
         function setTransportStatus(text) {
             const el = document.getElementById('transportStatus');
@@ -1232,7 +1471,7 @@
                         } catch (e) { resolve(null); return; }
                         setTimeout(() => resolve(s && s.loaded ? s : null), 9000);
                     });
-                    if (synth) synth.connect(master);
+                    if (synth) synth.connect(makeBassBus(master).input);   // 라이브와 동일한 앰프 톤 체인
                 }
                 if (!synth && origBuf) {
                     player = new Tone.Player(origBuf).connect(master);
@@ -1244,7 +1483,7 @@
                 const metro = useMetro ? makeMetronome(master) : null;
                 for (let L = 0; L < loops; L++) {
                     const off = L * oneLoop;
-                    if (synth) data.bassEvents.forEach(e => synth.triggerAttackRelease(e.note, e.dur, off + e.time));
+                    if (synth) data.bassEvents.forEach(e => synth.triggerAttackRelease(e.note, e.dur, off + e.time, e.vel || 0.9));
                     if (kit) drumEv.forEach(e => triggerDrum(kit, e.type, off + e.time));
                     if (metro) metroEv.forEach(e => metro.triggerAttackRelease(e.accent ? 'C6' : 'C5', '32n', off + e.time));
                 }
@@ -1825,7 +2064,8 @@
                     voice.draw(ctx, stave);
                     beams.forEach(b => b.setContext(ctx).draw());
 
-                    // 타임라인: 마디 안에서 박자 비례로 음표 시작 위치 산정 (패딩 쉼표 제외)
+                    // 타임라인: 실제 렌더된 음표(머리) x좌표를 사용해 커서가 소리 나는 순간
+                    // 정확히 그 음표 위에 오도록 한다. (VexFlow 간격은 박자 비례가 아님)
                     const nStart = stave.getNoteStartX();
                     const nEnd = stave.getNoteEndX();
                     const areaW = Math.max(10, nEnd - nStart);
@@ -1833,9 +2073,13 @@
                     const bot = stave.getYForLine(4) + 8;
                     timeline.lineRight[li] = Math.max(timeline.lineRight[li] || 0, nEnd);
                     let bm = 0;
-                    measureNotes.forEach(n => {
-                        // 패딩 쉼표(마디 채움)도 세그먼트에 포함해 커서가 균일하게 통과하도록 함
-                        timeline.segs.push({ beat: runBeat, dur: n.duration, x: nStart + (bm / 4) * areaW, top: top, h: bot - top, line: li });
+                    measureNotes.forEach((n, ni) => {
+                        let sx = nStart + (bm / 4) * areaW;        // 폴백: 박자 비례
+                        try {
+                            const ax = vexNotes[ni].getAbsoluteX();
+                            if (isFinite(ax) && ax > 0) sx = ax;
+                        } catch (e) {}
+                        timeline.segs.push({ beat: runBeat, dur: n.duration, x: sx, top: top, h: bot - top, line: li });
                         runBeat += n.duration;
                         bm += n.duration;
                     });
@@ -2014,8 +2258,8 @@
                         const nx = contentX + xs[ni];
                         if (n.isRest) drawCanvasRest(ctx, nx, n.duration, staffTopY);
                         else drawCanvasNote(ctx, nx, n, staffTopY);
-                        // 패딩 쉼표도 세그먼트에 포함 (VexFlow 경로와 동일)
-                        timeline.segs.push({ beat: runBeat, dur: n.duration, x: contentX + (bm / 4) * innerW, top: staffTopY - 6, h: 52, line: li });
+                        // 실제 그려진 음표 중심 x를 세그먼트로 사용 (커서=음표 정렬)
+                        timeline.segs.push({ beat: runBeat, dur: n.duration, x: nx, top: staffTopY - 6, h: 52, line: li });
                         runBeat += n.duration;
                         bm += n.duration;
                     });
@@ -2087,9 +2331,19 @@
         // 재생 커서 (오디오 재생 위치를 악보 위에 실시간 표시)
         // ============================================================
         let __cursorRAF = null;
-        // 오디오 출력 지연 보정(초). Tone.Transport.seconds는 오디오 컨텍스트 기준 위치라
-        // 출력 지연만큼 소리가 늦게 들릴 수 있다. 콘솔에서 window.__cursorLatencyComp 로 미세조정 가능.
+        // 오디오 출력 지연 보정(초). Transport.seconds는 오디오 클럭 기준 "스케줄" 위치라
+        // 실제 소리는 하드웨어 출력 지연(outputLatency)만큼 늦게 들린다 → 커서가 앞서감.
+        // 브라우저가 보고하는 출력 지연을 자동 반영 + window.__cursorLatencyComp 로 수동 미세조정.
         if (window.__cursorLatencyComp == null) window.__cursorLatencyComp = 0.0;
+        function outputLatencySec() {
+            try {
+                const raw = Tone.getContext().rawContext;
+                let l = raw.outputLatency;                       // Chrome/Firefox
+                if (!isFinite(l) || l <= 0) l = raw.baseLatency; // Safari 폴백
+                if (!isFinite(l) || l < 0) l = 0;
+                return Math.min(0.5, l);                          // 비정상 값 방어
+            } catch (e) { return 0; }
+        }
         function startPlaybackCursor() {
             const tl = window.__scoreTimeline;
             const cursor = document.getElementById('playCursor');
@@ -2102,7 +2356,7 @@
             function frame() {
                 if (!__isPlaying) { stopPlaybackCursor(); return; }
                 const segs = tl.segs;
-                const comp = window.__cursorLatencyComp || 0;
+                const comp = outputLatencySec() + (window.__cursorLatencyComp || 0);
                 const tSec = Tone.Transport.seconds;
                 let loopBeat = Math.max(0, tSec - comp) / secPerBeat;
                 if (tl.loopBeats > 0) loopBeat = loopBeat % tl.loopBeats;
