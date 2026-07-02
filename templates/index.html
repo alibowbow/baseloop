@@ -660,8 +660,9 @@
                         </div>
 
                         <div class="field">
-                            <label for="seed_input">시드 (비우면 랜덤)</label>
+                            <label for="seed_input">시드 (비우면 매번 랜덤)</label>
                             <input type="number" id="seed_input" name="seed_input" placeholder="예: 12345" min="0" step="1">
+                            <p class="hint" id="lastSeedInfo" style="display:none;"></p>
                         </div>
                     </div>
 
@@ -841,7 +842,8 @@
 
                 if (response.ok && data.status === 'success') {
                     notesSequenceInput.value = data.notes;
-                    if (data.seed != null) document.getElementById('seed_input').value = data.seed;
+                    // 시드는 입력칸에 되쓰지 않는다(비어 있으면 매번 랜덤 유지). 대신 안내로 표시.
+                    if (data.seed != null) showLastSeed(data.seed);
                     showMessage("🎉 악보가 생성되었습니다! 재생하거나 WAV·MP3·MIDI로 내보내세요. (시드 " + data.seed + ")", 'success');
                     renderSheetMusic(data.notes, parseInt(length), parseInt(bpm));
                     updateShareUrl();
@@ -857,6 +859,19 @@
             } finally {
                 setLoadingState('loadingSpinnerNotes', false);
             }
+        }
+
+        // 방금 생성에 쓰인 시드를 안내로 표시. '고정'을 누르면 입력칸에 넣어 재현 가능.
+        function showLastSeed(seed) {
+            const el = document.getElementById('lastSeedInfo');
+            if (!el) return;
+            el.innerHTML = '방금 시드: <code>' + seed + '</code> · <a href="#" onclick="return fixSeed(' + seed + ')">이 시드 고정</a>';
+            el.style.display = 'block';
+        }
+        function fixSeed(seed) {
+            document.getElementById('seed_input').value = seed;
+            showMessage('🔒 시드 ' + seed + ' 고정됨 — 같은 설정이면 동일한 악보가 재현됩니다. (칸을 비우면 다시 랜덤)', 'info');
+            return false;
         }
 
         // ============================================================
