@@ -639,6 +639,78 @@
         .bl-export:focus-visible, .bl-play:focus-visible, .theme-toggle:focus-visible {
             outline: none; box-shadow: 0 0 0 4px var(--ring);
         }
+
+        /* ── 🎓 학습 모드 UI ───────────────────────── */
+        .role-legend {
+            display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+            margin-top: 10px;
+        }
+        .role-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 999px;
+            background: var(--surface-2); border: 1px solid var(--border);
+            font-size: 0.76rem; font-weight: 600; color: var(--text-muted);
+        }
+        .role-chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .roman-row {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+            justify-content: center; margin-bottom: 12px;
+        }
+        .roman-chip {
+            display: inline-flex; flex-direction: column; align-items: center; gap: 1px;
+            padding: 6px 13px; border-radius: 12px;
+            background: var(--surface-2); border: 1px solid var(--border); line-height: 1.2;
+        }
+        .roman-chip b { font-size: 0.9rem; color: var(--text); font-family: 'Space Grotesk', sans-serif; }
+        .roman-chip small { font-size: 0.72rem; color: var(--primary); font-weight: 700; }
+        .roman-arrow { color: var(--text-muted); font-size: 0.85rem; }
+
+        .learn-analysis {
+            display: flex; flex-direction: column; gap: 8px;
+            padding: 14px 16px; border-radius: var(--radius-md);
+            background: var(--surface-2); border: 1px solid var(--border);
+            font-size: 0.9rem; margin-bottom: 18px;
+        }
+        .la-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: var(--text); }
+        .la-row > b { color: var(--primary); font-size: 0.78rem; letter-spacing: 0.05em; flex: none; }
+        .la-row code { font-family: 'Fira Code', monospace; background: var(--surface-3); padding: 2px 7px; border-radius: 6px; font-size: 0.84em; }
+
+        .learn-subtitle { margin: 20px 0 10px; font-size: 0.98rem; font-weight: 700; color: var(--text); }
+        .lesson-list { display: flex; flex-direction: column; gap: 8px; }
+        .lesson {
+            border: 1px solid var(--border); border-radius: var(--radius-md);
+            background: var(--surface-2); overflow: hidden;
+            transition: border-color 0.2s ease;
+        }
+        .lesson[open] { border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+        .lesson summary {
+            display: flex; align-items: center; gap: 10px; cursor: pointer;
+            padding: 12px 14px; font-weight: 600; font-size: 0.92rem; color: var(--text);
+            list-style: none; user-select: none;
+        }
+        .lesson summary::-webkit-details-marker { display: none; }
+        .lesson-icon { flex: none; }
+        .lesson-body { padding: 2px 16px 14px; }
+        .lesson-body p { margin: 0 0 12px; font-size: 0.88rem; color: var(--text-muted); line-height: 1.7; }
+        .lesson-body p b { color: var(--text); }
+        .lesson-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        .quiz-box { display: flex; flex-direction: column; gap: 12px; }
+        .quiz-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+        .quiz-opts { display: flex; flex-wrap: wrap; gap: 9px; }
+        .quiz-opt {
+            padding: 11px 20px; border-radius: var(--radius-md); cursor: pointer;
+            font-family: inherit; font-size: 0.92rem; font-weight: 600;
+            color: var(--text); background: var(--surface-2); border: 1px solid var(--border);
+            transition: transform 0.14s ease, border-color 0.2s ease, background 0.2s ease;
+        }
+        .quiz-opt:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--primary); }
+        .quiz-opt:disabled { cursor: default; opacity: 0.75; }
+        .quiz-opt.correct { background: color-mix(in srgb, var(--success) 18%, var(--surface-2)); border-color: var(--success); color: var(--success); opacity: 1; }
+        .quiz-opt.wrong { background: color-mix(in srgb, var(--error) 14%, var(--surface-2)); border-color: var(--error); color: var(--error); }
+        .quiz-feedback { font-size: 0.9rem; padding: 10px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+        .quiz-feedback.ok { border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+        .quiz-feedback.no { border-color: color-mix(in srgb, var(--error) 40%, transparent); }
     </style>
 </head>
 <body>
@@ -747,10 +819,13 @@
                 <div class="bl-stage__head">
                     <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>생성된 악보</h2>
                     <div class="bl-stage__chips">
+                        <button type="button" id="learnToggle" class="bl-toggle" onclick="toggleLearnMode()" title="음표를 화성 역할별로 색칠하고 코드 분석을 표시합니다">🎓 학습 모드</button>
                         <span class="bl-chip">🎸 베이스 클레프</span>
-                        <span class="bl-chip">🎼 자동 표기</span>
                     </div>
                 </div>
+
+                <!-- 학습 모드: 코드 진행 로마숫자 분석 -->
+                <div id="romanRow" class="roman-row" style="display:none;"></div>
 
                 <div class="paper" id="notation-area">
                     <div id="scoreStage">
@@ -759,6 +834,9 @@
                         <div id="playCursor" aria-hidden="true"></div>
                     </div>
                 </div>
+
+                <!-- 학습 모드: 음표 역할 범례 -->
+                <div id="roleLegend" class="role-legend" style="display:none;"></div>
 
                 <!-- 인기 코드 진행 프리셋: 원클릭으로 코드 모드 세팅 + 즉시 생성 -->
                 <div class="bl-presets" role="group" aria-label="코드 진행 프리셋">
@@ -810,6 +888,24 @@
                     </div>
                 </div>
                 <div id="historyList" class="bl-history-list"></div>
+            </section>
+
+            <!-- 🎓 음악 이론 학습 센터: 연주로 배우는 화성학 -->
+            <section class="card" id="learn-center">
+                <div class="bl-stage__head" style="margin-bottom:14px;">
+                    <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>🎓 음악 이론 학습</h2>
+                    <div class="bl-stage__chips"><span class="bl-chip">연주로 배우는 화성학</span></div>
+                </div>
+
+                <!-- 지금 이 베이스라인 분석 (생성할 때마다 갱신) -->
+                <div id="lineAnalysis" class="learn-analysis"></div>
+
+                <h3 class="learn-subtitle">📚 미니 레슨 — 설명 읽고, 바로 들어보기</h3>
+                <div id="lessonList" class="lesson-list"></div>
+
+                <h3 class="learn-subtitle">🎧 귀 훈련 — 음정 맞히기</h3>
+                <p class="hint" style="margin:0 0 10px;">베이스 음색으로 두 음을 들려드립니다. 첫 음(근음)에서 두 번째 음까지의 <b>음정</b>을 맞혀보세요.</p>
+                <div id="quizBox" class="quiz-box"></div>
             </section>
 
             <!-- 전문 악보 (Music21 / MuseScore) — 보기 클릭 시 표시 -->
@@ -981,6 +1077,11 @@
 
             // 히스토리 패널 렌더
             renderHistory();
+
+            // 🎓 학습 UI 초기화 (토글 상태·레슨 목록·귀 훈련 첫 문제)
+            syncLearnToggle();
+            buildLessons();
+            renderQuiz();
 
             if (restored) {
                 showMessage('🔗 공유된 설정을 불러왔습니다.', 'info');
@@ -1809,6 +1910,299 @@
             return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
+        // ============================================================
+        // 🎓 음악 이론 학습 — 역할 색칠 · 로마숫자 · 레슨 · 귀 훈련
+        // ============================================================
+        const PC_JS = { 'C':0,'C#':1,'DB':1,'D':2,'D#':3,'EB':3,'E':4,'FB':4,'E#':5,'F':5,
+                        'F#':6,'GB':6,'G':7,'G#':8,'AB':8,'A':9,'A#':10,'BB':10,'B':11,'CB':11 };
+        const QUALITY_JS = { '':[0,4,7],'maj':[0,4,7],'M':[0,4,7],'m':[0,3,7],'min':[0,3,7],'-':[0,3,7],
+                             '7':[0,4,7,10],'maj7':[0,4,7,11],'M7':[0,4,7,11],'m7':[0,3,7,10],'min7':[0,3,7,10],
+                             'dim':[0,3,6],'dim7':[0,3,6,9],'m7b5':[0,3,6,10],'aug':[0,4,8],
+                             'sus2':[0,2,7],'sus4':[0,5,7],'sus':[0,5,7],'6':[0,4,7,9],'m6':[0,3,7,9],
+                             '9':[0,4,7,10],'m9':[0,3,7,10],'maj9':[0,4,7,11] };
+        const ROLE_META = {
+            root:     { label: '근음',    color: '#3b82f6' },
+            third:    { label: '3음',    color: '#10b981' },
+            fifth:    { label: '5도',    color: '#8b5cf6' },
+            seventh:  { label: '7음',    color: '#f59e0b' },
+            approach: { label: '접근음',  color: '#ef4444' },
+            scale:    { label: '경과음',  color: '#64748b' },
+        };
+        const GENRE_GROOVE_DESC = {
+            rock: '락 — 근음·5도 중심의 8분음표 드라이브', funk: '펑크 — 16분 쉼표로 만드는 싱코페이션',
+            pop: '팝 — 근음 중심의 단순하고 든든한 라인', jazz: '재즈 — 코드톤을 4분음표로 걷는 워킹 베이스',
+            blues: '블루스 — 단7도가 만드는 셔플 그루브', reggae: '레게 — 강박을 비우는 오프비트',
+            hiphop: '힙합 — 공간을 살리는 미니멀 라인', random: '자유 — 규칙 없는 실험 모드',
+        };
+        let __learnMode = (localStorage.getItem('baseloop-learn') ?? '1') === '1';
+
+        function parseChordJS(sym) {
+            sym = sym.trim(); let bassPc = null;
+            if (sym.includes('/')) {
+                const parts = sym.split('/');
+                const bm = parts[1].trim().match(/^([A-Ga-g])([#b]?)$/);
+                if (bm) bassPc = PC_JS[(bm[1] + bm[2]).toUpperCase()] ?? null;
+                sym = parts[0].trim();
+            }
+            const m = sym.match(/^([A-Ga-g])([#b]?)(.*)$/);
+            if (!m) return null;
+            const rootPc = PC_JS[(m[1] + m[2]).toUpperCase()];
+            if (rootPc == null) return null;
+            const q = m[3].trim();
+            const intervals = QUALITY_JS[q] || ((q[0] === 'm' && q.slice(0, 3) !== 'maj') ? [0, 3, 7] : [0, 4, 7]);
+            return { rootPc, intervals, bassPc: bassPc ?? rootPc, name: m[1].toUpperCase() + m[2] + q };
+        }
+        function parseProgressionJS(str) {
+            const chords = (str || '').split(/[\s,|]+/).filter(Boolean).map(parseChordJS).filter(Boolean);
+            return chords.length ? chords : null;
+        }
+        function currentChordsJS() {
+            if (document.getElementById('generation_mode_input').value !== 'chords') return null;
+            return parseProgressionJS(document.getElementById('chord_progression_input').value);
+        }
+
+        // 각 음표의 화성 역할 판정 (마디 = 코드 1개, 랜덤 모드는 키 루트 기준)
+        function analyzeScoreRoles(measures) {
+            const chords = currentChordsJS();
+            const keyPc = PC_JS[document.getElementById('key_note_input').value.toUpperCase()] ?? 0;
+            return measures.map((m, mi) => {
+                const ch = chords ? chords[mi % chords.length] : { rootPc: keyPc, intervals: [0, 4, 7], bassPc: keyPc };
+                const next = chords ? chords[(mi + 1) % chords.length] : ch;
+                return m.map((n, ni) => {
+                    if (n.isRest) return 'rest';
+                    const pc = PC_JS[n.name.toUpperCase()] ?? 0;
+                    const iv = ((pc - ch.rootPc) % 12 + 12) % 12;
+                    const third = ch.intervals[1] ?? 4, fifth = ch.intervals[2] ?? 7, seventh = ch.intervals[3];
+                    // 마디 마지막 실음이 다음 코드 베이스 음의 반음 옆이면 접근음
+                    const isLastNote = m.slice(ni + 1).every(x => x.isRest);
+                    if (isLastNote) {
+                        const t = next.bassPc ?? next.rootPc;
+                        if (pc === ((t + 11) % 12) || pc === ((t + 1) % 12)) return 'approach';
+                    }
+                    if (iv === 0) return 'root';
+                    if (iv === third || (!chords && (iv === 3 || iv === 4))) return 'third';
+                    if (iv === fifth) return 'fifth';
+                    if (seventh != null ? iv === seventh : (iv === 10 || iv === 11)) return 'seventh';
+                    return 'scale';
+                });
+            });
+        }
+
+        // 키 기준 로마숫자 (장조 기준, 비온음계 루트는 ♭ 표기)
+        function romanFor(ch, keyPc) {
+            const MAJ = { 0:'I',1:'♭II',2:'II',3:'♭III',4:'III',5:'IV',6:'♭V',7:'V',8:'♭VI',9:'VI',10:'♭VII',11:'VII' };
+            const deg = ((ch.rootPc - keyPc) % 12 + 12) % 12;
+            let r = MAJ[deg];
+            const minor = ch.intervals[1] === 3 && ch.intervals[2] === 7;
+            const dim = ch.intervals[2] === 6;
+            if (minor || dim) r = r.replace(/[IV]+/, s => s.toLowerCase());
+            if (dim) r += '°';
+            if (ch.intervals.length > 3) r += (ch.intervals[3] === 11 ? 'maj7' : '7');
+            return r;
+        }
+
+        const SCALE_NAME = { 0:'C',1:'C#',2:'D',3:'E♭',4:'E',5:'F',6:'F#',7:'G',8:'A♭',9:'A',10:'B♭',11:'B' };
+        function majorScaleNotes(keyPc) {
+            return [0, 2, 4, 5, 7, 9, 11].map(iv => SCALE_NAME[(keyPc + iv) % 12]).join(' ');
+        }
+
+        function toggleLearnMode() {
+            __learnMode = !__learnMode;
+            try { localStorage.setItem('baseloop-learn', __learnMode ? '1' : '0'); } catch (e) {}
+            syncLearnToggle();
+            const sc = window.__lastScore;
+            if (sc) { try { renderSheetMusic(sc.seq, sc.len, sc.bpm); } catch (e) {} }
+        }
+        function syncLearnToggle() {
+            const btn = document.getElementById('learnToggle');
+            if (btn) btn.classList.toggle('on', __learnMode);
+        }
+
+        // 범례·로마숫자·라인 분석 패널 갱신 (renderSheetMusic에서 호출)
+        function updateLearnPanels(measures) {
+            const legend = document.getElementById('roleLegend');
+            const roman = document.getElementById('romanRow');
+            const analysis = document.getElementById('lineAnalysis');
+            const chords = currentChordsJS();
+            const keyPc = PC_JS[document.getElementById('key_note_input').value.toUpperCase()] ?? 0;
+
+            if (legend) {
+                if (__learnMode) {
+                    legend.innerHTML = Object.values(ROLE_META).map(r =>
+                        `<span class="role-chip"><i style="background:${r.color}"></i>${r.label}</span>`).join('');
+                    legend.style.display = 'flex';
+                } else legend.style.display = 'none';
+            }
+            if (roman) {
+                if (__learnMode && chords) {
+                    roman.innerHTML = chords.map(ch =>
+                        `<span class="roman-chip"><b>${escapeHtml(ch.name)}</b><small>${romanFor(ch, keyPc)}</small></span>`
+                    ).join('<span class="roman-arrow">→</span>');
+                    roman.style.display = 'flex';
+                } else roman.style.display = 'none';
+            }
+            if (analysis && measures) {
+                const roles = window.__scoreRoles || [];
+                const counts = {};
+                roles.flat().forEach(r => { if (r && r !== 'rest') counts[r] = (counts[r] || 0) + 1; });
+                const countHtml = Object.keys(ROLE_META)
+                    .filter(k => counts[k])
+                    .map(k => `<span class="role-chip"><i style="background:${ROLE_META[k].color}"></i>${ROLE_META[k].label} ${counts[k]}</span>`)
+                    .join('');
+                const genre = document.getElementById('genre_input').value;
+                const keyName = document.getElementById('key_note_input').value;
+                const progHtml = chords
+                    ? `<div class="la-row"><b>진행</b> ${chords.map(c => `${escapeHtml(c.name)}(${romanFor(c, keyPc)})`).join(' → ')}</div>` : '';
+                analysis.innerHTML =
+                    `<div class="la-row"><b>키</b> ${escapeHtml(keyName)} 메이저 · 스케일: <code>${majorScaleNotes(keyPc)}</code></div>` +
+                    progHtml +
+                    `<div class="la-row"><b>그루브</b> ${GENRE_GROOVE_DESC[genre] || genre}</div>` +
+                    (countHtml ? `<div class="la-row"><b>구성</b> ${countHtml}</div>` : '');
+            }
+        }
+
+        // ── 미니 레슨: 설명 + 앱이 직접 시연 연주 ──
+        const LESSONS = [
+            { icon:'🎯', title:'1. 근음(Root) — 베이스의 첫 번째 일',
+              body:'베이스의 가장 큰 역할은 코드의 <b>근음</b>을 연주해 화음의 뿌리를 들려주는 것입니다. 근음만 정확히 짚어도 훌륭한 베이스 라인이 됩니다.',
+              demo:{ seq:'C2 1.0, C2 1.0, C2 1.0, C2 1.0, F2 1.0, F2 1.0, F2 1.0, F2 1.0', bpm:100, genre:'rock' } },
+            { icon:'🔁', title:'2. 옥타브 — 같은 음, 다른 높이',
+              body:'12반음(옥타브) 차이 나는 두 음은 "같은 음"으로 들립니다. 근음-옥타브 왕복은 디스코·펑크 베이스의 대표 주법입니다.',
+              demo:{ seq:'C2 0.5, C3 0.5, C2 0.5, C3 0.5, C2 0.5, C3 0.5, C2 0.5, C3 0.5', bpm:112, genre:'funk' } },
+            { icon:'🏛️', title:'3. 완전5도 — 근음의 단짝',
+              body:'근음에서 7반음 위가 <b>완전5도</b>. 장·단 어느 코드에나 어울려 근음 다음으로 많이 쓰입니다. 락·컨트리의 근음-5도 패턴을 들어보세요.',
+              demo:{ seq:'C2 1.0, G2 1.0, C2 1.0, G2 1.0, C2 1.0, G2 1.0, C2 0.5, G1 0.5, C2 1.0', bpm:120, genre:'rock' } },
+            { icon:'🎭', title:'4. 3음 — 코드의 표정 (장/단)',
+              body:'근음에서 <b>4반음(장3도)</b>이면 밝은 메이저, <b>3반음(단3도)</b>이면 어두운 마이너. 딱 한 음 차이가 곡 전체의 표정을 바꿉니다. 두 데모를 비교해보세요.',
+              demo:{ seq:'C2 1.0, E2 1.0, G2 1.0, E2 1.0, C2 2.0, R 2.0', bpm:100, genre:'pop', label:'😊 메이저 (C–E–G)' },
+              demo2:{ seq:'C2 1.0, Eb2 1.0, G2 1.0, Eb2 1.0, C2 2.0, R 2.0', bpm:100, genre:'pop', label:'😢 마이너 (C–E♭–G)' } },
+            { icon:'🌶️', title:'5. 7음 — 재즈·블루스의 맛',
+              body:'근음에서 10반음 위 <b>단7도</b>를 더하면 블루지한 긴장감이 생깁니다. G7 같은 "7코드"의 정체가 바로 이 음입니다.',
+              demo:{ seq:'C2 1.0, E2 1.0, G2 1.0, Bb2 1.0, C3 1.0, Bb2 1.0, G2 1.0, E2 1.0', bpm:104, genre:'blues' } },
+            { icon:'🛝', title:'6. 접근음 — 반음으로 미끄러지기',
+              body:'다음 코드 근음의 <b>반음 아래(또는 위)</b> 음을 거쳐 들어가면 라인이 매끄럽게 연결됩니다. C→F로 갈 때 E를 거치는 걸 들어보세요.',
+              demo:{ seq:'C2 1.0, C2 1.0, C2 1.0, E2 1.0, F2 1.0, F2 1.0, F2 1.0, B1 1.0, C2 2.0, R 2.0', bpm:96, genre:'pop' } },
+            { icon:'🏆', title:'7. 로마숫자와 머니코드 (I–V–vi–IV)',
+              body:'코드 진행은 키의 몇 번째 음 위에 서는지, 즉 <b>로마숫자</b>로 읽습니다. 수천 곡이 쓰는 I–V–vi–IV("머니코드")를 생성해 학습 모드로 확인해보세요.',
+              preset:'money' },
+            { icon:'🚶', title:'8. 워킹 베이스 — 4분음표로 걷기',
+              body:'재즈의 <b>워킹 베이스</b>는 코드톤과 접근음을 4분음표로 이어 "걸어갑니다". 재즈 2–5–1 진행으로 들어보세요.',
+              preset:'jazz251' },
+            { icon:'🕛', title:'9. 12마디 블루스 폼',
+              body:'I–IV–V 단 세 코드로 12마디를 도는 <b>블루스 폼</b>. 락·재즈·R&B 수많은 곡의 뼈대입니다.',
+              preset:'blues12' },
+            { icon:'🎶', title:'10. 스윙 — 8분음표 밀당',
+              body:'오프비트 8분음표를 뒤로 밀면 <b>셔플/스윙</b> 그루브가 됩니다. 재생 중 스윙 슬라이더를 움직이며 직접 비교해보세요.',
+              preset:'jazz251' },
+        ];
+
+        async function demoSequence(demo) {
+            stopPlayback();
+            document.getElementById('generation_mode_input').value = 'random';
+            document.getElementById('genre_input').value = demo.genre || 'rock';
+            document.getElementById('bpm_input').value = demo.bpm || 100;
+            document.getElementById('notes_sequence_input').value = demo.seq;
+            onGenerationModeChange();
+            renderSheetMusic(demo.seq, 4, demo.bpm || 100);
+            document.getElementById('notation-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await togglePlayback();
+        }
+        async function playLessonDemo(i, which) {
+            const l = LESSONS[i];
+            if (!l) return;
+            if (l.preset) { document.getElementById('notation-area').scrollIntoView({ behavior: 'smooth', block: 'center' }); await applyPreset(l.preset); return; }
+            await demoSequence(which === 2 ? l.demo2 : l.demo);
+        }
+        function buildLessons() {
+            const host = document.getElementById('lessonList');
+            if (!host) return;
+            host.innerHTML = LESSONS.map((l, i) => {
+                let btns = '';
+                if (l.preset) btns = `<button type="button" class="bl-toggle" onclick="playLessonDemo(${i})">▶ 생성해서 들어보기</button>`;
+                else {
+                    btns = `<button type="button" class="bl-toggle" onclick="playLessonDemo(${i})">▶ ${l.demo.label || '들어보기'}</button>`;
+                    if (l.demo2) btns += ` <button type="button" class="bl-toggle" onclick="playLessonDemo(${i},2)">▶ ${l.demo2.label}</button>`;
+                }
+                return `<details class="lesson"><summary><span class="lesson-icon">${l.icon}</span>${escapeHtml(l.title)}</summary>
+                        <div class="lesson-body"><p>${l.body}</p><div class="lesson-actions">${btns}</div></div></details>`;
+            }).join('');
+        }
+
+        // ── 귀 훈련: 음정 맞히기 (베이스 음색) ──
+        const QUIZ_INTERVALS = [
+            { s: 3,  name: '단3도',   hint: '마이너 코드의 어두운 표정을 만드는 음정' },
+            { s: 4,  name: '장3도',   hint: '메이저 코드의 밝은 표정을 만드는 음정' },
+            { s: 5,  name: '완전4도', hint: '베이스 기타의 이웃한 개방현 간격' },
+            { s: 7,  name: '완전5도', hint: '근음의 단짝 — 가장 안정적인 음정' },
+            { s: 10, name: '단7도',   hint: '블루스·펑크의 긴장감을 만드는 음정' },
+            { s: 12, name: '옥타브',  hint: '같은 음의 높은 버전' },
+        ];
+        let __quiz = null, __quizSynth = null;
+        function loadQuizScore() {
+            try { return JSON.parse(localStorage.getItem('baseloop-quiz')) || { ok: 0, total: 0 }; }
+            catch (e) { return { ok: 0, total: 0 }; }
+        }
+        function saveQuizScore(s) { try { localStorage.setItem('baseloop-quiz', JSON.stringify(s)); } catch (e) {} }
+        function newQuizQuestion() {
+            const answer = QUIZ_INTERVALS[Math.floor(Math.random() * QUIZ_INTERVALS.length)];
+            const opts = [answer];
+            while (opts.length < 3) {
+                const c = QUIZ_INTERVALS[Math.floor(Math.random() * QUIZ_INTERVALS.length)];
+                if (!opts.some(o => o.s === c.s)) opts.push(c);
+            }
+            opts.sort(() => Math.random() - 0.5);
+            const roots = ['C2', 'D2', 'E2', 'F2', 'G2', 'A2'];
+            __quiz = { answer, opts, root: roots[Math.floor(Math.random() * roots.length)], answered: null };
+            renderQuiz();
+        }
+        async function playQuizSound() {
+            if (typeof Tone === 'undefined' || !__quiz) return;
+            await Tone.start();
+            if (!__quizSynth) {
+                const lim = new Tone.Limiter(-1).toDestination();
+                const g = new Tone.Gain(0.7).connect(lim);
+                __quizSynth = makeBassSynth(g);
+                __quizSynth.__keep = [g, lim];
+            }
+            const target = Tone.Frequency(__quiz.root).transpose(__quiz.answer.s).toNote();
+            const now = Tone.now();
+            __quizSynth.triggerAttackRelease(__quiz.root, 0.55, now, 0.9);
+            __quizSynth.triggerAttackRelease(target, 0.7, now + 0.75, 0.9);
+        }
+        function answerQuiz(semis) {
+            if (!__quiz || __quiz.answered != null) return;
+            __quiz.answered = semis;
+            const s = loadQuizScore();
+            s.total += 1;
+            if (semis === __quiz.answer.s) s.ok += 1;
+            saveQuizScore(s);
+            renderQuiz();
+        }
+        function renderQuiz() {
+            const box = document.getElementById('quizBox');
+            if (!box) return;
+            if (!__quiz) { newQuizQuestion(); return; }
+            const sc = loadQuizScore();
+            const done = __quiz.answered != null;
+            const correct = done && __quiz.answered === __quiz.answer.s;
+            const optsHtml = __quiz.opts.map(o => {
+                let cls = 'quiz-opt';
+                if (done && o.s === __quiz.answer.s) cls += ' correct';
+                else if (done && o.s === __quiz.answered) cls += ' wrong';
+                return `<button type="button" class="${cls}" ${done ? 'disabled' : ''} onclick="answerQuiz(${o.s})">${o.name}</button>`;
+            }).join('');
+            const feedback = done
+                ? `<div class="quiz-feedback ${correct ? 'ok' : 'no'}">${correct ? '⭕ 정답!' : '❌ 아쉽네요.'} 정답은 <b>${__quiz.answer.name}</b> — ${__quiz.answer.hint}</div>
+                   <button type="button" class="bl-toggle on" onclick="newQuizQuestion()">다음 문제 →</button>`
+                : '';
+            box.innerHTML =
+                `<div class="quiz-controls">
+                    <button type="button" class="bl-toggle" onclick="playQuizSound()">🔊 문제 듣기</button>
+                    <span class="bl-chip">점수 <strong>${sc.ok}</strong>/${sc.total}</span>
+                 </div>
+                 <div class="quiz-opts">${optsHtml}</div>${feedback}`;
+        }
+
         // === MIDI 다운로드 ===
         async function downloadMidi() {
             const notesSequence = document.getElementById('notes_sequence_input').value;
@@ -2126,7 +2520,8 @@
                     }
                     stave.setContext(ctx).draw();
 
-                    const vexNotes = measureNotes.map(n => {
+                    const measureRoles = (window.__scoreRoles || [])[globalIdx] || [];
+                    const vexNotes = measureNotes.map((n, ni) => {
                         const d = toVexDuration(n.duration);
                         const sn = new VF.StaveNote({
                             clef: 'bass',
@@ -2138,6 +2533,11 @@
                         }
                         if (!n.isRest && (n.accidental === '#' || n.accidental === 'b')) {
                             sn.addModifier(new VF.Accidental(n.accidental), 0);
+                        }
+                        // 🎓 학습 모드: 화성 역할별 색칠
+                        if (__learnMode && !n.isRest && ROLE_META[measureRoles[ni]]) {
+                            const c = ROLE_META[measureRoles[ni]].color;
+                            try { sn.setStyle({ fillStyle: c, strokeStyle: c }); } catch (e) {}
                         }
                         return sn;
                     });
@@ -2231,8 +2631,8 @@
             if (step < 0) for (let sLn = -2; sLn >= step; sLn -= 2) { const y = stepToY(sLn, staffTopY); ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.stroke(); }
             if (step > 8) for (let sLn = 10; sLn <= step; sLn += 2) { const y = stepToY(sLn, staffTopY); ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.stroke(); }
         }
-        function drawCanvasNote(ctx, x, note, staffTopY) {
-            const ink = CANVAS_CONFIG.INK, R = CANVAS_CONFIG.NOTE_R;
+        function drawCanvasNote(ctx, x, note, staffTopY, color) {
+            const ink = color || CANVAS_CONFIG.INK, R = CANVAS_CONFIG.NOTE_R;
             const step = noteToStep(note);
             const y = stepToY(step, staffTopY);
             drawLedgerLines(ctx, x, step, staffTopY);
@@ -2346,10 +2746,12 @@
                     const mNotes = measures[mIndex];
                     const xs = calculateNotePositions(mNotes, innerW);
                     let bm = 0;
+                    const mRoles = (window.__scoreRoles || [])[mIndex] || [];
                     mNotes.forEach((n, ni) => {
                         const nx = contentX + xs[ni];
+                        const role = __learnMode ? mRoles[ni] : null;
                         if (n.isRest) drawCanvasRest(ctx, nx, n.duration, staffTopY);
-                        else drawCanvasNote(ctx, nx, n, staffTopY);
+                        else drawCanvasNote(ctx, nx, n, staffTopY, ROLE_META[role] ? ROLE_META[role].color : null);
                         // 실제 그려진 음표 중심 x를 세그먼트로 사용 (커서=음표 정렬)
                         timeline.segs.push({ beat: runBeat, dur: n.duration, x: nx, top: staffTopY - 6, h: 52, line: li });
                         runBeat += n.duration;
@@ -2389,6 +2791,10 @@
 
             window.__lastScore = { seq: notesSequenceStr, len: lengthMeasures, bpm: bpm };
 
+            // 🎓 학습 모드: 각 음표의 화성 역할 분석 (색칠·범례·분석 패널용)
+            try { window.__scoreRoles = analyzeScoreRoles(measures); }
+            catch (e) { console.warn('역할 분석 실패:', e); window.__scoreRoles = null; }
+
             let ok = false;
             try { ok = renderWithVexFlow(measures, bpm); }
             catch (e) { console.warn('VexFlow 렌더 실패 → Canvas 폴백:', e); ok = false; }
@@ -2403,6 +2809,9 @@
                 try { renderWithCanvas(measures, bpm); console.log('✅ Canvas 폴백 렌더링 완료'); }
                 catch (e) { console.error('Canvas 폴백 실패:', e); showMessage(`🚨 악보 렌더링 오류: ${e.message}`, 'error'); }
             }
+
+            // 🎓 범례·로마숫자·분석 패널 갱신
+            try { updateLearnPanels(measures); } catch (e) { console.warn('학습 패널 갱신 실패:', e); }
         }
 
         // 창 크기 변경 시 재렌더 (반응형) — 재생 중이면 커서도 다시 시작
