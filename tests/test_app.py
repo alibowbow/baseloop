@@ -14,16 +14,16 @@ import app  # noqa: E402
 
 class NoteFrequencyTests(unittest.TestCase):
     def test_a_concert_pitch(self):
-        # 이 앱의 옥타브 규약은 C5=MIDI60 → A5=440Hz (표준 A4와 한 옥타브 차이)
-        self.assertAlmostEqual(app.get_note_frequency("A", 5), 440.0, places=3)
+        # 표준 규약(A4=440Hz) — 악보/Tone.js와 옥타브 일치
+        self.assertAlmostEqual(app.get_note_frequency("A", 4), 440.0, places=3)
 
     def test_middle_c(self):
-        # 같은 규약에서 C5 ≈ 261.63 Hz
-        self.assertAlmostEqual(app.get_note_frequency("C", 5), 261.6256, places=2)
+        # 표준 규약에서 C4(가온 다) ≈ 261.63 Hz
+        self.assertAlmostEqual(app.get_note_frequency("C", 4), 261.6256, places=2)
 
     def test_octave_doubles_frequency(self):
         self.assertAlmostEqual(
-            app.get_note_frequency("A", 6), 2 * app.get_note_frequency("A", 5), places=3
+            app.get_note_frequency("A", 5), 2 * app.get_note_frequency("A", 4), places=3
         )
 
     def test_enharmonic_equivalence(self):
@@ -63,9 +63,8 @@ class ParseSequenceTests(unittest.TestCase):
 
 class MidiConversionTests(unittest.TestCase):
     def test_middle_c(self):
-        # C4 = MIDI 60 in this app's (octave*12 + offset) convention → C4 = 4*12 = 48?
-        # 앱 규약상 C5 = 60. 일관성만 검증한다.
-        self.assertEqual(app.note_name_to_midi("C", 5), 60)
+        # 표준 MIDI: C4(가온 다) = 60
+        self.assertEqual(app.note_name_to_midi("C", 4), 60)
 
     def test_sharp_and_flat(self):
         base = app.note_name_to_midi("C", 4)
