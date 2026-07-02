@@ -675,6 +675,21 @@
         #bassGeneratorForm[data-tab="learn"] .tp-studio { display: none !important; }
         @media (max-width: 600px) { .bl-tab { padding: 9px 20px; font-size: 0.88rem; } }
 
+        /* 학습 탭: 악보 + 재생만 남기고 프리셋·생성 버튼·내보내기 숨김 */
+        #bassGeneratorForm[data-tab="learn"] .learn-hide { display: none !important; }
+        /* 학습 탭: 악보 스테이지를 상단 고정(sticky)해 교과서를 스크롤해도 항상 보이게 */
+        #bassGeneratorForm[data-tab="learn"] .bl-stage {
+            position: sticky; top: 8px; z-index: 30;
+            background: var(--surface-card);
+            box-shadow: 0 10px 30px rgba(20, 25, 40, 0.14);
+            max-height: calc(100vh - 16px); overflow: auto;
+        }
+        [data-theme="dark"] #bassGeneratorForm[data-tab="learn"] .bl-stage {
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.6);
+        }
+        /* 학습 탭에선 악보 종이 높이를 제한해 sticky 헤더가 지나치게 커지지 않게 */
+        #bassGeneratorForm[data-tab="learn"] .paper { max-height: 46vh; }
+
         /* 히스토리: 세로 무한 증가 → 반응형 그리드 + 높이 제한 스크롤 */
         .bl-history-list {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -1025,7 +1040,7 @@
                 <div id="roleLegend" class="role-legend" style="display:none;"></div>
 
                 <!-- 인기 코드 진행 프리셋: 원클릭으로 코드 모드 세팅 + 즉시 생성 -->
-                <div class="bl-presets" role="group" aria-label="코드 진행 프리셋">
+                <div class="bl-presets learn-hide" role="group" aria-label="코드 진행 프리셋">
                     <span class="bl-presets__label">✨ 프리셋</span>
                     <button type="button" class="bl-preset" onclick="applyPreset('money')">머니코드</button>
                     <button type="button" class="bl-preset" onclick="applyPreset('canon')">캐논</button>
@@ -1035,10 +1050,10 @@
                     <button type="button" class="bl-preset" onclick="applyPreset('funk1')">펑크 원코드</button>
                 </div>
 
-                <div style="margin-top:14px;">
+                <div style="margin-top:14px;" class="learn-hide">
                     <button type="button" id="generateNotesBtn" class="btn btn-block" onclick="generateNotes()">🎼 악보 자동 생성</button>
                 </div>
-                <div id="loadingSpinnerNotes" class="loading-spinner">악보 생성 중...</div>
+                <div id="loadingSpinnerNotes" class="loading-spinner learn-hide">악보 생성 중...</div>
 
                 <!-- 재생 트랜스포트 (클라이언트 Tone.js 합성) -->
                 <div class="bl-transport">
@@ -1055,7 +1070,7 @@
                 <div id="loadingSpinnerAudio" class="loading-spinner">오디오 렌더링 중...</div>
 
                 <!-- 내보내기 -->
-                <div class="bl-exports">
+                <div class="bl-exports learn-hide">
                     <button type="button" id="wavBtn" onclick="downloadAudio('wav')" class="bl-export">💾 WAV 다운로드</button>
                     <button type="button" id="mp3Btn" onclick="downloadAudio('mp3')" class="bl-export">🎧 MP3 다운로드</button>
                     <button type="button" id="midiBtn" onclick="downloadMidi()" class="bl-export">🎹 MIDI 다운로드</button>
@@ -1700,6 +1715,17 @@
             if (!data.bassEvents.length) { showMessage('재생할 음표가 없습니다.', 'error'); return false; }
             __loopSeconds = data.loopBeats * data.secPerBeat;
 
+            // ⚠️ BPM은 Part 생성 "이전"에 설정해야 한다.
+            // Tone.Part는 이벤트 시간(초)을 추가 시점의 Transport BPM 기준으로 틱 변환하므로,
+            // 나중에 BPM을 바꾸면 이미 추가된 이벤트가 잘못된 속도로 재생된다
+            // (첫 재생만 기본 120bpm 기준 → 박자 어긋남, 재재생 시 정상이던 버그의 원인).
+            Tone.Transport.stop();
+            Tone.Transport.cancel(0);
+            Tone.Transport.bpm.value = data.bpm;
+            Tone.Transport.swing = 0;          // 스윙은 이벤트 시간에 직접 반영했음
+            Tone.Transport.loop = false;
+            Tone.Transport.position = 0;
+
             // 마스터 체인: 게인(헤드룸) → 리미터(-1dB) → 출력. 합산 클리핑 방지.
             const limiter = new Tone.Limiter(-1).toDestination();
             const master = new Tone.Gain(0.5).connect(limiter);
@@ -1755,10 +1781,7 @@
                 nodes.parts.push(mp);
             }
 
-            Tone.Transport.bpm.value = data.bpm;
-            Tone.Transport.swing = 0;   // 스윙은 이벤트 시간에 직접 반영했음
-            Tone.Transport.loop = false;
-            Tone.Transport.position = 0;
+            // BPM/스윙/루프는 위(Part 생성 전)에서 이미 설정했다.
             // 약간의 스케줄 여유(+50ms)로 첫 음이 과거에 스케줄돼 밀리는 것을 방지 → 커서와 정확히 동기
             Tone.Transport.start('+0.05');
             __toneNodes = nodes;
