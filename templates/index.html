@@ -573,34 +573,25 @@
             box-shadow: 0 2px 8px color-mix(in srgb, var(--primary) 45%, transparent);
         }
 
-        /* 히어로: 살아있는 이퀄라이저 */
+        /* 히어로: 베이스 기타 일러스트 — 아주 느린 플로팅만 (은은하게) */
         .bl-hero__frame { position: relative; }
-        .bl-eq { display: flex; align-items: flex-end; gap: 7px; height: 46%; }
-        .bl-eq span {
-            width: 9px; border-radius: 5px; height: 30%;
-            background: linear-gradient(180deg, var(--secondary), var(--primary));
-            box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent);
-            animation: eqBounce 1.15s ease-in-out infinite;
+        .bl-bass {
+            height: 88%; max-height: 300px; width: auto;
+            filter: drop-shadow(0 14px 26px color-mix(in srgb, var(--primary) 30%, transparent));
+            animation: bassFloat 8s ease-in-out infinite;
+            transform: rotate(9deg);
         }
-        .bl-eq span:nth-child(1) { animation-delay: 0s;    }
-        .bl-eq span:nth-child(2) { animation-delay: 0.12s; }
-        .bl-eq span:nth-child(3) { animation-delay: 0.28s; }
-        .bl-eq span:nth-child(4) { animation-delay: 0.05s; }
-        .bl-eq span:nth-child(5) { animation-delay: 0.35s; }
-        .bl-eq span:nth-child(6) { animation-delay: 0.18s; }
-        .bl-eq span:nth-child(7) { animation-delay: 0.42s; }
-        .bl-eq span:nth-child(8) { animation-delay: 0.08s; }
-        .bl-eq span:nth-child(9) { animation-delay: 0.25s; }
-        @keyframes eqBounce {
-            0%, 100% { height: 24%; opacity: 0.75; }
-            50%      { height: 96%; opacity: 1; }
+        @keyframes bassFloat {
+            0%, 100% { transform: rotate(9deg) translateY(3px); }
+            50%      { transform: rotate(8deg) translateY(-6px); }
+        }
+        .bl-hero__glow { animation: glowBreath 9s ease-in-out infinite; }
+        @keyframes glowBreath {
+            0%, 100% { opacity: 0.45; }
+            50%      { opacity: 0.62; }
         }
         @media (prefers-reduced-motion: reduce) {
-            .bl-eq span, .bl-play.playing::after { animation: none; }
-        }
-        .bl-hero__glyph {
-            position: absolute; right: 14px; bottom: 10px;
-            font-size: 1.7rem !important; filter: none; opacity: 0.9;
+            .bl-bass, .bl-hero__glow, .bl-play.playing::after { animation: none; }
         }
 
         /* 내보내기 버튼: 아이콘 정돈 + 호버 색 */
@@ -654,10 +645,63 @@
             <div class="bl-hero__art">
                 <div class="bl-hero__glow"></div>
                 <div class="bl-hero__frame">
-                    <div class="bl-eq" aria-hidden="true">
-                        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-                    </div>
-                    <span class="glyph bl-hero__glyph">🎸</span>
+                    <!-- 베이스 기타 일러스트 (테마 색상 연동 SVG, 은은한 플로팅) -->
+                    <svg class="bl-bass" viewBox="0 0 200 430" aria-hidden="true">
+                        <defs>
+                            <linearGradient id="bassBody" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stop-color="var(--primary)"/>
+                                <stop offset="100%" stop-color="var(--secondary)"/>
+                            </linearGradient>
+                            <linearGradient id="bassNeck" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stop-color="#8a7355"/>
+                                <stop offset="100%" stop-color="#6b573f"/>
+                            </linearGradient>
+                        </defs>
+                        <!-- 헤드스톡 (펜더 스타일, 튜너 4개 한쪽 정렬) -->
+                        <path d="M100 8 Q80 6 78 20 Q77 32 88 44 L98 66 L116 64 L112 10 Q107 7 100 8 Z" fill="url(#bassNeck)"/>
+                        <circle cx="73" cy="16" r="4.5" fill="var(--text-muted)" opacity="0.9"/>
+                        <circle cx="74" cy="29" r="4.5" fill="var(--text-muted)" opacity="0.9"/>
+                        <circle cx="78" cy="42" r="4.5" fill="var(--text-muted)" opacity="0.9"/>
+                        <circle cx="85" cy="54" r="4.5" fill="var(--text-muted)" opacity="0.9"/>
+                        <!-- 넥 + 너트 + 프렛 -->
+                        <rect x="98" y="60" width="16" height="192" rx="2.5" fill="url(#bassNeck)"/>
+                        <rect x="98" y="64" width="16" height="3" rx="1.5" fill="#f4efe6" opacity="0.95"/>
+                        <g stroke="#d8cbb4" stroke-width="1.3" opacity="0.5">
+                            <line x1="98" y1="90"  x2="114" y2="90"/><line x1="98" y1="116" x2="114" y2="116"/>
+                            <line x1="98" y1="142" x2="114" y2="142"/><line x1="98" y1="168" x2="114" y2="168"/>
+                            <line x1="98" y1="194" x2="114" y2="194"/><line x1="98" y1="220" x2="114" y2="220"/>
+                            <line x1="98" y1="244" x2="114" y2="244"/>
+                        </g>
+                        <!-- 바디: 어퍼 혼이 있는 오프셋 J-베이스 실루엣 -->
+                        <path d="M 106 246
+                                 C 96 245, 84 242, 78 230
+                                 C 74 221, 65 220, 63 228
+                                 C 58 246, 52 260, 53 276
+                                 C 54 290, 62 298, 60 312
+                                 C 45 326, 43 358, 62 380
+                                 C 80 402, 130 406, 150 382
+                                 C 168 360, 163 330, 151 316
+                                 C 144 308, 146 298, 153 286
+                                 C 162 270, 156 250, 132 247
+                                 Z"
+                              fill="url(#bassBody)"/>
+                        <path d="M 106 246 C 96 245, 84 242, 78 230 C 74 221, 65 220, 63 228 C 58 246, 52 260, 53 276 C 54 290, 62 298, 60 312 C 45 326, 43 358, 62 380 C 80 402, 130 406, 150 382"
+                              fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="2.5"/>
+                        <!-- 픽업 2개 + 브리지 -->
+                        <rect x="89" y="296" width="34" height="12" rx="5" fill="#20242f" opacity="0.9"/>
+                        <rect x="89" y="330" width="34" height="12" rx="5" fill="#20242f" opacity="0.9"/>
+                        <rect x="91" y="362" width="30" height="10" rx="3" fill="#3a4150" opacity="0.95"/>
+                        <!-- 노브 -->
+                        <circle cx="138" cy="360" r="6" fill="#2c313d"/>
+                        <circle cx="149" cy="374" r="6" fill="#2c313d"/>
+                        <!-- 현 4줄 -->
+                        <g stroke="#eef1f7" stroke-opacity="0.9">
+                            <line x1="101" y1="62" x2="101" y2="366" stroke-width="1.7"/>
+                            <line x1="104.7" y1="62" x2="104.7" y2="366" stroke-width="1.4"/>
+                            <line x1="108.4" y1="62" x2="108.4" y2="366" stroke-width="1.1"/>
+                            <line x1="112" y1="62" x2="112" y2="366" stroke-width="0.9"/>
+                        </g>
+                    </svg>
                 </div>
                 <span class="bl-hero__chip">🎵 4-string groove machine</span>
             </div>
@@ -1016,7 +1060,11 @@
                     notesSequenceInput.value = data.notes;
                     // 시드는 입력칸에 되쓰지 않는다(비어 있으면 매번 랜덤 유지). 대신 안내로 표시.
                     if (data.seed != null) showLastSeed(data.seed);
-                    showMessage("🎉 악보가 생성되었습니다! 재생하거나 WAV·MP3·MIDI로 내보내세요. (시드 " + data.seed + ")", 'success');
+                    if (seed && String(seed).trim()) {
+                        showMessage("🔒 시드 " + data.seed + " 고정 상태라 같은 악보가 재현됩니다. 매번 다른 악보를 원하면 시드 칸을 비우세요.", 'warning');
+                    } else {
+                        showMessage("🎉 악보가 생성되었습니다! 재생하거나 WAV·MP3·MIDI로 내보내세요. (시드 " + data.seed + ")", 'success');
+                    }
                     renderSheetMusic(data.notes, parseInt(length), parseInt(bpm));
                     updateShareUrl();
                     saveToHistory(true);
@@ -1037,12 +1085,23 @@
         function showLastSeed(seed) {
             const el = document.getElementById('lastSeedInfo');
             if (!el) return;
-            el.innerHTML = '방금 시드: <code>' + seed + '</code> · <a href="#" onclick="return fixSeed(' + seed + ')">이 시드 고정</a>';
+            const locked = document.getElementById('seed_input').value.trim() !== '';
+            el.innerHTML = locked
+                ? '🔒 시드 <code>' + seed + '</code> 고정됨 · <a href="#" onclick="return clearSeed()">랜덤으로 되돌리기</a>'
+                : '방금 시드: <code>' + seed + '</code> · <a href="#" onclick="return fixSeed(' + seed + ')">이 시드 고정</a>';
             el.style.display = 'block';
         }
         function fixSeed(seed) {
             document.getElementById('seed_input').value = seed;
+            showLastSeed(seed);
             showMessage('🔒 시드 ' + seed + ' 고정됨 — 같은 설정이면 동일한 악보가 재현됩니다. (칸을 비우면 다시 랜덤)', 'info');
+            return false;
+        }
+        function clearSeed() {
+            document.getElementById('seed_input').value = '';
+            const el = document.getElementById('lastSeedInfo');
+            if (el) el.style.display = 'none';
+            showMessage('🎲 시드 잠금 해제 — 이제 생성할 때마다 다른 악보가 나옵니다.', 'info');
             return false;
         }
 
@@ -1612,7 +1671,8 @@
             set('length_input', s.length);
             set('num_loops_input', s.loops);
             set('swing_input', s.swing);
-            set('seed_input', s.seed);
+            // 시드는 복원하지 않는다 — 공유 상태엔 악보 자체가 있어 재현에 불필요하고,
+            // 되살리면 시드 칸이 몰래 채워져 "생성할 때마다 같은 악보" 문제를 만든다.
             set('chord_progression_input', s.chords);
             set('notes_sequence_input', s.seq);
             const sv = document.getElementById('swingValue'); if (sv) sv.textContent = (s.swing || 0) + '%';
