@@ -695,7 +695,9 @@
         #bassGeneratorForm[data-tab="learn"] #roleLegend,
         #bassGeneratorForm[data-tab="learn"] #romanRow { display: none !important; }
         #bassGeneratorForm[data-tab="learn"] .paper {
-            max-height: 148px; overflow-y: auto; padding: 4px 6px; margin: 0;
+            /* 고정 높이 — 데모마다 악보 줄 수가 달라도 스테이지 높이가 변하지 않아
+               스크롤 앵커링에 의한 페이지 위치 흔들림이 없다. */
+            height: 132px; overflow-y: auto; padding: 4px 6px; margin: 0;
         }
         /* 악보 자체를 축소 렌더 (커서는 렌더 폭 기준으로 자동 보정됨) */
         #bassGeneratorForm[data-tab="learn"] #vexflowScore svg {
@@ -2410,7 +2412,7 @@
             onGenerationModeChange();
             await generateNotes();
             document.getElementById('seed_input').value = '';
-            document.getElementById('notation-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            revealScore();
             await togglePlayback();
         }
         async function runTheoryDemo(ci, si, di) {
@@ -2419,7 +2421,7 @@
             if (d.type === 'interval') { await playIntervalDemo(d.semis || 7); return; }
             if (d.type === 'preset') {
                 await applyPreset(d.key);
-                document.getElementById('notation-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                revealScore();
                 await togglePlayback(); return;
             }
             if (d.type === 'progression') { await demoProgressionRun(d); return; }
@@ -2550,6 +2552,14 @@
             el.textContent = `진도 ${n}/${THEORY_BOOK.length}장`;
         }
 
+        // 악보로 스크롤 — 단, 학습 탭에선 악보가 이미 상단에 고정돼 있어 아무것도 하지 않는다.
+        // (학습 중 데모/재생 때 페이지가 위로 확 끌려가거나 모바일 주소창이 요동치는 문제 방지)
+        function revealScore() {
+            const form = document.getElementById('bassGeneratorForm');
+            if (form && form.dataset.tab === 'learn') return;
+            document.getElementById('notation-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
         async function demoSequence(demo) {
             stopPlayback();
             document.getElementById('generation_mode_input').value = 'random';
@@ -2561,7 +2571,7 @@
             document.getElementById('notes_sequence_input').value = demo.seq;
             onGenerationModeChange();
             renderSheetMusic(demo.seq, 4, demo.bpm || 100);
-            document.getElementById('notation-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            revealScore();
             await togglePlayback();
         }
 
@@ -2623,7 +2633,7 @@
             showMessage('🎯 연습 ' + item.id + ' — ' + item.title + ' · 포커스: ' + item.focus, 'info');
             if (item.preset) {
                 await applyPreset(item.preset, item.seed);
-                document.getElementById('notation-area').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                revealScore();
                 await togglePlayback();
             } else {
                 await demoSequence(item);
@@ -3412,16 +3422,7 @@
                         cursor.style.left = ((sRect.left - stRect.left) + xN * scale) + 'px';
                         cursor.style.top = ((sRect.top - stRect.top) + seg.top * scale) + 'px';
                         cursor.style.height = (seg.h * scale) + 'px';
-
-                        // 악보 종이가 세로 스크롤 상태(학습 탭 컴팩트 뷰)면 커서 줄을 자동 추적
-                        const paper = document.getElementById('notation-area');
-                        if (paper && paper.scrollHeight > paper.clientHeight + 4) {
-                            const cy = stage.offsetTop + (parseFloat(cursor.style.top) || 0);
-                            const chH = parseFloat(cursor.style.height) || 40;
-                            if (cy < paper.scrollTop + 2 || cy + chH > paper.scrollTop + paper.clientHeight - 2) {
-                                paper.scrollTop = Math.max(0, cy - 6);
-                            }
-                        }
+                        // (재생 중 악보 종이 자동 스크롤은 제거 — 원치 않는 자동 스크롤/주소창 요동 방지)
                     }
                 }
                 __cursorRAF = requestAnimationFrame(frame);
