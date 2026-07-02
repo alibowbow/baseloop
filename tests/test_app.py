@@ -174,6 +174,18 @@ class ChordBasslineTests(unittest.TestCase):
                 )
 
 
+def _split_measures(parsed):
+    """파싱된 시퀀스를 4박 단위 마디로 분할."""
+    measures, cur, beats = [], [], 0.0
+    for n in parsed:
+        cur.append(n)
+        beats += n[2]
+        if abs(beats - 4.0) < 1e-6:
+            measures.append(cur)
+            cur, beats = [], 0.0
+    return measures
+
+
 class RandomStyleTests(unittest.TestCase):
     def test_produces_parseable_sequence(self):
         import numpy as np
@@ -189,6 +201,55 @@ class RandomStyleTests(unittest.TestCase):
         np.random.seed(99)
         b = app.create_random_bass_loop_by_style("funk", "A", 2, 4, 120)
         self.assertEqual(a, b)
+
+    def test_register_stays_low(self):
+        # 베이스 음역 창: 루트-5반음 ~ 루트+12반음 (높은 음 방지)
+        import numpy as np
+        root_midi = 2 * 12 + 0  # C2
+        for genre in ("rock", "funk", "pop", "jazz", "blues", "reggae", "hiphop"):
+            np.random.seed(11)
+            seq = app.create_random_bass_loop_by_style(genre, "C", 2, 8, 120)
+            for name, octv, dur, is_rest, acc in app.parse_note_sequence_string(seq):
+                midi = octv * 12 + app.NOTE_TO_PC[(name + acc).upper()]
+                self.assertLessEqual(midi, root_midi + 12, f"{genre}: {name}{acc}{octv} 너무 높음")
+                self.assertGreaterEqual(midi, root_midi - 5, f"{genre}: {name}{acc}{octv} 너무 낮음")
+
+    def test_starts_on_root(self):
+        import numpy as np
+        np.random.seed(5)
+        seq = app.create_random_bass_loop_by_style("rock", "G", 2, 4, 120)
+        name, octv, dur, is_rest, acc = app.parse_note_sequence_string(seq)[0]
+        self.assertEqual(app.NOTE_TO_PC[(name + acc).upper()], app.NOTE_TO_PC["G"])
+
+    def test_riff_repeats_without_variation(self):
+        # 2마디 리프가 그대로 반복돼야 한다 (루프 구조)
+        import numpy as np
+        np.random.seed(21)
+        seq = app.create_random_bass_loop_by_style("rock", "C", 2, 4, 120, variation=False)
+        measures = _split_measures(app.parse_note_sequence_string(seq))
+        self.assertEqual(len(measures), 4)
+        self.assertEqual(measures[0], measures[2])
+        self.assertEqual(measures[1], measures[3])
+
+    def test_phrase_end_has_turnaround(self):
+        # variation=True면 4번째 마디 끝이 루트 반음 아래 접근음으로 끝난다
+        import numpy as np
+        np.random.seed(3)
+        seq = app.create_random_bass_loop_by_style("rock", "C", 2, 4, 120)
+        measures = _split_measures(app.parse_note_sequence_string(seq))
+        name, octv, dur, is_rest, acc = measures[3][-1]
+        midi = octv * 12 + app.NOTE_TO_PC[(name + acc).upper()]
+        self.assertEqual(midi, 2 * 12 - 1)  # root(C2) - 1 = B1
+
+
+class ChordGrooveConsistencyTests(unittest.TestCase):
+    def test_same_rhythm_every_measure(self):
+        # 그루브 템플릿은 한 번만 뽑혀 전 마디에 반복돼야 한다
+        seq = app.generate_bassline_from_chords("C F G Am", "rock", 2, seed=9)
+        measures = _split_measures(app.parse_note_sequence_string(seq))
+        self.assertEqual(len(measures), 4)
+        rhythms = {tuple(x[2] for x in m) for m in measures}
+        self.assertEqual(len(rhythms), 1)
 
 
 class AudioBufferTests(unittest.TestCase):

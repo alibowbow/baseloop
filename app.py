@@ -694,163 +694,127 @@ def generate_lilypond_score(notes_sequence, bpm):
 """
     return lilypond_code
 
-# --- 스타일 기반 랜덤 생성 함수 ---
-def create_random_bass_loop_by_style(style, key_root_note, octave, length_measures, bpm):
-    """스타일에 따른 랜덤 베이스 라인 생성"""
+# --- 스타일 기반 랜덤 생성 함수 (리프 기반 루프) ---
+# 실제 베이스 반주의 핵심은 "짧은 리프의 반복"이다:
+#   · 1~2마디 리프를 만들어 전체에 반복 (루프 맛)
+#   · 마디 첫 박은 항상 루트 (앵커)
+#   · 강박은 코드톤, 약박은 이전 음 주변 순차진행 (도약 없는 워킹)
+#   · 음역은 루트 아래 5반음 ~ 위 12반음으로 제한 (높은 음 방지)
+#   · 4마디마다/마지막 마디에 루트로 향하는 반음 접근 턴어라운드 필
+BASS_STYLES = {
+    "rock":   {"scale": ["C", "D", "E", "F", "G", "A", "B"],       "intervals": [0, 7, 5, 3],          "rhythms": [1.0, 0.5]},
+    "funk":   {"scale": ["C", "D", "Eb", "F", "G", "A", "Bb"],     "intervals": [0, 7, 10, 5],         "rhythms": [0.25, 0.5, 1.0]},
+    "pop":    {"scale": ["C", "D", "E", "F", "G", "A", "B"],       "intervals": [0, 7, 3, 5],          "rhythms": [0.5, 1.0]},
+    "jazz":   {"scale": ["C", "D", "Eb", "F", "G", "A", "Bb"],     "intervals": [0, 3, 7, 9, 10],      "rhythms": [0.25, 0.5, 0.75, 1.0]},
+    "blues":  {"scale": ["C", "Eb", "F", "F#", "G", "Bb"],         "intervals": [0, 3, 5, 6, 7, 10],   "rhythms": [0.5, 1.0]},
+    "reggae": {"scale": ["C", "D", "E", "F", "G", "A", "B"],       "intervals": [0, 7, 5, 3],          "rhythms": [0.5, 1.0, 1.5]},
+    "hiphop": {"scale": ["C", "D", "Eb", "G", "Ab"],               "intervals": [0, 3, 5, 7, 8, 10],   "rhythms": [0.25, 0.5, 1.0, 2.0]},
+    "random": {"scale": ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+               "intervals": list(range(12)),                        "rhythms": [0.25, 0.5, 0.75, 1.0, 1.5, 2.0]},
+}
+
+
+def _measure_rhythm(rhythms):
+    """한 마디(4박)를 채우는 리듬 패턴. 첫 박은 0.5박 이상으로 안정감 있게."""
+    pattern = []
+    beats = 0.0
+    while beats < 3.999:
+        remaining = 4.0 - beats
+        choices = [r for r in rhythms if r <= remaining + 1e-9]
+        if not choices:
+            pattern.append(remaining)
+            break
+        weights = np.array([1.0 / c for c in choices], dtype=float)
+        if beats == 0.0:
+            weights = weights * np.array([3.0 if c >= 0.5 else 0.4 for c in choices])
+        weights = weights / weights.sum()
+        dur = float(np.random.choice(choices, p=weights))
+        pattern.append(dur)
+        beats += dur
+    return pattern
+
+
+def _build_style_riff(scale_pcs, intervals, rhythms, root_midi):
+    """1마디 리프 생성: 강박=코드톤(루트 중심), 약박=이전 음 주변 순차진행."""
+    lo, hi = root_midi - 5, root_midi + 12   # 베이스 음역 창
+    candidates = sorted({m for pc in scale_pcs for m in range(lo, hi + 1) if m % 12 == pc})
+    if not candidates:
+        candidates = [root_midi]
+
+    riff = []
+    beat = 0.0
+    cur = root_midi
+    for i, dur in enumerate(_measure_rhythm(rhythms)):
+        if i == 0:
+            midi = root_midi                              # 마디 첫 박 = 루트 (루프 앵커)
+        elif beat % 1.0 == 0 and dur >= 0.5:              # 강박: 코드톤
+            r = np.random.rand()
+            if r < 0.55:
+                midi = root_midi
+            elif r < 0.8:
+                midi = root_midi + 7 if root_midi + 7 <= hi else root_midi - 5
+            else:
+                midi = root_midi + int(np.random.choice(intervals))
+        else:                                             # 약박: 순차진행 워킹
+            idx = min(range(len(candidates)), key=lambda k: abs(candidates[k] - cur))
+            step = int(np.random.choice([-2, -1, -1, 1, 1, 2]))
+            midi = candidates[max(0, min(len(candidates) - 1, idx + step))]
+        midi = max(lo, min(hi, midi))
+        cur = midi
+        riff.append([midi, dur])
+        beat += dur
+    return riff
+
+
+def create_random_bass_loop_by_style(style, key_root_note, octave, length_measures, bpm, variation=True):
+    """리프 반복 구조의 베이스 루프 생성. variation=False면 순수 반복(테스트용)."""
     logger.info(f"생성 중: {style} 베이스 루프 (키: {key_root_note}{octave}, BPM: {bpm}, 마디: {length_measures})")
-    
-    styles = {
-        "rock": {
-            "scale": ["C", "D", "E", "F", "G", "A", "B"], 
-            "intervals": [0, 7, 5, 3], 
-            "rhythms": [1.0, 0.5], 
-        },
-        "funk": {
-            "scale": ["C", "D", "Eb", "F", "G", "A", "Bb"], 
-            "intervals": [0, 7, 10, 5], 
-            "rhythms": [0.25, 0.5, 1.0], 
-        },
-        "pop": {
-            "scale": ["C", "D", "E", "F", "G", "A", "B"], 
-            "intervals": [0, 7, 3, 5], 
-            "rhythms": [0.5, 1.0], 
-        },
-        "jazz": {
-            "scale": ["C", "D", "Eb", "F", "G", "A", "Bb"], 
-            "intervals": [0, 3, 7, 9, 10], 
-            "rhythms": [0.25, 0.5, 0.75, 1.0], 
-        },
-        "blues": {
-            "scale": ["C", "Eb", "F", "F#", "G", "Bb"], 
-            "intervals": [0, 3, 5, 6, 7, 10], 
-            "rhythms": [0.5, 1.0], 
-        },
-        "reggae": {
-            "scale": ["C", "D", "E", "F", "G", "A", "B"], 
-            "intervals": [0, 7, 5, 3], 
-            "rhythms": [0.5, 1.0, 1.5], 
-        },
-        "hiphop": {
-            "scale": ["C", "D", "Eb", "G", "Ab"], 
-            "intervals": [0, 3, 5, 7, 8, 10], 
-            "rhythms": [0.25, 0.5, 1.0, 2.0], 
-        },
-        "random": { 
-            "scale": ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
-            "intervals": list(range(12)),
-            "rhythms": [0.25, 0.5, 0.75, 1.0, 1.5, 2.0],
-        }
-    }
-    
-    selected_style = styles.get(style, styles["random"]) 
-    base_scale_notes_raw = selected_style["scale"] 
-    base_rhythms = selected_style["rhythms"]
-    
-    chromatic_notes_std = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-    
-    try:
-        root_idx_chromatic = chromatic_notes_std.index(key_root_note.upper())
-    except ValueError:
+
+    selected = BASS_STYLES.get(style, BASS_STYLES["random"])
+    root_pc = NOTE_TO_PC.get(key_root_note.upper())
+    if root_pc is None:
         raise ValueError(f"유효하지 않은 루트 음: {key_root_note}")
 
-    # 키(루트)에 맞춰 스케일을 전위 — C 기준으로 적힌 스케일 음을 루트만큼 올려
-    # 강박 코드음/약박 스케일음 모두 "선택한 키" 안에 들어오게 한다.
-    pc_lookup = {'C': 0, 'C#': 1, 'DB': 1, 'D': 2, 'D#': 3, 'EB': 3, 'E': 4,
-                 'F': 5, 'F#': 6, 'GB': 6, 'G': 7, 'G#': 8, 'AB': 8, 'A': 9,
-                 'A#': 10, 'BB': 10, 'B': 11}
-    transposed_scale = []   # 약박 선택용 (음이름, 임시표) 목록
-    pc_to_name = {}         # 강박 코드음 표기용: 반음 인덱스 -> (음이름, 임시표)
-    for scale_note_raw in base_scale_notes_raw:
-        src_pc = pc_lookup.get(scale_note_raw.upper())
-        if src_pc is None:
-            continue
-        pc = (src_pc + root_idx_chromatic) % 12
-        if root_idx_chromatic == 0:
-            # C 키: 원래 스케일 표기(샵/플랫) 그대로 보존
-            base = scale_note_raw[0]
-            acc = scale_note_raw[1:] if len(scale_note_raw) > 1 else ''
-        else:
-            name = chromatic_notes_std[pc]
-            base, acc = name[0], (name[1:] if len(name) > 1 else '')
-        transposed_scale.append((base, acc))
-        pc_to_name[pc] = (base, acc)
+    scale_pcs = sorted({(NOTE_TO_PC[n.upper()] + root_pc) % 12
+                        for n in selected["scale"] if n.upper() in NOTE_TO_PC})
+    root_midi = octave * 12 + root_pc
+    lo, hi = root_midi - 5, root_midi + 12
 
-    notes_sequence_output = []
-    total_beats_per_loop = length_measures * 4 
-    current_beats = 0
+    # 리프 1~2마디 생성 후 전체 길이에 반복
+    riff_measures = 2 if length_measures >= 4 else 1
+    riffs = [_build_style_riff(scale_pcs, selected["intervals"], selected["rhythms"], root_midi)
+             for _ in range(riff_measures)]
 
-    while current_beats < total_beats_per_loop - 0.001: 
-        remaining_beats = total_beats_per_loop - current_beats
-        
-        available_rhythms = [r for r in base_rhythms if r <= remaining_beats]
-        if not available_rhythms:
-            break
-            
-        rhythm_weights = [1.0/r for r in available_rhythms]
-        if sum(rhythm_weights) == 0: # 모든 가중치가 0인 경우 방지
-            rhythm_weights = [1.0] * len(available_rhythms)
-        rhythm_weights = [w / sum(rhythm_weights) for w in rhythm_weights] # 정규화
-        
-        duration_unit = np.random.choice(available_rhythms, p=rhythm_weights) 
-        
-        selected_base_note_name = '' 
-        selected_octave = 0
-        accidental = '' 
-        
-        is_strong_beat = (current_beats % 1.0 == 0) and (duration_unit >= 0.5) 
+    output = []   # [midi, dur] 목록
+    for m in range(length_measures):
+        riff = [list(n) for n in riffs[m % riff_measures]]
+        is_phrase_end = (m % 4 == 3) or (m == length_measures - 1)
 
-        if is_strong_beat and np.random.rand() < 0.6: 
-            chosen_interval_semitones = np.random.choice(selected_style["intervals"]) 
-            
-            midi_root_for_transpose = 12 * (octave + 1) + chromatic_notes_std.index(key_root_note.upper())
-            target_midi_number = midi_root_for_transpose + chosen_interval_semitones
-            
-            target_octave_raw = target_midi_number // 12 - 1 
-            target_note_idx_chromatic = target_midi_number % 12
-            
-            selected_octave = min(octave + 1, max(octave, target_octave_raw))
-            if selected_octave < 0: selected_octave = 0 
-
-            # 전위된(=선택한 키의) 스케일에 들면 그 음을 코드음으로, 아니면 루트로 폴백.
-            # 반음 인덱스로 비교하므로 Bb/A# 같은 이명동음 표기 불일치 문제도 없음.
-            if target_note_idx_chromatic in pc_to_name:
-                selected_base_note_name, accidental = pc_to_name[target_note_idx_chromatic]
+        if variation and is_phrase_end:
+            # 턴어라운드 필: 마지막 1박을 루트로 향하는 반음 상행 접근(root-2 → root-1)으로
+            last_midi, last_dur = riff[-1]
+            if last_dur >= 1.0:
+                riff[-1][1] = last_dur - 1.0
+                if riff[-1][1] <= 1e-9:
+                    riff.pop()
+                riff.append([root_midi - 2, 0.5])
+                riff.append([root_midi - 1, 0.5])
             else:
-                selected_base_note_name = key_root_note
-                selected_octave = octave
-                accidental = ''
+                riff[-1][0] = root_midi - 1
+        elif variation and m >= riff_measures and len(riff) >= 3 and np.random.rand() < 0.2:
+            # 반복 마디에 약박 음 하나만 살짝 변주 (루프 느낌은 유지)
+            j = int(np.random.randint(1, len(riff)))
+            riff[j][0] = max(lo, min(hi, riff[j][0] + int(np.random.choice([-2, 2]))))
 
-        # 위 조건에 해당하지 않는 경우 (약박 또는 랜덤 선택)
-        if not selected_base_note_name: 
-            full_scale_parsed = []
-            for current_chromatic_octave in range(max(0, octave), min(5, octave + 2)):
-                for base_name, acc in transposed_scale:
-                    full_scale_parsed.append((base_name, current_chromatic_octave, acc))
+        output.extend(riff)
 
-            if style != "random" and full_scale_parsed:
-                chosen_note_info = full_scale_parsed[np.random.randint(len(full_scale_parsed))]
-                selected_base_note_name = chosen_note_info[0]
-                selected_octave = chosen_note_info[1]
-                accidental = chosen_note_info[2]
-            elif chromatic_notes_std: 
-                rand_note_raw = np.random.choice(chromatic_notes_std)
-                rand_octave_offset = np.random.randint(2) 
-                selected_base_note_name = rand_note_raw[0]
-                selected_octave = max(0, octave + rand_octave_offset)
-                accidental = rand_note_raw[1] if len(rand_note_raw) > 1 else ''
-            else: 
-                selected_base_note_name = 'C'
-                selected_octave = max(1, octave)
-                accidental = ''
-
-        notes_sequence_output.append((selected_base_note_name, selected_octave, duration_unit, False, accidental))
-        current_beats += duration_unit
-        
-    if not notes_sequence_output:
-        logger.warning("랜덤 생성기가 음표를 생성하지 못했습니다. 기본 시퀀스를 사용합니다.")
-        notes_sequence_output = [('C', max(1, octave), 1.0, False, ''), ('G', max(1, octave), 1.0, False, '')]
-        
-    formatted_sequence = ", ".join([f"{n[0]}{n[4]}{n[1]} {float(n[2])}" for n in notes_sequence_output])
+    parts = []
+    for midi, dur in output:
+        pc = midi % 12
+        oct_ = max(0, midi // 12)
+        name, acc = PC_TO_NAME[pc]
+        parts.append(f"{name}{acc}{oct_} {float(dur)}")
+    formatted_sequence = ", ".join(parts)
     logger.info(f"생성된 시퀀스: {formatted_sequence}")
     return formatted_sequence
 
@@ -1019,12 +983,14 @@ def generate_bassline_from_chords(progression_str, genre, octave, seed=None,
 
     chords = parse_chord_progression(progression_str)
     templates = GROOVE_TEMPLATES.get(genre, GROOVE_TEMPLATES['rock'])
+    # 그루브 템플릿은 한 번만 뽑아 전 마디에 반복 → 마디마다 리듬이 바뀌지 않고
+    # "같은 그루브가 코드를 따라가는" 진짜 베이스 반주 느낌을 만든다.
+    template = templates[int(np.random.randint(len(templates)))]
 
     notes_out = []
     for _ in range(max(1, int(loops))):
         for idx, (root_pc, intervals, bass_pc, _name) in enumerate(chords):
             next_bass_pc = chords[(idx + 1) % len(chords)][2]
-            template = templates[np.random.randint(len(templates))]
             for j, (dur, role) in enumerate(template):
                 if role == 'rest':
                     notes_out.append(('R', 4, float(dur), True, ''))

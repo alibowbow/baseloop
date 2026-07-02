@@ -1367,9 +1367,10 @@
         // 리얼 베이스 톤 체인: EQ(저역 +, 초고역 -) → 컴프레서(어택 펀치) → 약한 새추레이션(앰프 질감).
         // 실제 베이스 앰프 신호 경로를 흉내 내 샘플의 존재감·일관성을 높인다.
         function makeBassBus(dest) {
-            const eq = new Tone.EQ3({ low: 3, mid: 0.5, high: -3, lowFrequency: 180, highFrequency: 2200 });
-            const comp = new Tone.Compressor({ threshold: -20, ratio: 3.5, attack: 0.008, release: 0.14, knee: 12 });
-            const sat = new Tone.Distortion({ distortion: 0.05, oversample: '2x', wet: 0.3 });
+            // 저역을 두껍게(+5dB@160Hz), 가벼운 고역은 확실히 깎아(-5dB@1.8kHz) 묵직한 앰프 톤
+            const eq = new Tone.EQ3({ low: 5, mid: 0.5, high: -5, lowFrequency: 160, highFrequency: 1800 });
+            const comp = new Tone.Compressor({ threshold: -22, ratio: 4, attack: 0.006, release: 0.16, knee: 10 });
+            const sat = new Tone.Distortion({ distortion: 0.06, oversample: '2x', wet: 0.35 });
             eq.chain(comp, sat, dest);
             return { input: eq, nodes: [eq, comp, sat] };
         }
