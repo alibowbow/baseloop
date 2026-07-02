@@ -576,10 +576,36 @@
         /* 히어로: 베이스 기타 일러스트 — 아주 느린 플로팅만 (은은하게) */
         .bl-hero__frame { position: relative; }
         .bl-bass {
-            height: 88%; max-height: 300px; width: auto;
+            position: relative; z-index: 1;
+            height: 94%; max-height: 330px; width: auto; margin-left: 22%;
             filter: drop-shadow(0 14px 26px color-mix(in srgb, var(--primary) 30%, transparent));
             animation: bassFloat 8s ease-in-out infinite;
             transform: rotate(9deg);
+        }
+        /* 배경 오선: 위·아래로 흐릿하게 사라지는 스태프 라인 + 우측 소프트 글로우 */
+        .bl-frame-lines {
+            position: absolute; inset: 0; pointer-events: none;
+            background:
+                radial-gradient(circle at 76% 26%, color-mix(in srgb, var(--secondary) 12%, transparent), transparent 42%),
+                repeating-linear-gradient(180deg,
+                    transparent 0 30px,
+                    color-mix(in srgb, var(--text-muted) 22%, transparent) 30px 31px);
+            -webkit-mask-image: radial-gradient(115% 85% at 50% 50%, #000 35%, transparent 76%);
+            mask-image: radial-gradient(115% 85% at 50% 50%, #000 35%, transparent 76%);
+        }
+        /* 떠다니는 음표: 낮은 투명도 + 아주 느린 드리프트 */
+        .bl-note {
+            position: absolute; z-index: 1; pointer-events: none; line-height: 1;
+            color: var(--primary); opacity: 0.32; font-size: 1.7rem;
+            animation: noteDrift 10s ease-in-out infinite;
+            text-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 30%, transparent);
+        }
+        .bl-note--1 { left: 15%; top: 22%; font-size: 2.1rem; }
+        .bl-note--2 { left: 27%; bottom: 20%; color: var(--secondary); animation-delay: 3.4s; }
+        .bl-note--3 { left: 10%; top: 54%; font-size: 1.25rem; animation-delay: 6.8s; }
+        @keyframes noteDrift {
+            0%, 100% { transform: translateY(0) rotate(-5deg); }
+            50%      { transform: translateY(-12px) rotate(5deg); }
         }
         @keyframes bassFloat {
             0%, 100% { transform: rotate(9deg) translateY(3px); }
@@ -591,7 +617,7 @@
             50%      { opacity: 0.62; }
         }
         @media (prefers-reduced-motion: reduce) {
-            .bl-bass, .bl-hero__glow, .bl-play.playing::after { animation: none; }
+            .bl-bass, .bl-hero__glow, .bl-note, .bl-play.playing::after { animation: none; }
         }
 
         /* 내보내기 버튼: 아이콘 정돈 + 호버 색 */
@@ -645,6 +671,11 @@
             <div class="bl-hero__art">
                 <div class="bl-hero__glow"></div>
                 <div class="bl-hero__frame">
+                    <!-- 배경: 은은한 오선 + 떠다니는 음표 -->
+                    <div class="bl-frame-lines" aria-hidden="true"></div>
+                    <span class="bl-note bl-note--1" aria-hidden="true">♪</span>
+                    <span class="bl-note bl-note--2" aria-hidden="true">♫</span>
+                    <span class="bl-note bl-note--3" aria-hidden="true">♩</span>
                     <!-- 베이스 기타 일러스트 (테마 색상 연동 SVG, 은은한 플로팅) -->
                     <svg class="bl-bass" viewBox="0 0 200 430" aria-hidden="true">
                         <defs>
