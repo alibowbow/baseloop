@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎵 베이스 루프 자동 생성기 🎸</title>
+    <title>🎸 베이스캠프 — 베이스 그루브 &amp; 음악 이론</title>
 
     <!-- 테마 선깜빡임(FOUC) 방지: 페인트 전에 테마 적용 -->
     <script>
@@ -963,7 +963,7 @@
         <div class="bl-topbar">
             <div class="bl-logo">
                 <span class="bl-logo__tile">🎸</span>
-                <span>BASE&nbsp;LOOP</span>
+                <span>BASECAMP</span>
             </div>
             <button type="button" id="themeToggle" class="theme-toggle" onclick="toggleTheme()" aria-pressed="false" title="라이트/다크 테마 전환">
                 <span class="theme-icon">☀️</span>
@@ -974,9 +974,9 @@
         <!-- 히어로 -->
         <header class="bl-hero">
             <div class="bl-hero__copy">
-                <span class="bl-eyebrow">🎸 BASS LOOP GENERATOR</span>
-                <h1>베이스 루프<br>자동 생성기</h1>
-                <p class="bl-hero__sub">장르 스타일로 베이스 라인을 만들고, 악보·MIDI·LilyPond로 손쉽게 내보내세요.</p>
+                <span class="bl-eyebrow">🎸 GROOVE STUDIO &amp; MUSIC THEORY</span>
+                <h1>베이스캠프</h1>
+                <p class="bl-hero__sub">그루브를 만들고, 귀로 듣고, 음악 이론까지 — 네 줄로 떠나는 음악 여행의 베이스캠프.</p>
                 <div class="bl-badges">
                     <span class="feature-badge {% if music21_available %}feature-available{% else %}feature-unavailable{% endif %}">🎼 Music21 전문 악보</span>
                     <span class="feature-badge {% if midi_available %}feature-available{% else %}feature-unavailable{% endif %}">🎹 MIDI 파일</span>
@@ -1127,18 +1127,23 @@
                 <button type="button" id="tabLearnBtn" class="bl-tab" role="tab" onclick="switchTab('learn')">🎓 학습</button>
             </div>
 
-            <!-- 저장 · 공유 -->
-            <section class="card tp-studio">
-                <div class="bl-stage__head" style="margin-bottom:14px;">
-                    <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>저장 · 공유</h2>
-                    <div class="bl-stage__chips">
+            <!-- 저장 · 공유 (접이식) -->
+            <details class="bl-settings tp-studio" id="saveShareBox">
+                <summary class="bl-settings__head">
+                    <span class="bl-settings__icon">💾</span>
+                    <span class="bl-settings__label">저장 · 공유</span>
+                    <span class="bl-settings__summary"><span class="bl-chip">공유 링크 · 히스토리</span></span>
+                    <span class="bl-chev" aria-hidden="true">▾</span>
+                </summary>
+                <div class="bl-settings__body">
+                    <div class="bl-stage__chips" style="justify-content:flex-start; margin-bottom:12px;">
                         <button type="button" class="bl-toggle" onclick="shareCurrentState()">🔗 링크 복사</button>
                         <button type="button" class="bl-toggle" onclick="saveToHistory()">⭐ 저장</button>
                         <button type="button" class="bl-toggle" onclick="clearHistory()" title="히스토리 전체 삭제">🗑 비우기</button>
                     </div>
+                    <div id="historyList" class="bl-history-list"></div>
                 </div>
-                <div id="historyList" class="bl-history-list"></div>
-            </section>
+            </details>
 
             <!-- 🎓 음악 이론 학습 센터: 연주로 배우는 화성학 -->
             <section class="card tp-learn" id="learn-center">
@@ -1151,8 +1156,8 @@
                 <div id="lineAnalysis" class="learn-analysis"></div>
 
                 <!-- 📖 이론 교과서: 6개 챕터 체계 학습 -->
-                <h3 class="learn-subtitle">📖 이론 교과서 — 음악이론 완전 정복 <span id="bookProgress" class="bl-chip" style="margin-left:6px;"></span></h3>
-                <p class="hint" style="margin:0 0 10px;">12개 장으로 배우는 음악이론. 모든 개념을 <b>앱이 직접 연주</b>해서 들려주고, 장마다 확인 문제로 마무리합니다. 1장부터 순서대로 읽어보세요.</p>
+                <h3 class="learn-subtitle">🎧 소리로 배우는 음악 이야기 <span id="bookProgress" class="bl-chip" style="margin-left:6px;"></span></h3>
+                <p class="hint" style="margin:0 0 10px;">읽고 바로 귀로 듣는 음악 이론 12장. 모든 개념을 <b>앱이 직접 연주</b>해서 들려주고, 장 끝엔 가벼운 확인 문제가 기다립니다. 1장부터 천천히 떠나 보세요.</p>
                 <div id="theoryBook" class="book-list"></div>
 
                 <!-- 🎯 연습 커리큘럼: 체르니처럼 번호 붙은 단계별 연습 -->
