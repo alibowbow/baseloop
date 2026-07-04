@@ -265,6 +265,34 @@ class AudioBufferTests(unittest.TestCase):
             app.create_bass_loop_from_parsed_sequence(seq, 0, 1)
 
 
+class BassSampleBundleTests(unittest.TestCase):
+    """로컬 베이스 샘플 번들(static/bass_samples/) — 리얼 베이스 음원."""
+
+    ANCHORS = ["E1", "A1", "D2", "G2", "C3", "F3", "A3", "D4", "G4"]
+
+    def _dir(self):
+        return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "static", "bass_samples")
+
+    def test_all_anchor_samples_present_and_valid(self):
+        import wave
+        for name in self.ANCHORS:
+            path = os.path.join(self._dir(), name + ".wav")
+            self.assertTrue(os.path.exists(path), f"샘플 누락: {name}.wav")
+            with wave.open(path, "rb") as w:
+                self.assertEqual(w.getnchannels(), 1, f"{name}: 모노 아님")
+                self.assertEqual(w.getsampwidth(), 2, f"{name}: 16-bit 아님")
+                self.assertEqual(w.getframerate(), 22050, f"{name}: 샘플레이트 불일치")
+                self.assertGreater(w.getnframes(), 0, f"{name}: 빈 파일")
+
+    def test_samples_served_over_http(self):
+        app.app.config["TESTING"] = True
+        client = app.app.test_client()
+        resp = client.get("/static/bass_samples/E1.wav")
+        self.assertEqual(resp.status_code, 200)
+        self.assertGreater(len(resp.data), 1000)
+
+
 class MuseScorePathTests(unittest.TestCase):
     def test_env_var_takes_precedence(self):
         prev = os.environ.get("MUSESCORE_PATH")
