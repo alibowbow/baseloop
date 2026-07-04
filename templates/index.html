@@ -1591,9 +1591,10 @@
         // 로컬 번들 샘플(리포 static/bass_samples/) — 확장 Karplus-Strong 플럭 스트링 모델.
         // 외부 CDN 의존 제거: 오프라인 동작, 로딩 안정, 앱 자체 오리진에서 서빙.
         const BASS_SAMPLE_BASE = '/static/bass_samples/';
+        // E1~G4 앵커(~5반음 간격) → 전 음역에서 최근접 앵커로부터 ≤5반음만 시프트(치핑 방지).
         const BASS_SAMPLE_URLS = {
-            'E1': 'E1.wav', 'A1': 'A1.wav', 'D2': 'D2.wav',
-            'G2': 'G2.wav', 'C3': 'C3.wav', 'F3': 'F3.wav',
+            'E1': 'E1.wav', 'A1': 'A1.wav', 'D2': 'D2.wav', 'G2': 'G2.wav', 'C3': 'C3.wav',
+            'F3': 'F3.wav', 'A3': 'A3.wav', 'D4': 'D4.wav', 'G4': 'G4.wav',
         };
         let __bassSampler = null;        // 로드 완료된 공유 샘플러 (라이브용, 재사용)
         let __bassSamplerLoading = null; // 진행 중 로드 Promise

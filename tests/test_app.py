@@ -268,7 +268,7 @@ class AudioBufferTests(unittest.TestCase):
 class BassSampleBundleTests(unittest.TestCase):
     """로컬 베이스 샘플 번들(static/bass_samples/) — 리얼 베이스 음원."""
 
-    ANCHORS = ["E1", "A1", "D2", "G2", "C3", "F3"]
+    ANCHORS = ["E1", "A1", "D2", "G2", "C3", "F3", "A3", "D4", "G4"]
 
     def _dir(self):
         return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

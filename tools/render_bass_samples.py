@@ -20,6 +20,8 @@ OUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
                        "static", "bass_samples")
 
 # anchor pitch: 이름 → (MIDI, 파일명).  '#' 은 URL 프래그먼트 문자라 파일명은 's' 표기(CDN 관례).
+# E1~G4 를 ~5반음 간격으로 커버 → 앱이 내는 전 음역(옥타브 0~4, 최고 C5≈72)에서
+# Tone.Sampler가 가장 가까운 앵커로부터 ≤5반음만 피치시프트(치핑 없음).
 ANCHORS = [
     ("E1", 28, "E1.wav"),
     ("A1", 33, "A1.wav"),
@@ -27,6 +29,9 @@ ANCHORS = [
     ("G2", 43, "G2.wav"),
     ("C3", 48, "C3.wav"),
     ("F3", 53, "F3.wav"),
+    ("A3", 57, "A3.wav"),
+    ("D4", 62, "D4.wav"),
+    ("G4", 67, "G4.wav"),
 ]
 
 
