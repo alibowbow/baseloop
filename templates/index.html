@@ -1102,7 +1102,8 @@
                     <button type="button" id="playAudioBtn" class="bl-play" onclick="togglePlayback()" aria-label="재생/정지"><span id="playIcon">▶</span></button>
                     <div class="bl-transport__main">
                         <div class="bl-toggles">
-                            <button type="button" id="realBassToggle" class="bl-toggle on" onclick="toggleRealBass()" title="실제 베이스 샘플(GM 사운드폰트)로 재생. 끄면 신스 사운드">🎸 리얼 베이스</button>
+                            <button type="button" id="realBassToggle" class="bl-toggle on" onclick="toggleRealBass()" title="실제 베이스 샘플(로컬 번들)로 재생. 끄면 초기 음색(서버 합성 WAV)">🎸 리얼 베이스</button>
+                            <button type="button" id="bassToneBtn" class="bl-toggle on" onclick="cycleBassTone()" title="주법(톤) 전환: 핑거 → 피크 → 뮤트. 앰프 톤과 벨로시티 반응(세게 칠수록 밝고 거칠게)이 달라집니다">🖐️ 핑거</button>
                             <button type="button" id="metronomeToggle" class="bl-toggle" onclick="toggleMetronome()">🔔 메트로놈</button>
                             <button type="button" id="drumsToggle" class="bl-toggle" onclick="toggleDrums()">🥁 드럼 반주</button>
                             <span id="transportStatus" class="bl-chip">⚡ 즉시 재생 준비됨</span>
@@ -1317,6 +1318,11 @@
             applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
 
             document.getElementById('messageArea').style.display = 'none';
+
+            // 저장된 톤 프리셋 복원 후 버튼 라벨 동기화
+            const savedTone = localStorage.getItem('baseloop-tone');
+            if (savedTone && BASS_TONES[savedTone]) __bassTone = savedTone;
+            updateBassToneBtn();
 
             // 공유 링크(#state=...)가 있으면 폼 상태 복원
             const restored = restoreStateFromUrl();
@@ -1582,15 +1588,48 @@
         // tonejs-instruments(bass-electric) — Tone.Sampler 용으로 검증된 샘플 세트.
         // 일부 음만 로드하고 나머지는 Tone.Sampler가 피치시프트로 채운다.
         let __useRealBass = true;
-        const BASS_SAMPLE_BASE = 'https://nbrosowsky.github.io/tonejs-instruments/samples/bass-electric/';
+        // 로컬 번들 샘플(리포 static/bass_samples/) — 확장 Karplus-Strong 플럭 스트링 모델.
+        // 외부 CDN 의존 제거: 오프라인 동작, 로딩 안정, 앱 자체 오리진에서 서빙.
+        const BASS_SAMPLE_BASE = '/static/bass_samples/';
         const BASS_SAMPLE_URLS = {
-            'E1': 'E1.mp3', 'G1': 'G1.mp3', 'A#1': 'As1.mp3',
-            'C#2': 'Cs2.mp3', 'E2': 'E2.mp3', 'G2': 'G2.mp3', 'A#2': 'As2.mp3',
-            'C#3': 'Cs3.mp3', 'E3': 'E3.mp3', 'G3': 'G3.mp3', 'A#3': 'As3.mp3',
-            'E4': 'E4.mp3',
+            'E1': 'E1.wav', 'A1': 'A1.wav', 'D2': 'D2.wav',
+            'G2': 'G2.wav', 'C3': 'C3.wav', 'F3': 'F3.wav',
         };
         let __bassSampler = null;        // 로드 완료된 공유 샘플러 (라이브용, 재사용)
         let __bassSamplerLoading = null; // 진행 중 로드 Promise
+
+        // ── 톤 프리셋(핑거/피크/뮤트) ─────────────────────────────
+        // 각 프리셋은 앰프 톤 체인(EQ/컴프/새추)·벨로시티 필터 범위·음 길이·릴리스를 함께 정의한다.
+        //  · finger 핑거: 따뜻하고 둥근 기본 톤
+        //  · pick   피크: 미드 강조 + 밝은 어택 + 그릿(공격적)
+        //  · mute   뮤트: 팜뮤트 — 짧고 어둡고 뭉툭한 "덩" 사운드
+        const BASS_TONES = {
+            finger: { label: '🖐️ 핑거', icon: '🖐️',
+                      eq: { low: 5, mid: 0.5, high: -5, lowF: 160, highF: 1800 },
+                      comp: { th: -22, ratio: 4, at: 0.006, rel: 0.16 },
+                      sat: { dist: 0.06, wet: 0.35 },
+                      fcMin: 650, fcMax: 4200, durScale: 1.0, release: 0.4 },
+            pick:   { label: '🎸 피크', icon: '🎸',
+                      eq: { low: 3, mid: 2.5, high: 1, lowF: 150, highF: 2600 },
+                      comp: { th: -24, ratio: 5, at: 0.003, rel: 0.12 },
+                      sat: { dist: 0.14, wet: 0.5 },
+                      fcMin: 950, fcMax: 6200, durScale: 0.9, release: 0.3 },
+            mute:   { label: '🤚 뮤트', icon: '🤚',
+                      eq: { low: 6, mid: -1, high: -9, lowF: 150, highF: 1300 },
+                      comp: { th: -20, ratio: 4, at: 0.004, rel: 0.1 },
+                      sat: { dist: 0.05, wet: 0.3 },
+                      fcMin: 420, fcMax: 1500, durScale: 0.42, release: 0.13 },
+        };
+        const BASS_TONE_ORDER = ['finger', 'pick', 'mute'];
+        let __bassTone = 'finger';
+        function currentTone() { return BASS_TONES[__bassTone] || BASS_TONES.finger; }
+        // 벨로시티(0.5~1.0) → 로우패스 컷오프(Hz). 강하게 칠수록 밝고 거칠게(그로울).
+        function velToCutoff(vel, tone) {
+            const t = tone || currentTone();
+            const v = Math.max(0.5, Math.min(1, vel));
+            const x = (v - 0.5) / 0.5;                       // 0..1
+            return t.fcMin * Math.pow(t.fcMax / t.fcMin, x); // 지수 매핑
+        }
 
         // 공유 베이스 샘플러를 로드(또는 캐시 반환). 실패/타임아웃 시 null → 신스 폴백.
         function getBassSampler(timeoutMs) {
@@ -1747,15 +1786,18 @@
             else kit.hat.triggerAttackRelease('32n', time);
         }
 
-        // 리얼 베이스 톤 체인: EQ(저역 +, 초고역 -) → 컴프레서(어택 펀치) → 약한 새추레이션(앰프 질감).
-        // 실제 베이스 앰프 신호 경로를 흉내 내 샘플의 존재감·일관성을 높인다.
-        function makeBassBus(dest) {
-            // 저역을 두껍게(+5dB@160Hz), 가벼운 고역은 확실히 깎아(-5dB@1.8kHz) 묵직한 앰프 톤
-            const eq = new Tone.EQ3({ low: 5, mid: 0.5, high: -5, lowFrequency: 160, highFrequency: 1800 });
-            const comp = new Tone.Compressor({ threshold: -22, ratio: 4, attack: 0.006, release: 0.16, knee: 10 });
-            const sat = new Tone.Distortion({ distortion: 0.06, oversample: '2x', wet: 0.35 });
-            eq.chain(comp, sat, dest);
-            return { input: eq, nodes: [eq, comp, sat] };
+        // 리얼 베이스 톤 체인: [벨로시티 필터] → EQ → 컴프레서 → 새추레이션.
+        // 실제 베이스 앰프 신호 경로를 흉내 내 존재감·일관성을 높이고,
+        // 맨 앞의 로우패스(vfilt)는 음마다 벨로시티에 따라 컷오프가 움직여
+        // "세게 치면 밝고 거칠게(그로울)" 반응한다(A). 파라미터는 톤 프리셋(C)이 결정.
+        function makeBassBus(dest, tone) {
+            const t = tone || currentTone();
+            const vfilt = new Tone.Filter({ type: 'lowpass', frequency: t.fcMax, rolloff: -24, Q: 0.9 });
+            const eq = new Tone.EQ3({ low: t.eq.low, mid: t.eq.mid, high: t.eq.high, lowFrequency: t.eq.lowF, highFrequency: t.eq.highF });
+            const comp = new Tone.Compressor({ threshold: t.comp.th, ratio: t.comp.ratio, attack: t.comp.at, release: t.comp.rel, knee: 10 });
+            const sat = new Tone.Distortion({ distortion: t.sat.dist, oversample: '2x', wet: t.sat.wet });
+            vfilt.chain(eq, comp, sat, dest);
+            return { input: vfilt, vfilt: vfilt, nodes: [vfilt, eq, comp, sat] };
         }
 
         async function startEngine() {
@@ -1779,21 +1821,23 @@
             const master = new Tone.Gain(0.5).connect(limiter);
 
             // 베이스 음원 선택:
-            //  · 리얼 베이스 ON & 샘플 로드 → Tone.Sampler(음 단위)
-            //  · 그 외(OFF/샘플 실패) → 초기 서버 WAV(Tone.Player) = 업그레이드 직전 음색
-            //  · 서버 WAV도 실패하면 최후로 Tone 합성음
+            //  · 리얼 베이스 ON & 샘플 로드 → Tone.Sampler(음 단위) → 톤 버스(벨로시티 필터+앰프)
+            //  · 그 외(OFF/샘플 실패) → 초기 서버 WAV(Tone.Player, 순수 재생) = 업그레이드 직전 음색
+            //  · 서버 WAV도 실패하면 최후로 Tone 합성음 → 톤 버스
+            const tone = currentTone();
             let synth = null, bassShared = false, bassPlayer = null, bassBus = null;
             if (__useRealBass) {
                 setTransportStatus('🎸 리얼 베이스 샘플 로딩…');
                 const smp = await getBassSampler();
                 if (smp) {
                     try { smp.disconnect(); } catch (e) {}
-                    bassBus = makeBassBus(master);          // 앰프 톤 체인 경유
+                    try { smp.release = tone.release; } catch (e) {}
+                    bassBus = makeBassBus(master, tone);    // 벨로시티 필터 + 앰프 톤 체인 경유
                     smp.connect(bassBus.input);
                     synth = smp; bassShared = true;
                 }
             }
-            if (!synth) {
+            if (!synth && !__useRealBass) {
                 setTransportStatus('🎚️ 초기 베이스 음색 준비…');
                 const buf = await getOriginalBassBuffer(data);
                 if (buf) {
@@ -1803,12 +1847,19 @@
                     bassPlayer.sync().start(0);
                 }
             }
-            if (!synth && !bassPlayer) synth = makeBassSynth(master);  // 최후 폴백
+            if (!synth && !bassPlayer) {                    // 최후 폴백(합성)도 톤 버스 경유
+                bassBus = makeBassBus(master, tone);
+                synth = makeBassSynth(bassBus.input);
+            }
             const nodes = { synth, bassShared, bassPlayer, bassBus, master, limiter, parts: [], drums: null, metro: null };
 
-            if (synth) {  // 샘플러/합성: 음 단위 스케줄 (벨로시티 휴머나이즈 반영)
+            if (synth) {  // 샘플러/합성: 음 단위 스케줄 (벨로시티 휴머나이즈 + 그로울 필터 + 톤 durScale)
+                const vf = bassBus && bassBus.vfilt;
+                const durScale = tone.durScale;
                 const bassPart = new Tone.Part((time, ev) => {
-                    synth.triggerAttackRelease(ev.note, ev.dur, time, ev.vel || 0.9);
+                    const vel = ev.vel || 0.9;
+                    if (vf) vf.frequency.setValueAtTime(velToCutoff(vel, tone), time);  // 그로울: 벨로시티→컷오프
+                    synth.triggerAttackRelease(ev.note, ev.dur * durScale, time, vel);
                 }, data.bassEvents);
                 bassPart.loop = true; bassPart.loopEnd = __loopSeconds; bassPart.start(0);
                 nodes.parts.push(bassPart);
@@ -1921,6 +1972,17 @@
             document.getElementById('realBassToggle').classList.toggle('on', __useRealBass);
             restartIfPlaying();
         }
+        function updateBassToneBtn() {
+            const btn = document.getElementById('bassToneBtn');
+            if (btn) btn.textContent = currentTone().label;
+        }
+        function cycleBassTone() {
+            const i = BASS_TONE_ORDER.indexOf(__bassTone);
+            __bassTone = BASS_TONE_ORDER[(i + 1) % BASS_TONE_ORDER.length];
+            updateBassToneBtn();
+            try { localStorage.setItem('baseloop-tone', __bassTone); } catch (e) {}
+            restartIfPlaying();
+        }
         function applySwingLive() {
             if (__isPlaying) restartIfPlaying();
         }
@@ -1938,35 +2000,40 @@
             const metroEv = useMetro ? buildMetroEvents(data) : [];
 
             const useRealBass = __useRealBass;
+            const tone = currentTone();   // 톤 프리셋(라이브와 동일)
             // 리얼 베이스 OFF면 초기 음색(서버 WAV) 버퍼를 미리 확보 (오프라인 컨텍스트 밖에서 디코드)
             const origBuf = useRealBass ? null : await getOriginalBassBuffer(data);
 
             const buffer = await Tone.Offline(async () => {
                 const limiter = new Tone.Limiter(-1).toDestination();
                 const master = new Tone.Gain(0.5).connect(limiter);
-                let synth = null, player = null;
+                let synth = null, player = null, vf = null;
                 if (useRealBass) {
                     synth = await new Promise((resolve) => {
                         let s;
                         try {
-                            s = new Tone.Sampler({ urls: BASS_SAMPLE_URLS, baseUrl: BASS_SAMPLE_BASE, release: 0.4,
+                            s = new Tone.Sampler({ urls: BASS_SAMPLE_URLS, baseUrl: BASS_SAMPLE_BASE, release: tone.release,
                                 onload: () => resolve(s), onerror: () => resolve(null) });
                         } catch (e) { resolve(null); return; }
                         setTimeout(() => resolve(s && s.loaded ? s : null), 9000);
                     });
-                    if (synth) synth.connect(makeBassBus(master).input);   // 라이브와 동일한 앰프 톤 체인
+                    if (synth) { const bus = makeBassBus(master, tone); synth.connect(bus.input); vf = bus.vfilt; }  // 라이브와 동일 체인
                 }
                 if (!synth && origBuf) {
                     player = new Tone.Player(origBuf).connect(master);
                     player.volume.value = 4;
                     player.loop = true; player.loopEnd = origBuf.duration; player.start(0);
                 }
-                if (!synth && !player) synth = makeBassSynth(master);  // 최후 폴백
+                if (!synth && !player) { const bus = makeBassBus(master, tone); synth = makeBassSynth(bus.input); vf = bus.vfilt; }  // 최후 폴백
                 const kit = useDrums ? makeDrumKit(master) : null;
                 const metro = useMetro ? makeMetronome(master) : null;
                 for (let L = 0; L < loops; L++) {
                     const off = L * oneLoop;
-                    if (synth) data.bassEvents.forEach(e => synth.triggerAttackRelease(e.note, e.dur, off + e.time, e.vel || 0.9));
+                    if (synth) data.bassEvents.forEach(e => {
+                        const vel = e.vel || 0.9;
+                        if (vf) vf.frequency.setValueAtTime(velToCutoff(vel, tone), off + e.time);
+                        synth.triggerAttackRelease(e.note, e.dur * tone.durScale, off + e.time, vel);
+                    });
                     if (kit) drumEv.forEach(e => triggerDrum(kit, e.type, off + e.time));
                     if (metro) metroEv.forEach(e => metro.triggerAttackRelease(e.accent ? 'C6' : 'C5', '32n', off + e.time));
                 }
