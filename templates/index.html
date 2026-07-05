@@ -2517,14 +2517,61 @@
             }
             return __quizSynth;
         }
-        async function playIntervalDemo(semis) {
+
+        // ── 즉시 재생용 리얼 베이스(악보 없이 소리만 나는 데모/퀴즈용) ──
+        // 메인 트랜스포트와 충돌하지 않도록 전용 샘플러 인스턴스를 쓴다(샘플은 브라우저 캐시 재사용).
+        // 톤은 또렷하게 들리도록 항상 '핑거'로 고정(뮤트 프리셋이면 안 들리는 문제 회피).
+        let __demoBass = null, __demoBassLoading = null;
+        function getDemoBass() {
+            if (__demoBass) return Promise.resolve(__demoBass);
+            if (__demoBassLoading) return __demoBassLoading;
+            __demoBassLoading = new Promise((resolve) => {
+                let done = false;
+                const finish = (v) => { if (!done) { done = true; resolve(v); } };
+                let smp;
+                try {
+                    smp = new Tone.Sampler({
+                        urls: BASS_SAMPLE_URLS, baseUrl: BASS_SAMPLE_BASE, release: 0.4,
+                        onload: () => {
+                            const lim = new Tone.Limiter(-1).toDestination();
+                            const out = new Tone.Gain(1.15).connect(lim);      // 데모는 확실히 들리게(리미터가 클리핑 방지)
+                            const bus = makeBassBus(out, BASS_TONES.finger);   // 또렷한 핑거 톤 고정
+                            smp.connect(bus.input);
+                            __demoBass = { sampler: smp, vfilt: bus.vfilt };
+                            finish(__demoBass);
+                        },
+                        onerror: () => finish(null),
+                    });
+                } catch (e) { finish(null); return; }
+                setTimeout(() => { if (!__demoBass) finish(null); }, 9000);
+            }).then(v => { __demoBassLoading = null; return v; });
+            return __demoBassLoading;
+        }
+        // events: [{note, dur, at(초 오프셋), vel}] — 리얼 베이스로 즉시 재생(실패 시 합성음 폴백)
+        async function playDemoNotes(events) {
             if (typeof Tone === 'undefined') return;
             await Tone.start();
-            const synth = ensureQuizSynth();
-            const target = Tone.Frequency('C2').transpose(semis).toNote();
+            const db = await getDemoBass();
             const now = Tone.now();
-            synth.triggerAttackRelease('C2', 0.55, now, 0.9);
-            synth.triggerAttackRelease(target, 0.75, now + 0.7, 0.9);
+            if (db) {
+                events.forEach(e => {
+                    const vel = e.vel ?? 0.95;
+                    db.vfilt.frequency.setValueAtTime(velToCutoff(vel, BASS_TONES.finger), now + e.at);
+                    db.sampler.triggerAttackRelease(e.note, e.dur, now + e.at, vel);
+                });
+            } else {
+                const synth = ensureQuizSynth();
+                events.forEach(e => synth.triggerAttackRelease(e.note, e.dur, now + e.at, e.vel ?? 0.9));
+            }
+        }
+
+        async function playIntervalDemo(semis) {
+            if (typeof Tone === 'undefined') return;
+            const target = Tone.Frequency('C2').transpose(semis).toNote();
+            await playDemoNotes([
+                { note: 'C2', dur: 0.6, at: 0, vel: 0.95 },
+                { note: target, dur: 0.85, at: 0.7, vel: 0.95 },
+            ]);
             showMessage('🎧 C2 → ' + target + ' (' + semis + '반음)', 'info');
         }
         async function demoProgressionRun(d) {
@@ -2822,12 +2869,11 @@
         }
         async function playQuizSound() {
             if (typeof Tone === 'undefined' || !__quiz) return;
-            await Tone.start();
-            const synth = ensureQuizSynth();
             const target = Tone.Frequency(__quiz.root).transpose(__quiz.answer.s).toNote();
-            const now = Tone.now();
-            synth.triggerAttackRelease(__quiz.root, 0.55, now, 0.9);
-            synth.triggerAttackRelease(target, 0.7, now + 0.75, 0.9);
+            await playDemoNotes([
+                { note: __quiz.root, dur: 0.6, at: 0, vel: 0.95 },
+                { note: target, dur: 0.8, at: 0.75, vel: 0.95 },
+            ]);
         }
         function answerQuiz(semis) {
             if (!__quiz || __quiz.answered != null) return;
