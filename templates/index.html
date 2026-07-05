@@ -698,9 +698,17 @@
         [data-theme="dark"] #bassGeneratorForm[data-tab="learn"] .bl-stage {
             box-shadow: 0 8px 22px rgba(0, 0, 0, 0.6);
         }
-        #bassGeneratorForm[data-tab="learn"] .bl-stage__head,
-        #bassGeneratorForm[data-tab="learn"] #roleLegend,
-        #bassGeneratorForm[data-tab="learn"] #romanRow { display: none !important; }
+        /* 학습 탭 헤더: 제목·정적 칩은 숨기고 '분석 보기' 토글만 컴팩트하게 남긴다.
+           분석(음표 역할 색칠·범례·로마숫자)은 학습의 핵심이라 학습 탭에서도 보이게 한다. */
+        #bassGeneratorForm[data-tab="learn"] .bl-stage__head {
+            margin: 0 0 4px; gap: 6px;
+        }
+        #bassGeneratorForm[data-tab="learn"] .bl-stage__title,
+        #bassGeneratorForm[data-tab="learn"] .bl-stage__chips .bl-chip { display: none !important; }
+        #bassGeneratorForm[data-tab="learn"] #learnToggle { padding: 3px 9px; font-size: 0.7rem; }
+        #bassGeneratorForm[data-tab="learn"] #roleLegend { margin: 4px 0 0; gap: 4px 9px; font-size: 0.66rem; }
+        #bassGeneratorForm[data-tab="learn"] #roleLegend .role-chip i { width: 8px; height: 8px; }
+        #bassGeneratorForm[data-tab="learn"] #romanRow { margin: 0 0 3px; font-size: 0.66rem; }
         #bassGeneratorForm[data-tab="learn"] .paper {
             /* 고정 높이 — 데모마다 악보 줄 수가 달라도 스테이지 높이가 변하지 않아
                스크롤 앵커링에 의한 페이지 위치 흔들림이 없다. */
