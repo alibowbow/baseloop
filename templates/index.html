@@ -997,6 +997,31 @@
         .ba-str { fill: var(--text-muted); font-size: 10.5px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
         .ba-fret { fill: var(--text-muted); font-size: 9px; }
         .ba-hint { font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; margin-top: 4px; }
+
+        /* ── 지판·타브 뷰 ── */
+        .fret-panel { margin-top: 14px; padding: 12px 14px; border-radius: var(--radius-xl); background: var(--surface-2); border: 1px solid var(--border); }
+        .fret-block + .fret-block { margin-top: 12px; }
+        .fret-panel h5 { margin: 0 0 7px; font-size: 0.82rem; color: var(--text); font-weight: 700; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+        .fret-hint { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+        .fret-board, .fret-tab { width: 100%; overflow-x: auto; }
+        .fret-board svg, .fret-tab svg { display: block; height: auto; min-width: 460px; }
+        .fb-board { fill: #b8874e; }
+        .fb-fret { stroke: #cfd4dd; stroke-width: 1.4; }
+        .fb-nut { stroke: #f2ede2; stroke-width: 4; }
+        .fb-string { stroke: #9aa0ad; }
+        .fb-inlay { fill: #f2ede2; opacity: 0.55; }
+        .fb-slabel { fill: var(--text-muted); font-size: 11px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+        .fb-flabel { fill: var(--text-muted); font-size: 9px; }
+        .fb-dot { fill: var(--primary); opacity: 0.30; }
+        .fb-active { fill: #f59e0b; stroke: #fff; stroke-width: 1.5; }
+        .fb-active-txt { fill: #3a2b00; font-size: 10px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+        .ft-line { stroke: var(--border-strong); stroke-width: 1; }
+        .ft-bar { stroke: var(--text-muted); stroke-width: 1.3; opacity: 0.45; }
+        .ft-slabel { fill: var(--text-muted); font-size: 10px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+        .ft-numbg { fill: var(--surface-2); rx: 3; }
+        .ft-numbg.on { fill: var(--primary); }
+        .ft-num { fill: var(--text); font-size: 12px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+        .ft-num.on { fill: #fff; }
     </style>
 </head>
 <body>
@@ -1109,6 +1134,7 @@
                     <h2 class="bl-stage__title"><span class="bl-stage__bar"></span>생성된 악보</h2>
                     <div class="bl-stage__chips">
                         <button type="button" id="learnToggle" class="bl-toggle" onclick="toggleLearnMode()" title="음표를 화성 역할별로 색칠하고 코드 분석을 표시합니다">🔍 분석 보기</button>
+                        <button type="button" id="fretToggle" class="bl-toggle learn-hide" onclick="toggleFretView()" title="베이스 지판(어디를 짚는지)과 타브 악보를 표시하고, 재생에 맞춰 위치를 빛으로 알려줍니다">🎸 지판·타브</button>
                         <span class="bl-chip">🎸 베이스 클레프</span>
                     </div>
                 </div>
@@ -1126,6 +1152,18 @@
 
                 <!-- 학습 모드: 음표 역할 범례 -->
                 <div id="roleLegend" class="role-legend" style="display:none;"></div>
+
+                <!-- 🎸 지판·타브 뷰 (재생에 맞춰 짚을 위치가 빛남) -->
+                <div id="fretPanel" class="fret-panel learn-hide" style="display:none;">
+                    <div class="fret-block">
+                        <h5>🎸 지판 <span class="fret-hint">재생 중 <b>주황 점</b>이 지금 짚을 위치</span></h5>
+                        <div class="fret-board" id="fretBoard"></div>
+                    </div>
+                    <div class="fret-block">
+                        <h5>🎼 타브 (TAB) <span class="fret-hint">숫자 = 프렛, 위→아래 G·D·A·E 현</span></h5>
+                        <div class="fret-tab" id="fretTab"></div>
+                    </div>
+                </div>
 
                 <!-- 인기 코드 진행 프리셋: 원클릭으로 코드 모드 세팅 + 즉시 생성 -->
                 <div class="bl-presets learn-hide" role="group" aria-label="코드 진행 프리셋">
@@ -1369,6 +1407,13 @@
             const savedTone = localStorage.getItem('baseloop-tone');
             if (savedTone && BASS_TONES[savedTone]) __bassTone = savedTone;
             updateBassToneBtn();
+
+            // 🎸 지판·타브 뷰 상태 복원(기본 접힘) — 이후 첫 악보 렌더 시 함께 그려짐
+            if (localStorage.getItem('baseloop-fret') === '1') {
+                __fretView = true;
+                const fb = document.getElementById('fretToggle'); if (fb) fb.classList.add('on');
+                const fp = document.getElementById('fretPanel'); if (fp) fp.style.display = 'block';
+            }
 
             // 공유 링크(#state=...)가 있으면 폼 상태 복원
             const restored = restoreStateFromUrl();
@@ -3632,6 +3677,119 @@
         }
 
         // ---- 디스패처: VexFlow 우선, 실패 시 Canvas 폴백 ----
+        // ============================================================
+        // 🎸 지판·타브 뷰 (초사이어인1) — 재생에 맞춰 짚을 위치를 빛으로 표시
+        // ============================================================
+        const BASS_OPEN = [43, 38, 33, 28];              // 현: G(1번)·D·A·E(4번) — 타브 위→아래
+        const BASS_STR_NAME = ['G', 'D', 'A', 'E'];
+        const FRET_MAX = 14;
+        let __fretView = false;
+        let __fretSeq = { notes: [], loopBeats: 0 };
+        let __fretTabEls = [];
+        let __fretActiveIdx = -1;
+
+        function midiOfNote(n) { return (n.octave + 1) * 12 + (PC_JS[n.name.toUpperCase()] ?? 0); }
+        // 음(MIDI) → 지판 위치: 가장 작은 프렛(0~MAX)이 나오는 현을 고른다(자연스러운 로우 포지션).
+        function noteToFret(midi) {
+            let best = null;
+            for (let s = 0; s < BASS_OPEN.length; s++) {
+                const f = midi - BASS_OPEN[s];
+                if (f >= 0 && f <= FRET_MAX && (best === null || f < best.fret)) best = { string: s, fret: f };
+            }
+            if (best === null) {
+                if (midi < BASS_OPEN[3]) best = { string: 3, fret: 0 };                      // 최저음 미만 → E 개방
+                else best = { string: 0, fret: Math.min(FRET_MAX, midi - BASS_OPEN[0]) };     // 범위 초과 → G현 상단
+            }
+            return best;
+        }
+        function buildFretSeq(measures) {
+            const notes = []; let beat = 0;
+            measures.forEach(m => m.forEach(n => {
+                if (!n.isRest) {
+                    const p = noteToFret(midiOfNote(n));
+                    notes.push({ name: n.name + n.octave, string: p.string, fret: p.fret, beatStart: beat, beatEnd: beat + n.duration });
+                }
+                beat += n.duration;
+            }));
+            return { notes, loopBeats: beat };
+        }
+        function renderFretTab(measures) {
+            const boardEl = document.getElementById('fretBoard');
+            const tabEl = document.getElementById('fretTab');
+            if (!boardEl || !tabEl) return;
+            __fretSeq = buildFretSeq(measures);
+            __fretActiveIdx = -1;
+
+            // ── 지판 그림 ──
+            const nutX = 64, fw = 37, sy = [26, 54, 82, 110], boardR = nutX + FRET_MAX * fw, openX = 44;
+            const xOf = (fret) => fret === 0 ? openX : nutX + (fret - 0.5) * fw;
+            let fb = `<svg viewBox="0 0 ${boardR + 16} 138" role="img" aria-label="베이스 지판">`;
+            fb += `<rect x="${nutX}" y="16" width="${boardR - nutX}" height="104" rx="4" class="fb-board"/>`;
+            for (let f = 0; f <= FRET_MAX; f++) fb += `<line x1="${nutX + f * fw}" y1="16" x2="${nutX + f * fw}" y2="120" class="fb-fret"/>`;
+            fb += `<line x1="${nutX}" y1="16" x2="${nutX}" y2="120" class="fb-nut"/>`;
+            [3, 5, 7, 9, 12].forEach(f => { const cx = nutX + (f - 0.5) * fw;
+                if (f === 12) fb += `<circle cx="${cx}" cy="54" r="4" class="fb-inlay"/><circle cx="${cx}" cy="82" r="4" class="fb-inlay"/>`;
+                else fb += `<circle cx="${cx}" cy="68" r="4.5" class="fb-inlay"/>`; });
+            sy.forEach((y, s) => {
+                fb += `<line x1="${openX - 8}" y1="${y}" x2="${boardR}" y2="${y}" class="fb-string" stroke-width="${(1.2 + s * 0.6).toFixed(1)}"/>`;
+                fb += `<text x="16" y="${y + 4}" class="fb-slabel">${BASS_STR_NAME[s]}</text>`;
+            });
+            [3, 5, 7, 12].forEach(f => fb += `<text x="${nutX + (f - 0.5) * fw}" y="136" text-anchor="middle" class="fb-flabel">${f}</text>`);
+            const used = new Set();
+            __fretSeq.notes.forEach(nt => { const k = nt.string + ':' + nt.fret; if (!used.has(k)) { used.add(k); fb += `<circle cx="${xOf(nt.fret).toFixed(1)}" cy="${sy[nt.string]}" r="7" class="fb-dot"/>`; } });
+            fb += `<g id="fbActive" style="display:none"><circle cx="0" cy="0" r="10" class="fb-active"/><text x="0" y="3.5" text-anchor="middle" class="fb-active-txt"></text></g></svg>`;
+            boardEl.innerHTML = fb;
+            boardEl.__xOf = xOf; boardEl.__sy = sy;
+
+            // ── 타브(TAB) ──
+            const T = Math.max(4, __fretSeq.loopBeats), padL = 34, bw = 34, W = padL + T * bw + 12, ly = [20, 40, 60, 80];
+            let tb = `<svg viewBox="0 0 ${W.toFixed(0)} 96" role="img" aria-label="베이스 타브">`;
+            ly.forEach((y, s) => {
+                tb += `<line x1="${padL}" y1="${y}" x2="${(padL + T * bw).toFixed(1)}" y2="${y}" class="ft-line"/>`;
+                tb += `<text x="14" y="${y + 4}" class="ft-slabel">${BASS_STR_NAME[s]}</text>`;
+            });
+            for (let b = 0; b <= T; b += 4) tb += `<line x1="${(padL + b * bw).toFixed(1)}" y1="16" x2="${(padL + b * bw).toFixed(1)}" y2="84" class="ft-bar"/>`;
+            __fretSeq.notes.forEach((nt, i) => {
+                const x = padL + nt.beatStart * bw + 6, y = ly[nt.string], w = String(nt.fret).length * 8 + 7;
+                tb += `<g data-i="${i}"><rect x="${(x - w / 2).toFixed(1)}" y="${y - 8}" width="${w}" height="16" class="ft-numbg"/><text x="${x.toFixed(1)}" y="${y + 4}" text-anchor="middle" class="ft-num">${nt.fret}</text></g>`;
+            });
+            tb += `</svg>`;
+            tabEl.innerHTML = tb;
+            __fretTabEls = [...tabEl.querySelectorAll('g[data-i]')].map(g => ({ bg: g.querySelector('rect'), txt: g.querySelector('text') }));
+        }
+        function updateFretActive(loopBeat) {
+            const notes = __fretSeq.notes; if (!notes.length) return;
+            let idx = -1;
+            for (let i = 0; i < notes.length; i++) { if (loopBeat >= notes[i].beatStart && loopBeat < notes[i].beatEnd) { idx = i; break; } }
+            if (idx === __fretActiveIdx) return;
+            __fretActiveIdx = idx;
+            __fretTabEls.forEach((e, i) => { const on = i === idx; e.bg.classList.toggle('on', on); e.txt.classList.toggle('on', on); });
+            const boardEl = document.getElementById('fretBoard');
+            const g = document.getElementById('fbActive');
+            if (!g || !boardEl || !boardEl.__xOf) return;
+            if (idx < 0) { g.style.display = 'none'; return; }
+            const nt = notes[idx], cx = boardEl.__xOf(nt.fret), cy = boardEl.__sy[nt.string];
+            g.style.display = '';
+            const c = g.querySelector('circle'); c.setAttribute('cx', cx); c.setAttribute('cy', cy);
+            const t = g.querySelector('text'); t.setAttribute('x', cx); t.setAttribute('y', cy + 3.5); t.textContent = nt.fret;
+        }
+        function clearFretActive() {
+            __fretActiveIdx = -1;
+            const g = document.getElementById('fbActive'); if (g) g.style.display = 'none';
+            __fretTabEls.forEach(e => { e.bg.classList.remove('on'); e.txt.classList.remove('on'); });
+        }
+        function toggleFretView() {
+            __fretView = !__fretView;
+            const btn = document.getElementById('fretToggle');
+            if (btn) btn.classList.toggle('on', __fretView);
+            const panel = document.getElementById('fretPanel');
+            if (panel) panel.style.display = __fretView ? 'block' : 'none';
+            try { localStorage.setItem('baseloop-fret', __fretView ? '1' : '0'); } catch (e) {}
+            if (__fretView && window.__lastScore) {
+                try { renderFretTab(groupIntoMeasures(parseNotes(window.__lastScore.seq))); } catch (e) {}
+            }
+        }
+
         function renderSheetMusic(notesSequenceStr, lengthMeasures, bpm) {
             const host = document.getElementById('vexflowScore');
             const canvas = document.getElementById('sheetMusicCanvas');
@@ -3672,6 +3830,9 @@
 
             // 🎓 범례·로마숫자·분석 패널 갱신
             try { updateLearnPanels(measures); } catch (e) { console.warn('학습 패널 갱신 실패:', e); }
+
+            // 🎸 지판·타브 뷰 갱신(켜져 있을 때만)
+            try { if (__fretView) renderFretTab(measures); } catch (e) { console.warn('지판·타브 렌더 실패:', e); }
         }
 
         // 창 크기 변경 시 재렌더 (반응형) — 재생 중이면 커서도 다시 시작
@@ -3725,6 +3886,8 @@
                 let loopBeat = Math.max(0, tSec - comp) / secPerBeat;
                 if (tl.loopBeats > 0) loopBeat = loopBeat % tl.loopBeats;
 
+                if (__fretView) updateFretActive(loopBeat);   // 🎸 지판·타브 하이라이트 동기
+
                 let i = 0;
                 for (let k = 0; k < segs.length; k++) { if (loopBeat >= segs[k].beat) i = k; else break; }
                 const seg = segs[i];
@@ -3776,6 +3939,7 @@
             if (__cursorRAF) { cancelAnimationFrame(__cursorRAF); __cursorRAF = null; }
             const cursor = document.getElementById('playCursor');
             if (cursor) cursor.classList.remove('active');
+            clearFretActive();
         }
     </script>
 </body>
