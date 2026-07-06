@@ -469,7 +469,7 @@
             .bl-settings__body { padding: 4px 18px 18px; }
             .bl-settings__head { padding: 16px 18px; }
             .field-grid { grid-template-columns: 1fr; }
-            .bl-exports { grid-template-columns: 1fr; }
+            .bl-exports { grid-template-columns: repeat(2, 1fr); }
             .bl-settings__summary { display: none; }
             .bl-logo span:last-child { display: none; }
         }
@@ -1153,6 +1153,21 @@
                 <!-- 학습 모드: 음표 역할 범례 -->
                 <div id="roleLegend" class="role-legend" style="display:none;"></div>
 
+                <!-- 재생 트랜스포트 (악보와 지판 사이) -->
+                <div class="bl-transport">
+                    <button type="button" id="playAudioBtn" class="bl-play" onclick="togglePlayback()" aria-label="재생/정지"><span id="playIcon">▶</span></button>
+                    <div class="bl-transport__main">
+                        <div class="bl-toggles">
+                            <button type="button" id="realBassToggle" class="bl-toggle on" onclick="toggleRealBass()" title="실제 베이스 샘플(로컬 번들)로 재생. 끄면 초기 음색(서버 합성 WAV)">🎸 리얼 베이스</button>
+                            <button type="button" id="bassToneBtn" class="bl-toggle on" onclick="cycleBassTone()" title="주법(톤) 전환: 핑거 → 피크 → 뮤트. 앰프 톤과 벨로시티 반응(세게 칠수록 밝고 거칠게)이 달라집니다">🖐️ 핑거</button>
+                            <button type="button" id="metronomeToggle" class="bl-toggle" onclick="toggleMetronome()">🔔 메트로놈</button>
+                            <button type="button" id="drumsToggle" class="bl-toggle" onclick="toggleDrums()">🥁 드럼 반주</button>
+                            <span id="transportStatus" class="bl-chip">⚡ 즉시 재생 준비됨</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="loadingSpinnerAudio" class="loading-spinner">오디오 렌더링 중...</div>
+
                 <!-- 🎸 지판·타브 뷰 (재생에 맞춰 짚을 위치가 빛남) -->
                 <div id="fretPanel" class="fret-panel learn-hide" style="display:none;">
                     <div class="fret-block">
@@ -1181,29 +1196,24 @@
                 </div>
                 <div id="loadingSpinnerNotes" class="loading-spinner learn-hide">악보 생성 중...</div>
 
-                <!-- 재생 트랜스포트 (클라이언트 Tone.js 합성) -->
-                <div class="bl-transport">
-                    <button type="button" id="playAudioBtn" class="bl-play" onclick="togglePlayback()" aria-label="재생/정지"><span id="playIcon">▶</span></button>
-                    <div class="bl-transport__main">
-                        <div class="bl-toggles">
-                            <button type="button" id="realBassToggle" class="bl-toggle on" onclick="toggleRealBass()" title="실제 베이스 샘플(로컬 번들)로 재생. 끄면 초기 음색(서버 합성 WAV)">🎸 리얼 베이스</button>
-                            <button type="button" id="bassToneBtn" class="bl-toggle on" onclick="cycleBassTone()" title="주법(톤) 전환: 핑거 → 피크 → 뮤트. 앰프 톤과 벨로시티 반응(세게 칠수록 밝고 거칠게)이 달라집니다">🖐️ 핑거</button>
-                            <button type="button" id="metronomeToggle" class="bl-toggle" onclick="toggleMetronome()">🔔 메트로놈</button>
-                            <button type="button" id="drumsToggle" class="bl-toggle" onclick="toggleDrums()">🥁 드럼 반주</button>
-                            <span id="transportStatus" class="bl-chip">⚡ 즉시 재생 준비됨</span>
+                <!-- 내보내기 (접이식 — 공간 절약) -->
+                <details class="bl-settings learn-hide" id="exportBox">
+                    <summary class="bl-settings__head">
+                        <span class="bl-settings__icon">⬇️</span>
+                        <span class="bl-settings__label">내보내기</span>
+                        <span class="bl-settings__summary"><span class="bl-chip">WAV · MP3 · MIDI · LilyPond · 전문 악보</span></span>
+                        <span class="bl-chev" aria-hidden="true">▾</span>
+                    </summary>
+                    <div class="bl-settings__body">
+                        <div class="bl-exports">
+                            <button type="button" id="wavBtn" onclick="downloadAudio('wav')" class="bl-export">💾 WAV 다운로드</button>
+                            <button type="button" id="mp3Btn" onclick="downloadAudio('mp3')" class="bl-export">🎧 MP3 다운로드</button>
+                            <button type="button" id="midiBtn" onclick="downloadMidi()" class="bl-export">🎹 MIDI 다운로드</button>
+                            <button type="button" id="lilypondBtn" onclick="downloadLilypond()" class="bl-export">📝 LilyPond 악보</button>
+                            <button type="button" id="professionalScoreBtn" onclick="loadProfessionalScore()" class="bl-export">🎼 전문 악보 보기</button>
                         </div>
                     </div>
-                </div>
-                <div id="loadingSpinnerAudio" class="loading-spinner">오디오 렌더링 중...</div>
-
-                <!-- 내보내기 -->
-                <div class="bl-exports learn-hide">
-                    <button type="button" id="wavBtn" onclick="downloadAudio('wav')" class="bl-export">💾 WAV 다운로드</button>
-                    <button type="button" id="mp3Btn" onclick="downloadAudio('mp3')" class="bl-export">🎧 MP3 다운로드</button>
-                    <button type="button" id="midiBtn" onclick="downloadMidi()" class="bl-export">🎹 MIDI 다운로드</button>
-                    <button type="button" id="lilypondBtn" onclick="downloadLilypond()" class="bl-export">📝 LilyPond 악보</button>
-                    <button type="button" id="professionalScoreBtn" onclick="loadProfessionalScore()" class="bl-export">🎼 전문 악보 보기</button>
-                </div>
+                </details>
             </section>
 
             <!-- 탭: 스튜디오(만들기·저장·설정) / 학습(이론·연습) — 세로 스크롤 분리 -->
