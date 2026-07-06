@@ -1003,8 +1003,10 @@
         .fret-block + .fret-block { margin-top: 12px; }
         .fret-panel h5 { margin: 0 0 7px; font-size: 0.82rem; color: var(--text); font-weight: 700; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
         .fret-hint { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
-        .fret-board, .fret-tab { width: 100%; overflow-x: auto; }
-        .fret-board svg, .fret-tab svg { display: block; height: auto; min-width: 460px; }
+        .fret-board { width: 100%; overflow: hidden; }
+        .fret-board svg { display: block; height: auto; width: 100%; }        /* 지판: 스크롤 없이 폭에 맞춰 축소 */
+        .fret-tab { width: 100%; overflow-x: auto; }   /* 재생 중 JS로 스크롤 추적(smooth 금지: 매 음마다 애니메이션 재시작 방지) */
+        .fret-tab svg { display: block; height: auto; min-width: 460px; }      /* 타브: 길면 가로 스크롤(재생 중 자동 추적) */
         .fb-board { fill: #b8874e; }
         .fb-fret { stroke: #cfd4dd; stroke-width: 1.4; }
         .fb-nut { stroke: #f2ede2; stroke-width: 4; }
@@ -3392,7 +3394,7 @@
             const renderW = Math.max(narrow ? (perLine * 180 + 70) : 0, containerW);
             const usableW = renderW - PAD * 2;
 
-            const LINE_H = 132;
+            const LINE_H = 110;   // 시스템(줄) 간 세로 간격 — 컴팩트하게
             const TOP_PAD = 26;
             const totalH = TOP_PAD + lines * LINE_H + 24;
 
@@ -3499,7 +3501,7 @@
 
         // ---- Canvas 폴백 렌더러 (VexFlow 미로드/오류 시) ----
         const CANVAS_CONFIG = {
-            LINE_GAP: 10, LINE_HEIGHT: 132, TOP_PAD: 46,
+            LINE_GAP: 10, LINE_HEIGHT: 110, TOP_PAD: 46,
             MARGIN_X: 14, CLEF_LEAD: 78, MEASURES_PER_LINE: 4,
             NOTE_R: 5.5, MIN_SLOT: 30, SIDE_PAD: 16, INK: '#1a1f2e',
         };
@@ -3774,6 +3776,14 @@
             if (idx === __fretActiveIdx) return;
             __fretActiveIdx = idx;
             __fretTabEls.forEach((e, i) => { const on = i === idx; e.bg.classList.toggle('on', on); e.txt.classList.toggle('on', on); });
+            // 타브 자동 스크롤: 악보가 길면 현재 음이 화면 중앙에 오도록 가로 스크롤로 따라감
+            const tabWrap = document.getElementById('fretTab');
+            if (tabWrap && idx >= 0 && __fretTabEls[idx] && tabWrap.scrollWidth > tabWrap.clientWidth + 2) {
+                const er = __fretTabEls[idx].txt.getBoundingClientRect();
+                const wr = tabWrap.getBoundingClientRect();
+                const center = (er.left + er.width / 2) - wr.left + tabWrap.scrollLeft;
+                tabWrap.scrollLeft = Math.max(0, Math.min(tabWrap.scrollWidth - tabWrap.clientWidth, center - tabWrap.clientWidth / 2));
+            }
             const boardEl = document.getElementById('fretBoard');
             const g = document.getElementById('fbActive');
             if (!g || !boardEl || !boardEl.__xOf) return;
@@ -3787,6 +3797,7 @@
             __fretActiveIdx = -1;
             const g = document.getElementById('fbActive'); if (g) g.style.display = 'none';
             __fretTabEls.forEach(e => { e.bg.classList.remove('on'); e.txt.classList.remove('on'); });
+            const tw = document.getElementById('fretTab'); if (tw) tw.scrollLeft = 0;   // 정지 시 타브를 처음으로
         }
         function toggleFretView() {
             __fretView = !__fretView;
