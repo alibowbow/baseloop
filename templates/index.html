@@ -1006,7 +1006,7 @@
         .fret-board { width: 100%; overflow: hidden; }
         .fret-board svg { display: block; height: auto; width: 100%; }        /* 지판: 스크롤 없이 폭에 맞춰 축소 */
         .fret-tab { width: 100%; overflow-x: auto; }   /* 재생 중 JS로 스크롤 추적(smooth 금지: 매 음마다 애니메이션 재시작 방지) */
-        .fret-tab svg { display: block; height: auto; min-width: 460px; }      /* 타브: 길면 가로 스크롤(재생 중 자동 추적) */
+        .fret-tab svg { display: block; }               /* 고정 픽셀 크기(width 속성) — 축소되지 않고 항상 읽기 쉬운 크기, 길면 스크롤 */
         .fb-board { fill: #b8874e; }
         .fb-fret { stroke: #cfd4dd; stroke-width: 1.4; }
         .fb-nut { stroke: #f2ede2; stroke-width: 4; }
@@ -1022,7 +1022,7 @@
         .ft-slabel { fill: var(--text-muted); font-size: 10px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
         .ft-numbg { fill: var(--surface-2); rx: 3; }
         .ft-numbg.on { fill: var(--primary); }
-        .ft-num { fill: var(--text); font-size: 12px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+        .ft-num { fill: var(--text); font-size: 13px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
         .ft-num.on { fill: #fff; }
     </style>
 </head>
@@ -3753,9 +3753,9 @@
             boardEl.innerHTML = fb;
             boardEl.__xOf = xOf; boardEl.__sy = sy;
 
-            // ── 타브(TAB) ──
-            const T = Math.max(4, __fretSeq.loopBeats), padL = 34, bw = 34, W = padL + T * bw + 12, ly = [20, 40, 60, 80];
-            let tb = `<svg viewBox="0 0 ${W.toFixed(0)} 96" role="img" aria-label="베이스 타브">`;
+            // ── 타브(TAB) ── 고정 픽셀 크기로 그려 항상 같은(읽기 쉬운) 크기 유지, 길면 가로 스크롤
+            const T = Math.max(4, __fretSeq.loopBeats), padL = 34, bw = 46, W = padL + T * bw + 12, ly = [20, 40, 60, 80];
+            let tb = `<svg width="${W.toFixed(0)}" height="96" viewBox="0 0 ${W.toFixed(0)} 96" role="img" aria-label="베이스 타브">`;
             ly.forEach((y, s) => {
                 tb += `<line x1="${padL}" y1="${y}" x2="${(padL + T * bw).toFixed(1)}" y2="${y}" class="ft-line"/>`;
                 tb += `<text x="14" y="${y + 4}" class="ft-slabel">${BASS_STR_NAME[s]}</text>`;
