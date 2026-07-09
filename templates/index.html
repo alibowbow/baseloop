@@ -1170,6 +1170,12 @@
                 </div>
                 <div id="loadingSpinnerAudio" class="loading-spinner">오디오 렌더링 중...</div>
 
+                <!-- 악보 자동 생성 (재생패널 바로 아래) -->
+                <div style="margin-top:14px;" class="learn-hide">
+                    <button type="button" id="generateNotesBtn" class="btn btn-block" onclick="generateNotes()">🎼 악보 자동 생성</button>
+                </div>
+                <div id="loadingSpinnerNotes" class="loading-spinner learn-hide">악보 생성 중...</div>
+
                 <!-- 🎸 지판·타브 뷰 (재생에 맞춰 짚을 위치가 빛남) -->
                 <div id="fretPanel" class="fret-panel learn-hide" style="display:none;">
                     <div class="fret-block">
@@ -1192,30 +1198,6 @@
                     <button type="button" class="bl-preset" onclick="applyPreset('ballad')">소울 발라드</button>
                     <button type="button" class="bl-preset" onclick="applyPreset('funk1')">펑크 원코드</button>
                 </div>
-
-                <div style="margin-top:14px;" class="learn-hide">
-                    <button type="button" id="generateNotesBtn" class="btn btn-block" onclick="generateNotes()">🎼 악보 자동 생성</button>
-                </div>
-                <div id="loadingSpinnerNotes" class="loading-spinner learn-hide">악보 생성 중...</div>
-
-                <!-- 내보내기 (접이식 — 공간 절약) -->
-                <details class="bl-settings learn-hide" id="exportBox">
-                    <summary class="bl-settings__head">
-                        <span class="bl-settings__icon">⬇️</span>
-                        <span class="bl-settings__label">내보내기</span>
-                        <span class="bl-settings__summary"><span class="bl-chip">WAV · MP3 · MIDI · LilyPond · 전문 악보</span></span>
-                        <span class="bl-chev" aria-hidden="true">▾</span>
-                    </summary>
-                    <div class="bl-settings__body">
-                        <div class="bl-exports">
-                            <button type="button" id="wavBtn" onclick="downloadAudio('wav')" class="bl-export">💾 WAV 다운로드</button>
-                            <button type="button" id="mp3Btn" onclick="downloadAudio('mp3')" class="bl-export">🎧 MP3 다운로드</button>
-                            <button type="button" id="midiBtn" onclick="downloadMidi()" class="bl-export">🎹 MIDI 다운로드</button>
-                            <button type="button" id="lilypondBtn" onclick="downloadLilypond()" class="bl-export">📝 LilyPond 악보</button>
-                            <button type="button" id="professionalScoreBtn" onclick="loadProfessionalScore()" class="bl-export">🎼 전문 악보 보기</button>
-                        </div>
-                    </div>
-                </details>
             </section>
 
             <!-- 탭: 스튜디오(만들기·저장·설정) / 학습(이론·연습) — 세로 스크롤 분리 -->
@@ -1223,6 +1205,25 @@
                 <button type="button" id="tabStudioBtn" class="bl-tab on" role="tab" onclick="switchTab('studio')">🎛 스튜디오</button>
                 <button type="button" id="tabLearnBtn" class="bl-tab" role="tab" onclick="switchTab('learn')">🎓 학습</button>
             </div>
+
+            <!-- 내보내기 (접이식 — 저장·공유 바로 위) -->
+            <details class="bl-settings tp-studio" id="exportBox">
+                <summary class="bl-settings__head">
+                    <span class="bl-settings__icon">⬇️</span>
+                    <span class="bl-settings__label">내보내기</span>
+                    <span class="bl-settings__summary"><span class="bl-chip">WAV · MP3 · MIDI · LilyPond · 전문 악보</span></span>
+                    <span class="bl-chev" aria-hidden="true">▾</span>
+                </summary>
+                <div class="bl-settings__body">
+                    <div class="bl-exports">
+                        <button type="button" id="wavBtn" onclick="downloadAudio('wav')" class="bl-export">💾 WAV 다운로드</button>
+                        <button type="button" id="mp3Btn" onclick="downloadAudio('mp3')" class="bl-export">🎧 MP3 다운로드</button>
+                        <button type="button" id="midiBtn" onclick="downloadMidi()" class="bl-export">🎹 MIDI 다운로드</button>
+                        <button type="button" id="lilypondBtn" onclick="downloadLilypond()" class="bl-export">📝 LilyPond 악보</button>
+                        <button type="button" id="professionalScoreBtn" onclick="loadProfessionalScore()" class="bl-export">🎼 전문 악보 보기</button>
+                    </div>
+                </div>
+            </details>
 
             <!-- 저장 · 공유 (접이식) -->
             <details class="bl-settings tp-studio" id="saveShareBox">
