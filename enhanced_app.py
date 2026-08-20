@@ -11,7 +11,7 @@ from flask import request
 
 from app import app
 
-ASSET_VERSION = "20260820.2"
+ASSET_VERSION = "20260820.3"
 _MARKER = 'data-baseloop-enhanced="1"'
 _HEAD_ASSETS = f"""
     <link rel="preload" href="/static/baseloop-enhanced.css?v={ASSET_VERSION}" as="style">
