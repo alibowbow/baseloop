@@ -11,7 +11,7 @@ from flask import request
 
 from app import app
 
-ASSET_VERSION = "20260820.1"
+ASSET_VERSION = "20260820.2"
 _MARKER = 'data-baseloop-enhanced="1"'
 _HEAD_ASSETS = f"""
     <link rel="preload" href="/static/baseloop-enhanced.css?v={ASSET_VERSION}" as="style">
@@ -21,6 +21,7 @@ _BODY_ASSETS = "\n".join(
     (
         f'<script defer src="/static/baseloop-enhanced-core.js?v={ASSET_VERSION}" {_MARKER}></script>',
         f'<script defer src="/static/baseloop-enhanced-audio.js?v={ASSET_VERSION}" {_MARKER}></script>',
+        f'<script defer src="/static/baseloop-mix-balance.js?v={ASSET_VERSION}" {_MARKER}></script>',
     )
 )
 
