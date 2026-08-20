@@ -39,12 +39,15 @@ echo ""
 
 # 앱 파일 확인
 echo "=== Application files check ==="
-if [ -f "app.py" ]; then
-    echo "✓ app.py found"
-else
-    echo "✗ app.py NOT FOUND!"
-    ls -la
-fi
+for required_file in app.py enhanced_app.py; do
+    if [ -f "$required_file" ]; then
+        echo "✓ $required_file found"
+    else
+        echo "✗ $required_file NOT FOUND!"
+        ls -la
+        exit 1
+    fi
+done
 
 # Python 모듈 임포트 테스트
 echo ""
@@ -81,18 +84,19 @@ except Exception as e:
 print('Import tests completed.')
 "
 
-# 앱 직접 테스트
+# 향상 레이어를 포함한 앱 직접 테스트
 echo ""
-echo "=== Testing app.py directly ==="
+echo "=== Testing enhanced_app.py directly ==="
 python -c "
 try:
-    import app
-    print('✓ app.py imported successfully')
-    print(f'Flask app: {app.app}')
+    import enhanced_app
+    print('✓ enhanced_app.py imported successfully')
+    print(f'Flask app: {enhanced_app.app}')
 except Exception as e:
-    print(f'✗ Failed to import app.py: {e}')
+    print(f'✗ Failed to import enhanced_app.py: {e}')
     import traceback
     traceback.print_exc()
+    raise
 "
 
 # MuseScore 확인
@@ -108,8 +112,8 @@ fi
 echo ""
 echo "=== Starting Gunicorn ==="
 echo "Port: ${PORT:-10000}"
-echo "Command: gunicorn --bind 0.0.0.0:${PORT:-10000} --timeout 120 --workers 1 --log-level debug app:app"
+echo "Command: gunicorn --bind 0.0.0.0:${PORT:-10000} --timeout 120 --workers 1 --log-level debug enhanced_app:app"
 echo ""
 
-# Gunicorn으로 Flask 앱 시작 (더 자세한 로깅)
-exec gunicorn --bind 0.0.0.0:${PORT:-10000} --timeout 120 --workers 1 --log-level debug --capture-output --enable-stdio-inheritance app:app
+# Gunicorn으로 향상 레이어가 포함된 Flask 앱 시작
+exec gunicorn --bind 0.0.0.0:${PORT:-10000} --timeout 120 --workers 1 --log-level debug --capture-output --enable-stdio-inheritance enhanced_app:app
