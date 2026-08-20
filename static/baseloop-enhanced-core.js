@@ -2,13 +2,13 @@
 (() => {
     'use strict';
 
-    const VERSION = '20260820.1';
+    const VERSION = '20260821.1';
     const STORAGE_KEY = 'baseloop-enhanced-audio-v1';
     const DRAFT_KEY = 'baseloop-session-draft-v1';
     const DEFAULTS = Object.freeze({
         master: 82, bass: 90, drums: 62, click: 34,
         muted: false, drumsOn: false, metroOn: false,
-        realBassOn: true, mixerCollapsed: null,
+        realBassOn: true, mixerCollapsed: true,
     });
     const runtime = {
         messageTimer: 0, restartTimer: 0, draftTimer: 0, swingTimer: 0,
@@ -35,7 +35,7 @@
             drumsOn: Boolean(saved.drumsOn ?? DEFAULTS.drumsOn),
             metroOn: Boolean(saved.metroOn ?? DEFAULTS.metroOn),
             realBassOn: Boolean(saved.realBassOn ?? DEFAULTS.realBassOn),
-            mixerCollapsed: typeof saved.mixerCollapsed === 'boolean' ? saved.mixerCollapsed : null,
+            mixerCollapsed: typeof saved.mixerCollapsed === 'boolean' ? saved.mixerCollapsed : DEFAULTS.mixerCollapsed,
         };
     }
     const state = loadState();
@@ -213,11 +213,7 @@
         const panel = document.getElementById('blAudioPanel');
         const toggle = document.getElementById('blMixerToggle');
         if (!panel || !toggle) return;
-        if (!matchMedia('(max-width: 680px)').matches) {
-            panel.classList.remove('is-collapsed');
-            toggle.setAttribute('aria-expanded', 'true'); toggle.textContent = '접기'; return;
-        }
-        const collapsed = state.mixerCollapsed == null ? true : state.mixerCollapsed;
+        const collapsed = typeof state.mixerCollapsed === 'boolean' ? state.mixerCollapsed : DEFAULTS.mixerCollapsed;
         panel.classList.toggle('is-collapsed', collapsed);
         toggle.setAttribute('aria-expanded', String(!collapsed));
         toggle.textContent = collapsed ? '펼치기' : '접기';
