@@ -51,6 +51,18 @@ class EnhancedAppInjectionTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertGreater(len(response.data), 1000)
 
+    def test_studio_mixer_defaults_to_collapsed_on_all_viewports(self) -> None:
+        response = self.client.get("/static/baseloop-enhanced-core.js")
+        self.assertEqual(response.status_code, 200)
+        javascript = response.get_data(as_text=True)
+        self.assertIn("mixerCollapsed: true", javascript)
+        self.assertIn(": DEFAULTS.mixerCollapsed", javascript)
+        sync_start = javascript.index("function syncMixerMode()")
+        sync_end = javascript.index("function tapTempo()", sync_start)
+        sync_mixer = javascript[sync_start:sync_end]
+        self.assertNotIn("matchMedia", sync_mixer)
+        self.assertIn("panel.classList.toggle('is-collapsed', collapsed)", sync_mixer)
+
     def test_mix_layer_uses_beatbox_drums(self) -> None:
         response = self.client.get("/static/baseloop-mix-balance.js")
         self.assertEqual(response.status_code, 200)
