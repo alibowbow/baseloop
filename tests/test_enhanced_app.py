@@ -22,12 +22,20 @@ class EnhancedAppInjectionTests(unittest.TestCase):
         self.assertIn(f"/static/baseloop-enhanced-core.js?v={ASSET_VERSION}", html)
         self.assertIn(f"/static/baseloop-enhanced-audio.js?v={ASSET_VERSION}", html)
         self.assertIn(f"/static/baseloop-mix-balance.js?v={ASSET_VERSION}", html)
+        self.assertIn(f"/static/baseloop-metronome-presence.js?v={ASSET_VERSION}", html)
         self.assertEqual(response.headers.get("X-BaseLoop-Enhancement"), ASSET_VERSION)
 
     def test_assets_are_injected_only_once(self) -> None:
         response = self.client.get("/")
         html = response.get_data(as_text=True)
-        self.assertEqual(html.count('data-baseloop-enhanced="1"'), 4)
+        self.assertEqual(html.count('data-baseloop-enhanced="1"'), 5)
+
+    def test_metronome_calibration_loads_after_mix_layer(self) -> None:
+        response = self.client.get("/")
+        html = response.get_data(as_text=True)
+        mix_index = html.index("/static/baseloop-mix-balance.js")
+        metronome_index = html.index("/static/baseloop-metronome-presence.js")
+        self.assertLess(mix_index, metronome_index)
 
     def test_static_enhancement_assets_are_served(self) -> None:
         paths = (
@@ -35,6 +43,7 @@ class EnhancedAppInjectionTests(unittest.TestCase):
             "/static/baseloop-enhanced-core.js",
             "/static/baseloop-enhanced-audio.js",
             "/static/baseloop-mix-balance.js",
+            "/static/baseloop-metronome-presence.js",
         )
         for path in paths:
             with self.subTest(path=path):
@@ -42,7 +51,7 @@ class EnhancedAppInjectionTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertGreater(len(response.data), 1000)
 
-    def test_mix_layer_uses_beatbox_drums_and_restrained_click(self) -> None:
+    def test_mix_layer_uses_beatbox_drums(self) -> None:
         response = self.client.get("/static/baseloop-mix-balance.js")
         self.assertEqual(response.status_code, 200)
         javascript = response.get_data(as_text=True)
@@ -51,8 +60,17 @@ class EnhancedAppInjectionTests(unittest.TestCase):
         self.assertIn("kickClick", javascript)
         self.assertIn("snareHeadLow", javascript)
         self.assertIn("Tone.MetalSynth", javascript)
-        self.assertIn("const CLICK_OUTPUT = 0.58", javascript)
-        self.assertNotIn("const CLICK_OUTPUT = 2.35", javascript)
+
+    def test_metronome_layer_restores_presence_without_touching_drum_mix(self) -> None:
+        response = self.client.get("/static/baseloop-metronome-presence.js")
+        self.assertEqual(response.status_code, 200)
+        javascript = response.get_data(as_text=True)
+        self.assertIn("const CLICK_MAKEUP = 1.12", javascript)
+        self.assertIn("const TONE_VOLUME_DB = -9", javascript)
+        self.assertIn("new Tone.NoiseSynth", javascript)
+        self.assertIn("accent ? 'A6' : 'E6'", javascript)
+        self.assertNotIn("makeDrumKit =", javascript)
+        self.assertNotIn("makeBassBus =", javascript)
 
 
 if __name__ == "__main__":
