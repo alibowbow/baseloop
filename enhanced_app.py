@@ -1,8 +1,8 @@
 """Runtime wrapper that adds the BaseLoop audio/UX upgrade layer.
 
 The original Flask application remains the source of all routes and business logic.
-This module only injects versioned static assets into HTML responses so the large
-legacy template does not need to be rewritten for incremental frontend upgrades.
+This module injects versioned, additive frontend assets so the large legacy template
+can stay stable while the audio engine and interaction layer evolve independently.
 """
 
 from __future__ import annotations
@@ -17,9 +17,11 @@ _HEAD_ASSETS = f"""
     <link rel="preload" href="/static/baseloop-enhanced.css?v={ASSET_VERSION}" as="style">
     <link rel="stylesheet" href="/static/baseloop-enhanced.css?v={ASSET_VERSION}" {_MARKER}>
 """.rstrip()
-_BODY_ASSET = (
-    f'<script defer src="/static/baseloop-enhanced.js?v={ASSET_VERSION}" '
-    f'{_MARKER}></script>'
+_BODY_ASSETS = "\n".join(
+    (
+        f'<script defer src="/static/baseloop-enhanced-core.js?v={ASSET_VERSION}" {_MARKER}></script>',
+        f'<script defer src="/static/baseloop-enhanced-audio.js?v={ASSET_VERSION}" {_MARKER}></script>',
+    )
 )
 
 
@@ -38,7 +40,7 @@ def inject_baseloop_enhancements(response):
     if "</head>" in html:
         html = html.replace("</head>", f"{_HEAD_ASSETS}\n</head>", 1)
     if "</body>" in html:
-        html = html.replace("</body>", f"{_BODY_ASSET}\n</body>", 1)
+        html = html.replace("</body>", f"{_BODY_ASSETS}\n</body>", 1)
 
     response.set_data(html)
     response.headers["X-BaseLoop-Enhancement"] = ASSET_VERSION
