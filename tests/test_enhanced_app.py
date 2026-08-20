@@ -42,6 +42,18 @@ class EnhancedAppInjectionTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertGreater(len(response.data), 1000)
 
+    def test_mix_layer_uses_beatbox_drums_and_restrained_click(self) -> None:
+        response = self.client.get("/static/baseloop-mix-balance.js")
+        self.assertEqual(response.status_code, 200)
+        javascript = response.get_data(as_text=True)
+        self.assertIn("BEATBOX_REFERENCE", javascript)
+        self.assertIn("createBeatboxDrumKit", javascript)
+        self.assertIn("kickClick", javascript)
+        self.assertIn("snareHeadLow", javascript)
+        self.assertIn("Tone.MetalSynth", javascript)
+        self.assertIn("const CLICK_OUTPUT = 0.58", javascript)
+        self.assertNotIn("const CLICK_OUTPUT = 2.35", javascript)
+
 
 if __name__ == "__main__":
     unittest.main()
